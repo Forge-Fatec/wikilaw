@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: wikilaw-postgres
+    environment:
+      POSTGRES_DB: wikilaw
+      POSTGRES_USER: wikilaw
+      POSTGRES_PASSWORD: wikilaw
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+    container_name: wikilaw-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/wikilaw
+      SPRING_DATASOURCE_USERNAME: wikilaw
+      SPRING_DATASOURCE_PASSWORD: wikilaw
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
