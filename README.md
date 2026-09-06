@@ -1,23 +1,23 @@
 # WikiLaw
 
-**WikiLaw** é uma plataforma voltada à pesquisa e análise de informações jurídicas, desenvolvida como projeto acadêmico da FATEC São José dos Campos.
+**WikiLaw** is a platform focused on the research and analysis of legal information, developed as an academic project at FATEC São José dos Campos.
 
-A plataforma tem como objetivo centralizar e facilitar a consulta de **jurisprudência, precedentes e doutrina**, oferecendo uma experiência de pesquisa mais acessível e eficiente para profissionais do meio jurídico.
+The platform aims to centralize and simplify access to **case law, legal precedents, and legal doctrine**, providing a more accessible and efficient research experience for legal professionals.
 
-Além da pesquisa, o WikiLaw contará com recursos de **análise utilizando Inteligência Artificial**, buscando agregar contexto e informações relevantes aos resultados encontrados. Dessa forma, a ferramenta pretende auxiliar profissionais como **juízes e advogados** na análise de informações e no processo de tomada de decisões.
+In addition to legal research, WikiLaw will provide **Artificial Intelligence-powered analysis** to add context and relevant insights to search results. This feature is intended to assist professionals such as **judges and lawyers** in analyzing legal information and supporting their decision-making process.
 
-A plataforma também contará com uma **dashboard de análise**, permitindo uma visualização mais estruturada das informações jurídicas disponíveis.
+The platform will also include an **analysis dashboard**, providing a structured way to visualize and analyze legal information.
 
-## Funcionalidades
+## Features
 
-* Pesquisa de jurisprudência;
-* Pesquisa de precedentes;
-* Pesquisa de doutrina;
-* Análise dos resultados utilizando Inteligência Artificial;
-* Auxílio na interpretação e análise das informações encontradas;
-* Dashboard para análise e visualização de dados jurídicos.
+* Case law research;
+* Legal precedent research;
+* Legal doctrine research;
+* Artificial Intelligence-powered analysis of search results;
+* Assistance in interpreting and analyzing retrieved information;
+* Dashboard for legal data analysis and visualization.
 
-## Tecnologias
+## Technologies
 
 ### Backend
 
@@ -31,81 +31,75 @@ A plataforma também contará com uma **dashboard de análise**, permitindo uma 
 * TypeScript
 * Vite
 
-### Infraestrutura
+### Infrastructure
 
 * Docker
 * Docker Compose
 
-## Como executar
+## How to Run
 
-### Pré-requisitos
+### Prerequisites
 
-Antes de executar o projeto, é necessário ter instalado:
+Before running the project, make sure you have installed:
 
 * Docker
 * Docker Compose
 
-### Subindo os serviços
+### Starting the Services
 
-Na raiz do projeto, onde está localizado o `docker-compose.yml`, execute:
+From the project root directory, where the `docker-compose.yml` file is located, run:
 
 ```bash
 docker compose up --build
 ```
 
-O comando irá construir as imagens do projeto e iniciar todos os serviços definidos no Docker Compose.
+This command will build the project images and start all services defined in the Docker Compose configuration.
 
-Para executar os containers em segundo plano:
+To run the containers in the background:
 
 ```bash
 docker compose up --build -d
 ```
 
-### Acessos
+### Service Access
 
-Após a inicialização dos containers:
+After the containers have started:
 
-| Serviço    | Endereço                |
+| Service    | Address                 |
 | ---------- | ----------------------- |
 | Frontend   | `http://localhost:3000` |
 | Backend    | `http://localhost:8080` |
 | PostgreSQL | `localhost:5432`        |
 
-### Parar os serviços
+### Stopping the Services
 
-Para parar os containers:
+To stop the containers:
 
 ```bash
 docker compose down
 ```
 
-Para parar os containers e também remover os volumes do projeto:
+To stop the containers and remove the project's volumes:
 
 ```bash
 docker compose down -v
 ```
 
-> **Atenção:** o comando `docker compose down -v` remove o volume do PostgreSQL e, consequentemente, os dados armazenados nele.
+> **Warning:** `docker compose down -v` removes the PostgreSQL volume and, consequently, all data stored in it.
 
-## Equipe
+## Team
 
-| Membro                | Função          |
-| --------------------- | --------------- |
-| **Thor Lyndgaard**    | Scrum Master    |
-| **Thomas Heindrich**  | Product Owner   |
-| **William Honda**     | Desenvolvimento |
-| **Guilherme Bezerra** | Desenvolvimento |
-| **João Paulista**     | Desenvolvimento |
+| Member                | Role          |
+| --------------------- | ------------- |
+| **Thor Lyndgaard**    | Scrum Master  |
+| **Thomas Heindrich**  | Product Owner |
+| **William Honda**     | Developer     |
+| **Guilherme Bezerra** | Developer     |
+| **João Paulista**     | Developer     |
 
-## Documentação
+## Documentation
 
-A documentação do projeto está disponível no repositório:
+The project's documentation is available in the following repository:
 
 **WikiLaw Docs:**
 https://github.com/Forge-Fatec/wikilaw-docs
-
-## Repositório
-
-O código-fonte do projeto está disponível no GitHub:
-
-https://github.com/Forge-Fatec/wikilaw
