@@ -2,14 +2,15 @@ services:
   postgres:
     image: postgres:16
     container_name: wikilaw-postgres
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_DB: wikilaw
       POSTGRES_USER: wikilaw
       POSTGRES_PASSWORD: wikilaw
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
 
   backend:
     build:
