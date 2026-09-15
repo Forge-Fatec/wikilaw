@@ -120,19 +120,20 @@ nav a.active {
   line-height: 1.6;
 }
 .search-box {
-  max-width: 760px;
+  max-width: 900px;
   margin: 0 auto;
   display: flex;
   background: #fff;
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 18px 40px -14px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 24px 55px -16px rgba(0, 0, 0, 0.55);
+  border: 2px solid var(--terracotta);
 }
 .search-box input {
   flex: 1;
   border: 0;
-  padding: 18px 20px;
-  font-size: 14px;
+  padding: 24px 28px;
+  font-size: 16.5px;
   color: var(--ink);
   outline: none;
 }
@@ -140,8 +141,8 @@ nav a.active {
   border: 0;
   background: var(--terracotta);
   color: #fff;
-  padding: 0 26px;
-  font-size: 12.5px;
+  padding: 0 38px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 1px;
   cursor: pointer;
@@ -152,32 +153,27 @@ nav a.active {
 
 .layout {
   max-width: 1400px;
-  margin: -30px auto 60px;
+  margin: 40px auto 60px;
   padding: 0 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 28px;
+  align-items: start;
 }
 
 .filters {
-  background: #fff;
+  background: #efece4;
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 20px 24px;
-  box-shadow: 0 20px 40px -30px rgba(30, 27, 48, 0.25);
-  display: flex;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: 28px;
+  padding: 24px;
+  height: fit-content;
 }
 .filters h3 {
   font-size: 13px;
-  margin: 0;
-  flex-basis: 100%;
-  margin-bottom: 4px;
+  margin: 0 0 18px;
 }
 .group {
-  margin-bottom: 0;
+  margin-bottom: 20px;
 }
 .group-label {
   font-size: 10.5px;
@@ -186,13 +182,10 @@ nav a.active {
   font-weight: 700;
   margin-bottom: 10px;
 }
-.group.doc-types {
-  display: flex;
-  flex-direction: column;
-}
 .group.doc-types .check-row {
   display: flex;
-  gap: 20px;
+  flex-direction: column;
+  gap: 0;
 }
 .check {
   display: flex;
@@ -209,7 +202,7 @@ nav a.active {
 }
 select,
 .date-input {
-  width: 170px;
+  width: 100%;
   padding: 9px 10px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -219,7 +212,10 @@ select,
 }
 .date-row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
+}
+.date-row > div {
+  flex: 1;
 }
 .date-row label {
   font-size: 11px;
@@ -228,7 +224,9 @@ select,
   margin-bottom: 4px;
 }
 .clear-btn {
-  padding: 10px 20px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px;
   background: #fff;
   border: 1px solid var(--terracotta);
   color: var(--terracotta-dark);
@@ -236,7 +234,6 @@ select,
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  white-space: nowrap;
 }
 .clear-btn:hover {
   background: #fdf1ea;
@@ -261,12 +258,11 @@ select,
 }
 
 .card {
-  background: #fff;
+  background: #efece4;
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 28px 32px;
   margin-bottom: 18px;
-  box-shadow: 0 20px 40px -32px rgba(30, 27, 48, 0.3);
 }
 .card-top {
   display: flex;
@@ -340,11 +336,7 @@ select,
     gap: 20px;
   }
   .layout {
-    margin-top: -16px;
-  }
-  .filters {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
   }
   .hero h1 {
     font-size: 27px;
