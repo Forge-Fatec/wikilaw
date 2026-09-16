@@ -2,35 +2,42 @@ services:
   postgres:
     image: postgres:16
     container_name: wikilaw-postgres
-    ports:
-      - "5432:5432"
     environment:
-      POSTGRES_DB: wikilaw
-      POSTGRES_USER: wikilaw
-      POSTGRES_PASSWORD: wikilaw
+      POSTGRES_DB: ${POSTGRES_DB:-wikilaw}
+      POSTGRES_USER: ${POSTGRES_USER:-wikilaw}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   backend:
     build:
       context: ./backend
     container_name: wikilaw-backend
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/wikilaw
-      SPRING_DATASOURCE_USERNAME: wikilaw
-      SPRING_DATASOURCE_PASSWORD: wikilaw
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-wikilaw}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-wikilaw}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
+      DATAJUD_API_KEY: ${DATAJUD_API_KEY:-}
+      DATAJUD_BASE_URL: ${DATAJUD_BASE_URL:-https://api-publica.datajud.cnj.jus.br}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
   frontend:
     build:
       context: ./frontend
     container_name: wikilaw-frontend
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:80"
     depends_on:
       - backend
 
