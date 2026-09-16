@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.hakky54</groupId>
+        <artifactId>ayza-bom</artifactId>
+        <version>10.0.3</version>
+        <relativePath>./ayza-bom</relativePath>
+    </parent>
+
+    <artifactId>ayza-parent</artifactId>
+    <packaging>pom</packaging>
+
+    <name>Ayza Parent</name>
+    <description>High level library to configure a SSLContext and other properties to enable SSL/TLS connection</description>
+    <url>https://github.com/Hakky54/ayza</url>
+
+    <modules>
+        <module>ayza-bom</module>
+        <module>ayza</module>
+        <module>ayza-for-netty</module>
+        <module>ayza-for-jetty</module>
+        <module>ayza-for-apache4</module>
+        <module>ayza-for-apache5</module>
+        <module>ayza-for-pem</module>
+    </modules>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <scm>
+        <url>https://github.com/Hakky54/ayza</url>
+        <connection>scm:git:git@github.com:Hakky54/ayza.git</connection>
+        <developerConnection>scm:git:git@github.com:Hakky54/ayza.git</developerConnection>
+        <tag>v10.0.3</tag>
+    </scm>
+
+    <developers>
+        <developer>
+            <id>Hakky54</id>
+            <name>Hakan Altindag</name>
+            <organization>Thunderberry</organization>
+            <url>https://github.com/Hakky54</url>
+            <roles>
+                <role>Maintainer</role>
+            </roles>
+        </developer>
+    </developers>
+
+    <properties>
+        <version.sude>2.0.2</version.sude>
+        <version.slf4j>2.0.17</version.slf4j>
+        <version.junit>5.14.1</version.junit>
+        <version.assertj-core>3.27.6</version.assertj-core>
+        <version.logcaptor>2.12.1</version.logcaptor>
+        <version.mockito>5.20.0</version.mockito>
+        <version.ssl-server>1.0.9</version.ssl-server>
+        <version.byte-buddy>1.18.3</version.byte-buddy>
+        <version.jacoco-maven-plugin>0.8.14</version.jacoco-maven-plugin>
+        <version.maven-surefire-plugin>3.5.4</version.maven-surefire-plugin>
+        <version.maven-fail-safe>3.5.4</version.maven-fail-safe>
+        <version.maven-enforcer-plugin>3.6.2</version.maven-enforcer-plugin>
+        <version.maven-javadoc-plugin>3.12.0</version.maven-javadoc-plugin>
+        <version.maven-source-plugin>3.4.0</version.maven-source-plugin>
+        <version.license-maven-plugin>5.0.0</version.license-maven-plugin>
+        <version.maven-surefire-junit5-tree-reporter>1.5.1</version.maven-surefire-junit5-tree-reporter>
+        <license.git.copyrightYears>2019</license.git.copyrightYears>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.github.hakky54</groupId>
+                <artifactId>sude</artifactId>
+                <version>${version.sude}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-api</artifactId>
+                <version>${version.junit}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-engine</artifactId>
+                <version>${version.junit}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-junit-jupiter</artifactId>
+                <version>${version.mockito}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.assertj</groupId>
+                <artifactId>assertj-core</artifactId>
+                <version>${version.assertj-core}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.github.hakky54</groupId>
+                <artifactId>logcaptor</artifactId>
+                <version>${version.logcaptor}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-simple</artifactId>
+                <version>${version.slf4j}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.github.hakky54</groupId>
+                <artifactId>ssl-server</artifactId>
+                <version>${version.ssl-server}</version>
+                <scope>test</scope>
+                <exclusions>
+                    <exclusion>
+                        <groupId>io.github.hakky54</groupId>
+                        <artifactId>ayza</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy</artifactId>
+                <version>${version.byte-buddy}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy-agent</artifactId>
+                <version>${version.byte-buddy}</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${version.maven-enforcer-plugin}</version>
+                <executions>
+                    <execution>
+                        <id>enforce</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <rules>
+                        <dependencyConvergence />
+                    </rules>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${version.jacoco-maven-plugin}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+
+                    <execution>
+                        <id>pre-integration-test</id>
+                        <phase>pre-integration-test</phase>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>integration-testreport</id>
+                        <phase>post-integration-test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${version.maven-surefire-plugin}</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>me.fabriciorby</groupId>
+                        <artifactId>maven-surefire-junit5-tree-reporter</artifactId>
+                        <version>${version.maven-surefire-junit5-tree-reporter}</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <includes>
+                        <include>%regex[.*Should.*]</include>
+                    </includes>
+                    <reportFormat>plain</reportFormat>
+                    <consoleOutputReporter>
+                        <disable>true</disable>
+                    </consoleOutputReporter>
+                    <statelessTestsetInfoReporter implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5StatelessTestsetInfoTreeReporter">
+                    </statelessTestsetInfoReporter>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>${version.maven-fail-safe}</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>me.fabriciorby</groupId>
+                        <artifactId>maven-surefire-junit5-tree-reporter</artifactId>
+                        <version>${version.maven-surefire-junit5-tree-reporter}</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <useModulePath>false</useModulePath>
+                    <reportFormat>plain</reportFormat>
+                    <consoleOutputReporter>
+                        <disable>true</disable>
+                    </consoleOutputReporter>
+                    <statelessTestsetInfoReporter implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5StatelessTestsetInfoTreeReporter">
+                    </statelessTestsetInfoReporter>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>integration-test</id>
+                        <goals>
+                            <goal>integration-test</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>verify</id>
+                        <goals>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>${version.maven-source-plugin}</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>${version.maven-javadoc-plugin}</version>
+                <configuration>
+                    <source>8</source>
+                    <additionalOptions>
+                        <additionalOption>-Xdoclint:none</additionalOption>
+                    </additionalOptions>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>com.mycila</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <version>${version.license-maven-plugin}</version>
+                <configuration>
+                    <licenseSets>
+                        <licenseSet>
+                            <inlineHeader>
+<![CDATA[
+Copyright ${license.git.copyrightYears} Thunderberry.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+]]>
+                            </inlineHeader>
+                            <includes>
+                                <include>**/*.java</include>
+                            </includes>
+                            <excludes>
+                                <exclude>**/FenixHostnameVerifier.java</exclude>
+                                <exclude>**/HostnameCommon.java</exclude>
+                                <exclude>**/Hostnames.java</exclude>
+                                <exclude>**/FenixHostnameVerifierShould.java</exclude>
+                            </excludes>
+                        </licenseSet>
+                    </licenseSets>
+                    <strictCheck>true</strictCheck>
+                    <mapping>
+                        <java>SLASHSTAR_STYLE</java>
+                    </mapping>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
