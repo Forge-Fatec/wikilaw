@@ -1,0 +1,2 @@
+ALTER TABLE tribunal
+    ALTER COLUMN uf TYPE VARCHAR(2);
