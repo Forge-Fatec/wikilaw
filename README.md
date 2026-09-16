@@ -10,31 +10,31 @@ The platform will also include an **analysis dashboard**, providing a structured
 
 ## Features
 
-* Case law research;
-* Legal precedent research;
-* Legal doctrine research;
-* Artificial Intelligence-powered analysis of search results;
-* Assistance in interpreting and analyzing retrieved information;
-* Dashboard for legal data analysis and visualization.
+- Case law research;
+- Legal precedent research;
+- Legal doctrine research;
+- Artificial Intelligence-powered analysis of search results;
+- Assistance in interpreting and analyzing retrieved information;
+- Dashboard for legal data analysis and visualization.
 
 ## Technologies
 
 ### Backend
 
-* Java
-* Spring Boot
-* PostgreSQL
+- Java
+- Spring Boot
+- PostgreSQL
 
 ### Frontend
 
-* React
-* TypeScript
-* Vite
+- React
+- TypeScript
+- Vite
 
 ### Infrastructure
 
-* Docker
-* Docker Compose
+- Docker
+- Docker Compose
 
 ## How to Run
 
@@ -42,8 +42,11 @@ The platform will also include an **analysis dashboard**, providing a structured
 
 Before running the project, make sure you have installed:
 
-* Docker
-* Docker Compose
+- Docker
+- Docker Compose
+
+The backend targets Java 25.
+the application build, tests, and SonarQube analysis use Docker images with JDK 25.
 
 ### Starting the Services
 
@@ -70,6 +73,34 @@ After the containers have started:
 | Frontend   | `http://localhost:3000` |
 | Backend    | `http://localhost:8080` |
 | PostgreSQL | `localhost:5432`        |
+| SonarQube  | `http://localhost:9000` |
+
+### Code Analysis with SonarQube
+
+The backend is configured with SonarScanner for Maven and JaCoCo. The scanner
+runs the tests, generates the XML coverage report, and sends the analysis to the
+local SonarQube instance.
+
+Create the local environment file and add the project token:
+
+```bash
+cp .env.example .env
+```
+
+```dotenv
+SONAR_TOKEN=your_project_token
+```
+
+The `.env` file is ignored by Git. You can also omit the file and export
+`SONAR_TOKEN` directly in the shell environment. Run the analysis with:
+
+```bash
+./sonar-analysis.sh
+```
+
+The script starts the local SonarQube dependency when necessary and runs Maven,
+the tests, JaCoCo, and SonarScanner in a JDK 25 container. The dashboard remains
+available at `http://localhost:9000`.
 
 ### Stopping the Services
 
