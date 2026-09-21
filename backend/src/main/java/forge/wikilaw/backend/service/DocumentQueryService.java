@@ -17,14 +17,19 @@ public class DocumentQueryService {
     private final PrecedenteRepository precedents;
     private final DocumentoDoutrinarioRepository doctrine;
     private final FonteDadosRepository sources;
+    private final TribunalRepository tribunals;
     private final PrecedenteProcessoRepository links;
     public DocumentQueryService(DecisaoJudicialRepository decisions,PrecedenteRepository precedents,
-            DocumentoDoutrinarioRepository doctrine,FonteDadosRepository sources,PrecedenteProcessoRepository links) {
-        this.decisions=decisions;this.precedents=precedents;this.doctrine=doctrine;this.sources=sources;this.links=links;
+            DocumentoDoutrinarioRepository doctrine,FonteDadosRepository sources,TribunalRepository tribunals,
+            PrecedenteProcessoRepository links) {
+        this.decisions=decisions;this.precedents=precedents;this.doctrine=doctrine;this.sources=sources;
+        this.tribunals=tribunals;this.links=links;
     }
     public Result list(String category,String source,String term,int page,int size) {
-        Map<Long,String> names=new HashMap<>();
-        sources.findAll().forEach(f -> names.put(f.getId(),f.getSigla()));
+        Map<Long,String> sourceNames=new HashMap<>();
+        sources.findAll().forEach(f -> sourceNames.put(f.getId(),f.getSigla()));
+        Map<Long,String> tribunalNames=new HashMap<>();
+        tribunals.findAll().forEach(t -> tribunalNames.put(t.getId(),t.getSigla()));
         Long sourceId=source==null?null:sources.findBySigla(source.toUpperCase(Locale.ROOT))
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,"Fonte desconhecida")).getId();
         Pageable paging=PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"id"));
@@ -34,9 +39,11 @@ public class DocumentQueryService {
             case "doutrina" -> doctrine.findAll(filter(sourceId,term,"resumo","autores","palavrasChave"),paging);
             default -> throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         };
-        var rows=result.getContent().stream().map(d -> new Summary(d.getId(),names.get(d.getIdFonte()),category,
+        var rows=result.getContent().stream().map(d -> new Summary(d.getId(),sourceNames.get(d.getIdFonte()),category,
             d.getTitulo(),d instanceof DecisaoJudicial j?j.getRelator():d instanceof DocumentoDoutrinario a?a.getAutores():null,
             d instanceof DecisaoJudicial j?j.getEmenta():d instanceof DocumentoDoutrinario a?a.getResumo():((Precedente)d).getQuestaoJuridica(),
+            tribunalNames.get(tribunalIdOf(d)),
+            orgaoJulgadorOf(d),
             d.getDataPublicacao(),d.getDataOriginal(),d.getUrlOriginal(),d.getIdRegistroBruto())).toList();
         return new Result(rows,page,size,result.getTotalElements(),result.getTotalPages());
     }
@@ -52,6 +59,24 @@ public class DocumentQueryService {
     public List<PrecedenteProcesso> related(Long id) {
         detail("precedentes",id);
         return links.findByIdPrecedenteOrderByNumeroRegistro(id);
+    }
+    /**
+     * Doutrina não tem tribunal (não é vinculada a um órgão julgador).
+     * Decisão e precedente têm id_tribunal, mas cada entidade guarda o campo
+     * separadamente (não existe no DocumentoBase), então é preciso checar o tipo.
+     */
+    private Long tribunalIdOf(DocumentoBase d) {
+        if (d instanceof DecisaoJudicial j) return j.getIdTribunal();
+        if (d instanceof Precedente p) return p.getIdTribunal();
+        return null;
+    }
+    /**
+     * Só decisão judicial guarda o nome do órgão julgador (texto livre, vindo
+     * da fonte original). Precedente e doutrina não têm esse campo.
+     */
+    private String orgaoJulgadorOf(DocumentoBase d) {
+        if (d instanceof DecisaoJudicial j) return j.getOrgaoJulgador();
+        return null;
     }
     private <T extends DocumentoBase> Specification<T> filter(Long source,String term,String... fields) {
         return (root,query,cb) -> {
@@ -69,6 +94,7 @@ public class DocumentQueryService {
         };
     }
     public record Summary(Long id,String fonte,String categoria,String titulo,String autoresOuRelator,String resumoOuEmenta,
+        String tribunal,String orgaoJulgador,
         java.time.LocalDate dataPublicacao,String dataOriginal,String urlOriginal,Long idRegistroBruto) {}
     public record Result(List<Summary> itens,int pagina,int tamanho,long total,int totalPaginas) {}
 }
