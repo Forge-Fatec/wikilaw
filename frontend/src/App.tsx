@@ -17,6 +17,10 @@ const BADGE_POR_TIPO: Record<DocType, string> = {
 
 // Ajuste aqui se o back rodar em outra porta/host.
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+const ERRO_CARREGAMENTO =
+  'Não foi possível carregar os resultados. Verifique se o back-end está rodando em ' +
+  API_BASE +
+  '.'
 
 interface ApiSummary {
   id: number
@@ -78,6 +82,28 @@ function toDocumento(tipo: DocType, item: ApiSummary): Documento {
   }
 }
 
+async function carregarDocumentos(termo: string): Promise<Documento[]> {
+  const termoParam = termo.trim()
+    ? `&termo=${encodeURIComponent(termo.trim())}`
+    : ''
+
+  const respostas = await Promise.all(
+    (Object.keys(CATEGORIA_POR_TIPO) as DocType[]).map(async (tipo) => {
+      const categoria = CATEGORIA_POR_TIPO[tipo]
+      const res = await fetch(
+        `${API_BASE}/api/documentos/${categoria}?tamanho=50${termoParam}`,
+      )
+      if (!res.ok) {
+        throw new Error(`Erro ao buscar ${categoria} (status ${res.status})`)
+      }
+      const data: ApiResult = await res.json()
+      return data.itens.map((item) => toDocumento(tipo, item))
+    }),
+  )
+
+  return respostas.flat()
+}
+
 function App() {
   const [query, setQuery] = useState('')
   const [filtros, setFiltros] = useState<Record<DocType, boolean>>({
@@ -90,38 +116,16 @@ function App() {
   const [dataAte, setDataAte] = useState('')
 
   const [documentos, setDocumentos] = useState<Documento[]>([])
-  const [carregando, setCarregando] = useState(false)
+  const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
 
   const buscar = useCallback(async () => {
     setCarregando(true)
     setErro(null)
     try {
-      const termoParam = query.trim()
-        ? `&termo=${encodeURIComponent(query.trim())}`
-        : ''
-
-      const respostas = await Promise.all(
-        (Object.keys(CATEGORIA_POR_TIPO) as DocType[]).map(async (tipo) => {
-          const categoria = CATEGORIA_POR_TIPO[tipo]
-          const res = await fetch(
-            `${API_BASE}/api/documentos/${categoria}?tamanho=50${termoParam}`,
-          )
-          if (!res.ok) {
-            throw new Error(`Erro ao buscar ${categoria} (status ${res.status})`)
-          }
-          const data: ApiResult = await res.json()
-          return data.itens.map((item) => toDocumento(tipo, item))
-        }),
-      )
-
-      setDocumentos(respostas.flat())
+      setDocumentos(await carregarDocumentos(query))
     } catch {
-      setErro(
-        'Não foi possível carregar os resultados. Verifique se o back-end está rodando em ' +
-          API_BASE +
-          '.',
-      )
+      setErro(ERRO_CARREGAMENTO)
       setDocumentos([])
     } finally {
       setCarregando(false)
@@ -130,8 +134,25 @@ function App() {
 
   // Carrega os resultados iniciais (sem termo) assim que a página abre.
   useEffect(() => {
-    buscar()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let ativo = true
+
+    carregarDocumentos('')
+      .then((resultados) => {
+        if (ativo) setDocumentos(resultados)
+      })
+      .catch(() => {
+        if (ativo) {
+          setErro(ERRO_CARREGAMENTO)
+          setDocumentos([])
+        }
+      })
+      .finally(() => {
+        if (ativo) setCarregando(false)
+      })
+
+    return () => {
+      ativo = false
+    }
   }, [])
 
   const tribunaisDisponiveis = useMemo(() => {
