@@ -34,16 +34,21 @@ public class DocumentQueryService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,"Fonte desconhecida")).getId();
         Pageable paging=PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"id"));
         Page<? extends DocumentoBase> result=switch(category) {
-            case "decisoes" -> decisions.findAll(filter(sourceId,term,"ementa","relator","numeroProcesso"),paging);
+            case "decisoes" -> decisions.findAll(filter(sourceId,term,"ementa","decisao","relator","numeroProcesso"),paging);
             case "precedentes" -> precedents.findAll(filter(sourceId,term,"questaoJuridica","tese","situacao"),paging);
             case "doutrina" -> doctrine.findAll(filter(sourceId,term,"resumo","autores","palavrasChave"),paging);
             default -> throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         };
         var rows=result.getContent().stream().map(d -> new Summary(d.getId(),sourceNames.get(d.getIdFonte()),category,
-            d.getTitulo(),d instanceof DecisaoJudicial j?j.getRelator():d instanceof DocumentoDoutrinario a?a.getAutores():null,
+            d.getTitulo(),
+            d instanceof DecisaoJudicial j?j.getTipoDecisao():d instanceof Precedente p?p.getTipoPrecedente():((DocumentoDoutrinario)d).getTipoDocumento(),
+            d instanceof DecisaoJudicial j?j.getNumeroProcesso():d instanceof Precedente p?p.getNumeroTema():null,
+            d instanceof DecisaoJudicial j?j.getRelator():d instanceof DocumentoDoutrinario a?a.getAutores():null,
             d instanceof DecisaoJudicial j?j.getEmenta():d instanceof DocumentoDoutrinario a?a.getResumo():((Precedente)d).getQuestaoJuridica(),
+            d instanceof DecisaoJudicial j?j.getDecisao():null,
             tribunalNames.get(tribunalIdOf(d)),
             orgaoJulgadorOf(d),
+            d instanceof DecisaoJudicial j?j.getDataJulgamento():d instanceof Precedente p?p.getDataJulgamento():null,
             d.getDataPublicacao(),d.getDataOriginal(),d.getUrlOriginal(),d.getIdRegistroBruto())).toList();
         return new Result(rows,page,size,result.getTotalElements(),result.getTotalPages());
     }
@@ -93,8 +98,9 @@ public class DocumentQueryService {
             return cb.and(restrictions.toArray(jakarta.persistence.criteria.Predicate[]::new));
         };
     }
-    public record Summary(Long id,String fonte,String categoria,String titulo,String autoresOuRelator,String resumoOuEmenta,
+    public record Summary(Long id,String fonte,String categoria,String titulo,String tipoDocumento,String numeroProcessoOuTema,
+        String autoresOuRelator,String resumoOuEmenta,String decisao,
         String tribunal,String orgaoJulgador,
-        java.time.LocalDate dataPublicacao,String dataOriginal,String urlOriginal,Long idRegistroBruto) {}
+        java.time.LocalDate dataJulgamento,java.time.LocalDate dataPublicacao,String dataOriginal,String urlOriginal,Long idRegistroBruto) {}
     public record Result(List<Summary> itens,int pagina,int tamanho,long total,int totalPaginas) {}
 }
