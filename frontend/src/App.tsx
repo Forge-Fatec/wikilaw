@@ -15,6 +15,8 @@ const BADGE_POR_TIPO: Record<DocType, string> = {
   doutrina: 'DOUTRINA',
 }
 
+const ITENS_POR_PAGINA = 10
+
 // Ajuste aqui se o back rodar em outra porta/host.
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 const ERRO_CARREGAMENTO =
@@ -27,10 +29,14 @@ interface ApiSummary {
   fonte: string
   categoria: string
   titulo: string
+  tipoDocumento: string | null
+  numeroProcessoOuTema: string | null
   autoresOuRelator: string | null
   resumoOuEmenta: string | null
+  decisao: string | null
   tribunal: string | null
   orgaoJulgador: string | null
+  dataJulgamento: string | null
   dataPublicacao: string | null
   dataOriginal: string | null
   urlOriginal: string | null
@@ -46,14 +52,21 @@ interface ApiResult {
 }
 
 interface Documento {
+  id: number
   type: DocType
   badge: string
   fonte: string
   title: string
+  tipoDocumento: string | null
+  numeroProcessoOuTema: string | null
+  autoresOuRelator: string | null
   text: string
+  decisao: string | null
   tribunal: string | null
   orgaoJulgador: string | null
+  dataJulgamento: string | null
   dataPublicacao: string | null
+  dataOriginal: string | null
   urlOriginal: string | null
 }
 
@@ -70,14 +83,21 @@ function formatarData(dataPublicacao: string | null): string {
 
 function toDocumento(tipo: DocType, item: ApiSummary): Documento {
   return {
+    id: item.id,
     type: tipo,
     badge: BADGE_POR_TIPO[tipo],
     fonte: item.fonte,
     title: item.titulo,
+    tipoDocumento: item.tipoDocumento,
+    numeroProcessoOuTema: item.numeroProcessoOuTema,
+    autoresOuRelator: item.autoresOuRelator,
     text: item.resumoOuEmenta ?? 'Sem resumo disponível.',
+    decisao: item.decisao,
     tribunal: item.tribunal,
     orgaoJulgador: item.orgaoJulgador,
+    dataJulgamento: item.dataJulgamento,
     dataPublicacao: item.dataPublicacao,
+    dataOriginal: item.dataOriginal,
     urlOriginal: item.urlOriginal,
   }
 }
@@ -118,10 +138,15 @@ function App() {
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+  const [paginaAtual, setPaginaAtual] = useState(1)
+  const [documentoSelecionado, setDocumentoSelecionado] =
+    useState<Documento | null>(null)
 
   const buscar = useCallback(async () => {
     setCarregando(true)
     setErro(null)
+    setPaginaAtual(1)
+    setDocumentoSelecionado(null)
     try {
       setDocumentos(await carregarDocumentos(query))
     } catch {
@@ -155,6 +180,23 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!documentoSelecionado) return
+
+    const overflowAnterior = document.body.style.overflow
+    const fecharComEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDocumentoSelecionado(null)
+    }
+
+    document.body.style.overflow = 'hidden'
+    document.addEventListener('keydown', fecharComEscape)
+
+    return () => {
+      document.body.style.overflow = overflowAnterior
+      document.removeEventListener('keydown', fecharComEscape)
+    }
+  }, [documentoSelecionado])
+
   const tribunaisDisponiveis = useMemo(() => {
     const siglas = new Set(
       documentos.map((d) => d.tribunal).filter((t): t is string => Boolean(t)),
@@ -180,8 +222,24 @@ function App() {
     })
   }, [documentos, filtros, tribunal, dataDe, dataAte])
 
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(resultados.length / ITENS_POR_PAGINA),
+  )
+  const paginaExibida = Math.min(paginaAtual, totalPaginas)
+  const resultadosPaginados = resultados.slice(
+    (paginaExibida - 1) * ITENS_POR_PAGINA,
+    paginaExibida * ITENS_POR_PAGINA,
+  )
+
+  function voltarParaPrimeiraPagina() {
+    setPaginaAtual(1)
+    setDocumentoSelecionado(null)
+  }
+
   function toggleFiltro(type: DocType) {
     setFiltros((prev) => ({ ...prev, [type]: !prev[type] }))
+    voltarParaPrimeiraPagina()
   }
 
   function limparFiltros() {
@@ -189,6 +247,7 @@ function App() {
     setTribunal('Todos os tribunais')
     setDataDe('')
     setDataAte('')
+    voltarParaPrimeiraPagina()
   }
 
   return (
@@ -278,7 +337,10 @@ function App() {
             <div className="group-label">TRIBUNAL</div>
             <select
               value={tribunal}
-              onChange={(e) => setTribunal(e.target.value)}
+              onChange={(e) => {
+                setTribunal(e.target.value)
+                voltarParaPrimeiraPagina()
+              }}
             >
               <option>Todos os tribunais</option>
               {tribunaisDisponiveis.map((sigla) => (
@@ -296,7 +358,10 @@ function App() {
                   className="date-input"
                   type="date"
                   value={dataDe}
-                  onChange={(e) => setDataDe(e.target.value)}
+                  onChange={(e) => {
+                    setDataDe(e.target.value)
+                    voltarParaPrimeiraPagina()
+                  }}
                 />
               </div>
               <div>
@@ -305,7 +370,10 @@ function App() {
                   className="date-input"
                   type="date"
                   value={dataAte}
-                  onChange={(e) => setDataAte(e.target.value)}
+                  onChange={(e) => {
+                    setDataAte(e.target.value)
+                    voltarParaPrimeiraPagina()
+                  }}
                 />
               </div>
             </div>
@@ -323,7 +391,7 @@ function App() {
               <span>
                 {carregando
                   ? 'Buscando...'
-                  : `${resultados.length} documentos encontrados`}
+                  : `${resultados.length} documentos encontrados · Página ${paginaExibida} de ${totalPaginas}`}
               </span>
             </div>
             <span>📄</span>
@@ -338,39 +406,238 @@ function App() {
           )}
 
           {!erro &&
-            resultados.map((doc, i) => (
-              <article className="card" key={`${doc.type}-${i}`}>
-                <div className="card-top">
-                  <span
-                    className={
-                      'badge' +
-                      (doc.type === 'precedente' ? ' precedente' : '') +
-                      (doc.type === 'doutrina' ? ' doutrina' : '')
-                    }
-                  >
-                    {doc.badge}
-                  </span>
-                  <span className="proc-num">{doc.fonte}</span>
-                </div>
-                <h3>{doc.title}</h3>
-                <p>{doc.text}</p>
-                <div className="card-bottom">
-                  <div className="card-meta">
-                    <span>
-                      ⚖ {[doc.tribunal, doc.orgaoJulgador].filter(Boolean).join(' — ') || doc.fonte}
+            resultadosPaginados.map((doc) => {
+              const chave = `${doc.type}-${doc.id}`
+
+              return (
+                <article className="card" key={chave}>
+                  <div className="card-top">
+                    <span
+                      className={
+                        'badge' +
+                        (doc.type === 'precedente' ? ' precedente' : '') +
+                        (doc.type === 'doutrina' ? ' doutrina' : '')
+                      }
+                    >
+                      {doc.badge}
                     </span>
-                    <span>🗓 {formatarData(doc.dataPublicacao)}</span>
+                    <span className="proc-num">{doc.fonte}</span>
                   </div>
-                  {doc.urlOriginal && (
-                    <a href={doc.urlOriginal} target="_blank" rel="noreferrer" className="fonte">
-                      FONTE ORIGINAL ↗
-                    </a>
+                  <h3>{doc.title}</h3>
+                  {doc.type === 'jurisprudencia' && (
+                    <div className="decision-highlight">
+                      <span className="decision-label">DECISÃO</span>
+                      <strong>
+                        {doc.decisao ?? 'Decisão não informada pela fonte.'}
+                      </strong>
+                    </div>
                   )}
-                </div>
-              </article>
-            ))}
+                  <div className="document-content">
+                    <h4>Ementa</h4>
+                    <p className="ementa">{doc.text}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="details-toggle"
+                    aria-haspopup="dialog"
+                    onClick={() => setDocumentoSelecionado(doc)}
+                  >
+                    VER DETALHES
+                  </button>
+                  <div className="card-bottom">
+                    <div className="card-meta">
+                      <span>
+                        ⚖{' '}
+                        {[doc.tribunal, doc.orgaoJulgador]
+                          .filter(Boolean)
+                          .join(' — ') || doc.fonte}
+                      </span>
+                      <span>🗓 {formatarData(doc.dataPublicacao)}</span>
+                    </div>
+                  </div>
+                </article>
+              )
+            })}
+
+          {!erro && !carregando && totalPaginas > 1 && (
+            <div
+              className="pagination"
+              role="navigation"
+              aria-label="Páginas de resultados"
+            >
+              <button
+                type="button"
+                disabled={paginaExibida === 1}
+                onClick={() => {
+                  setPaginaAtual((pagina) => Math.max(1, pagina - 1))
+                  setDocumentoSelecionado(null)
+                }}
+              >
+                ANTERIOR
+              </button>
+              {Array.from({ length: totalPaginas }, (_, index) => index + 1).map(
+                (pagina) => (
+                  <button
+                    type="button"
+                    className={pagina === paginaExibida ? 'active' : ''}
+                    aria-current={pagina === paginaExibida ? 'page' : undefined}
+                    key={pagina}
+                    onClick={() => {
+                      setPaginaAtual(pagina)
+                      setDocumentoSelecionado(null)
+                    }}
+                  >
+                    {pagina}
+                  </button>
+                ),
+              )}
+              <button
+                type="button"
+                disabled={paginaExibida === totalPaginas}
+                onClick={() => {
+                  setPaginaAtual((pagina) =>
+                    Math.min(totalPaginas, pagina + 1),
+                  )
+                  setDocumentoSelecionado(null)
+                }}
+              >
+                PRÓXIMA
+              </button>
+            </div>
+          )}
         </main>
       </div>
+
+      {documentoSelecionado && (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onMouseDown={() => setDocumentoSelecionado(null)}
+        >
+          <section
+            className="details-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="modal-close"
+              aria-label="Fechar detalhes"
+              autoFocus
+              onClick={() => setDocumentoSelecionado(null)}
+            >
+              ×
+            </button>
+
+            <div className="modal-heading">
+              <span
+                className={
+                  'badge' +
+                  (documentoSelecionado.type === 'precedente'
+                    ? ' precedente'
+                    : '') +
+                  (documentoSelecionado.type === 'doutrina' ? ' doutrina' : '')
+                }
+              >
+                {documentoSelecionado.badge}
+              </span>
+              <span className="proc-num">{documentoSelecionado.fonte}</span>
+              <h2 id="modal-title">{documentoSelecionado.title}</h2>
+            </div>
+
+            <dl className="details-grid">
+              {documentoSelecionado.tipoDocumento && (
+                <div>
+                  <dt>Tipo</dt>
+                  <dd>{documentoSelecionado.tipoDocumento}</dd>
+                </div>
+              )}
+              {documentoSelecionado.numeroProcessoOuTema && (
+                <div>
+                  <dt>
+                    {documentoSelecionado.type === 'precedente'
+                      ? 'Tema'
+                      : 'Processo'}
+                  </dt>
+                  <dd>{documentoSelecionado.numeroProcessoOuTema}</dd>
+                </div>
+              )}
+              <div>
+                <dt>Fonte</dt>
+                <dd>{documentoSelecionado.fonte}</dd>
+              </div>
+              {documentoSelecionado.tribunal && (
+                <div>
+                  <dt>Tribunal</dt>
+                  <dd>{documentoSelecionado.tribunal}</dd>
+                </div>
+              )}
+              {documentoSelecionado.orgaoJulgador && (
+                <div>
+                  <dt>Órgão julgador</dt>
+                  <dd>{documentoSelecionado.orgaoJulgador}</dd>
+                </div>
+              )}
+              {documentoSelecionado.autoresOuRelator && (
+                <div>
+                  <dt>
+                    {documentoSelecionado.type === 'doutrina'
+                      ? 'Autores'
+                      : 'Relator'}
+                  </dt>
+                  <dd>{documentoSelecionado.autoresOuRelator}</dd>
+                </div>
+              )}
+              {documentoSelecionado.dataJulgamento && (
+                <div>
+                  <dt>Data do julgamento</dt>
+                  <dd>{formatarData(documentoSelecionado.dataJulgamento)}</dd>
+                </div>
+              )}
+              <div>
+                <dt>Data da publicação</dt>
+                <dd>{formatarData(documentoSelecionado.dataPublicacao)}</dd>
+              </div>
+              {documentoSelecionado.dataOriginal && (
+                <div>
+                  <dt>Data informada pela fonte</dt>
+                  <dd>{documentoSelecionado.dataOriginal}</dd>
+                </div>
+              )}
+            </dl>
+
+            {documentoSelecionado.type === 'jurisprudencia' && (
+              <div className="modal-decision">
+                <span className="decision-label">DECISÃO</span>
+                <p>
+                  {documentoSelecionado.decisao ??
+                    'Decisão não informada pela fonte.'}
+                </p>
+              </div>
+            )}
+
+            <div className="modal-summary">
+              <h3>Ementa</h3>
+              <p>{documentoSelecionado.text}</p>
+            </div>
+
+            {documentoSelecionado.urlOriginal && (
+              <footer className="modal-footer">
+                <a
+                  href={documentoSelecionado.urlOriginal}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="source-button"
+                >
+                  IR PARA A FONTE ORIGINAL ↗
+                </a>
+              </footer>
+            )}
+          </section>
+        </div>
+      )}
     </>
   )
 }
