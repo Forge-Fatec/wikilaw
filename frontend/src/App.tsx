@@ -1,61 +1,111 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import './index.css'
 
 type DocType = 'jurisprudencia' | 'precedente' | 'doutrina'
 
+const CATEGORIA_POR_TIPO: Record<DocType, string> = {
+  jurisprudencia: 'decisoes',
+  precedente: 'precedentes',
+  doutrina: 'doutrina',
+}
+
+const BADGE_POR_TIPO: Record<DocType, string> = {
+  jurisprudencia: 'JURISPRUDÊNCIA',
+  precedente: 'PRECEDENTE',
+  doutrina: 'DOUTRINA',
+}
+
+// Ajuste aqui se o back rodar em outra porta/host.
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+const ERRO_CARREGAMENTO =
+  'Não foi possível carregar os resultados. Verifique se o back-end está rodando em ' +
+  API_BASE +
+  '.'
+
+interface ApiSummary {
+  id: number
+  fonte: string
+  categoria: string
+  titulo: string
+  autoresOuRelator: string | null
+  resumoOuEmenta: string | null
+  tribunal: string | null
+  orgaoJulgador: string | null
+  dataPublicacao: string | null
+  dataOriginal: string | null
+  urlOriginal: string | null
+  idRegistroBruto: number | null
+}
+
+interface ApiResult {
+  itens: ApiSummary[]
+  pagina: number
+  tamanho: number
+  total: number
+  totalPaginas: number
+}
+
 interface Documento {
   type: DocType
   badge: string
-  proc: string
+  fonte: string
   title: string
   text: string
-  court: string
-  date: string
+  tribunal: string | null
+  orgaoJulgador: string | null
+  dataPublicacao: string | null
+  urlOriginal: string | null
 }
 
-const documentos: Documento[] = [
-  {
-    type: 'jurisprudencia',
-    badge: 'JURISPRUDÊNCIA',
-    proc: 'Apel. 1002345-67.2023.8.26.0100',
-    title: 'Usucapião extraordinária urbana',
-    text: 'Comprovada a posse mansa, pacífica e ininterrupta por mais de quinze anos sobre imóvel urbano, com ânimo de dona e sem oposição do titular registral, é cabível a declaração de usucapião extraordinária.',
-    court: 'TJSP',
-    date: '02 de junho de 2024',
-  },
-  {
-    type: 'jurisprudencia',
-    badge: 'RE',
-    proc: 'RE 1.234.567/SP',
-    title: 'Responsabilidade civil por abandono afetivo',
-    text: 'O abandono afetivo dos pais em relação aos filhos, quando comprovado dano moral decorrente da omissão no dever de cuidado, pode gerar obrigação de indenizar, desde que presentes conduta, dano e nexo causal.',
-    court: 'STJ',
-    date: '12 de março de 2024',
-  },
-  {
-    type: 'precedente',
-    badge: 'PRECEDENTE',
-    proc: 'Tema 1.061',
-    title: 'Negativação indevida e dano moral presumido',
-    text: 'A inscrição indevida do nome do consumidor em cadastros de inadimplentes gera dano moral in re ipsa, dispensada a comprovação de prejuízo efetivo, cabendo indenização proporcional à extensão do dano.',
-    court: 'STJ',
-    date: '28 de fevereiro de 2024',
-  },
-  {
-    type: 'doutrina',
-    badge: 'DOUTRINA',
-    proc: 'Cap. 4 — Responsabilidade Civil',
-    title: 'Elementos da responsabilidade civil objetiva',
-    text: 'A doutrina majoritária reconhece que a responsabilidade objetiva prescinde da análise de culpa, bastando a comprovação do nexo causal entre a conduta do agente e o dano suportado pela vítima.',
-    court: 'Doutrina',
-    date: 'Edição 2023',
-  },
-]
+function formatarData(dataPublicacao: string | null): string {
+  if (!dataPublicacao) return 'Data não informada'
+  const d = new Date(dataPublicacao)
+  if (Number.isNaN(d.getTime())) return dataPublicacao
+  return d.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+function toDocumento(tipo: DocType, item: ApiSummary): Documento {
+  return {
+    type: tipo,
+    badge: BADGE_POR_TIPO[tipo],
+    fonte: item.fonte,
+    title: item.titulo,
+    text: item.resumoOuEmenta ?? 'Sem resumo disponível.',
+    tribunal: item.tribunal,
+    orgaoJulgador: item.orgaoJulgador,
+    dataPublicacao: item.dataPublicacao,
+    urlOriginal: item.urlOriginal,
+  }
+}
+
+async function carregarDocumentos(termo: string): Promise<Documento[]> {
+  const termoParam = termo.trim()
+    ? `&termo=${encodeURIComponent(termo.trim())}`
+    : ''
+
+  const respostas = await Promise.all(
+    (Object.keys(CATEGORIA_POR_TIPO) as DocType[]).map(async (tipo) => {
+      const categoria = CATEGORIA_POR_TIPO[tipo]
+      const res = await fetch(
+        `${API_BASE}/api/documentos/${categoria}?tamanho=50${termoParam}`,
+      )
+      if (!res.ok) {
+        throw new Error(`Erro ao buscar ${categoria} (status ${res.status})`)
+      }
+      const data: ApiResult = await res.json()
+      return data.itens.map((item) => toDocumento(tipo, item))
+    }),
+  )
+
+  return respostas.flat()
+}
 
 function App() {
-  const [query, setQuery] = useState(
-    'dano moral por negativação indevida do nome do consumidor...',
-  )
+  const [query, setQuery] = useState('')
   const [filtros, setFiltros] = useState<Record<DocType, boolean>>({
     jurisprudencia: true,
     precedente: true,
@@ -65,10 +115,70 @@ function App() {
   const [dataDe, setDataDe] = useState('')
   const [dataAte, setDataAte] = useState('')
 
-  const resultados = useMemo(
-    () => documentos.filter((doc) => filtros[doc.type]),
-    [filtros],
-  )
+  const [documentos, setDocumentos] = useState<Documento[]>([])
+  const [carregando, setCarregando] = useState(true)
+  const [erro, setErro] = useState<string | null>(null)
+
+  const buscar = useCallback(async () => {
+    setCarregando(true)
+    setErro(null)
+    try {
+      setDocumentos(await carregarDocumentos(query))
+    } catch {
+      setErro(ERRO_CARREGAMENTO)
+      setDocumentos([])
+    } finally {
+      setCarregando(false)
+    }
+  }, [query])
+
+  // Carrega os resultados iniciais (sem termo) assim que a página abre.
+  useEffect(() => {
+    let ativo = true
+
+    carregarDocumentos('')
+      .then((resultados) => {
+        if (ativo) setDocumentos(resultados)
+      })
+      .catch(() => {
+        if (ativo) {
+          setErro(ERRO_CARREGAMENTO)
+          setDocumentos([])
+        }
+      })
+      .finally(() => {
+        if (ativo) setCarregando(false)
+      })
+
+    return () => {
+      ativo = false
+    }
+  }, [])
+
+  const tribunaisDisponiveis = useMemo(() => {
+    const siglas = new Set(
+      documentos.map((d) => d.tribunal).filter((t): t is string => Boolean(t)),
+    )
+    return Array.from(siglas).sort()
+  }, [documentos])
+
+  const resultados = useMemo(() => {
+    return documentos.filter((doc) => {
+      if (!filtros[doc.type]) return false
+
+      if (tribunal !== 'Todos os tribunais' && doc.tribunal !== tribunal) {
+        return false
+      }
+
+      if ((dataDe || dataAte) && doc.dataPublicacao) {
+        const docDate = new Date(doc.dataPublicacao)
+        if (dataDe && docDate < new Date(dataDe)) return false
+        if (dataAte && docDate > new Date(dataAte)) return false
+      }
+
+      return true
+    })
+  }, [documentos, filtros, tribunal, dataDe, dataAte])
 
   function toggleFiltro(type: DocType) {
     setFiltros((prev) => ({ ...prev, [type]: !prev[type] }))
@@ -79,11 +189,6 @@ function App() {
     setTribunal('Todos os tribunais')
     setDataDe('')
     setDataAte('')
-  }
-
-  function pesquisar() {
-    // Placeholder: aqui entra a chamada para a API de pesquisa
-    console.log('Pesquisando por:', query)
   }
 
   return (
@@ -126,10 +231,12 @@ function App() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyUp={(e) => e.key === 'Enter' && pesquisar()}
+            onKeyUp={(e) => e.key === 'Enter' && buscar()}
             placeholder="Ex.: dano moral por negativação indevida do nome do consumidor..."
           />
-          <button onClick={pesquisar}>🔍 PESQUISAR</button>
+          <button onClick={buscar} disabled={carregando}>
+            {carregando ? 'BUSCANDO...' : '🔍 PESQUISAR'}
+          </button>
         </div>
       </section>
 
@@ -167,7 +274,6 @@ function App() {
             </div>
           </div>
 
-
           <div className="group">
             <div className="group-label">TRIBUNAL</div>
             <select
@@ -175,10 +281,9 @@ function App() {
               onChange={(e) => setTribunal(e.target.value)}
             >
               <option>Todos os tribunais</option>
-              <option>TJSP</option>
-              <option>STJ</option>
-              <option>STF</option>
-              <option>TRF</option>
+              {tribunaisDisponiveis.map((sigla) => (
+                <option key={sigla}>{sigla}</option>
+              ))}
             </select>
           </div>
 
@@ -215,44 +320,55 @@ function App() {
           <div className="results-header">
             <div>
               <h2>Resultados da pesquisa</h2>
-              <span>{resultados.length} documentos encontrados</span>
+              <span>
+                {carregando
+                  ? 'Buscando...'
+                  : `${resultados.length} documentos encontrados`}
+              </span>
             </div>
             <span>📄</span>
           </div>
 
-          {resultados.length === 0 && (
+          {erro && <div className="empty">{erro}</div>}
+
+          {!erro && !carregando && resultados.length === 0 && (
             <div className="empty">
               Nenhum documento encontrado com os filtros selecionados.
             </div>
           )}
 
-          {resultados.map((doc) => (
-            <article className="card" key={doc.proc}>
-              <div className="card-top">
-                <span
-                  className={
-                    'badge' +
-                    (doc.type === 'precedente' ? ' precedente' : '') +
-                    (doc.type === 'doutrina' ? ' doutrina' : '')
-                  }
-                >
-                  {doc.badge}
-                </span>
-                <span className="proc-num">{doc.proc}</span>
-              </div>
-              <h3>{doc.title}</h3>
-              <p>{doc.text}</p>
-              <div className="card-bottom">
-                <div className="card-meta">
-                  <span>⚖ {doc.court}</span>
-                  <span>🗓 {doc.date}</span>
+          {!erro &&
+            resultados.map((doc, i) => (
+              <article className="card" key={`${doc.type}-${i}`}>
+                <div className="card-top">
+                  <span
+                    className={
+                      'badge' +
+                      (doc.type === 'precedente' ? ' precedente' : '') +
+                      (doc.type === 'doutrina' ? ' doutrina' : '')
+                    }
+                  >
+                    {doc.badge}
+                  </span>
+                  <span className="proc-num">{doc.fonte}</span>
                 </div>
-                <a href="#" className="fonte">
-                  FONTE ORIGINAL ↗
-                </a>
-              </div>
-            </article>
-          ))}
+                <h3>{doc.title}</h3>
+                <p>{doc.text}</p>
+                <div className="card-bottom">
+                  <div className="card-meta">
+                    <span>
+                      ⚖ {[doc.tribunal, doc.orgaoJulgador].filter(Boolean).join(' — ') || doc.fonte}
+                    </span>
+                    <span>🗓 {formatarData(doc.dataPublicacao)}</span>
+                  </div>
+                  {doc.urlOriginal && (
+                    <a href={doc.urlOriginal} target="_blank" rel="noreferrer" className="fonte">
+                      FONTE ORIGINAL ↗
+                    </a>
+                  )}
+                </div>
+              </article>
+            ))}
         </main>
       </div>
     </>
