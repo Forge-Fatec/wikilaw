@@ -9,6 +9,7 @@ public record JurisprudenciaResumoResponse(
         String numeroProcesso,
         String titulo,
         String ementa,
+        String decisao,
         String relator,
         String orgaoJulgador,
         LocalDate dataJulgamento,

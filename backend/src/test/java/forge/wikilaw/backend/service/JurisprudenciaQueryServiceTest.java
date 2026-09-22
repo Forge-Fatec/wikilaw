@@ -173,9 +173,21 @@ class JurisprudenciaQueryServiceTest {
                         "http://localhost:3000"))
                 .andExpect(jsonPath("$.total").value(1))
                 .andExpect(jsonPath("$.itens[0].titulo").value("Dano moral por negativação indevida"))
+                .andExpect(jsonPath("$.itens[0].decisao").value("Recurso parcialmente provido."))
                 .andExpect(jsonPath("$.itens[0].tribunal").value("TJDFT"))
                 .andExpect(jsonPath("$.itens[0].numeroProcesso")
                         .value("0702497-45.2026.8.07.0007"));
+
+        mockMvc.perform(get("/api/documentos/decisoes")
+                        .param("termo", "negativação indevida")
+                        .param("tamanho", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.itens[0].tipoDocumento").value("Acórdão"))
+                .andExpect(jsonPath("$.itens[0].numeroProcessoOuTema")
+                        .value("0702497-45.2026.8.07.0007"))
+                .andExpect(jsonPath("$.itens[0].dataJulgamento").value("2025-03-15"))
+                .andExpect(jsonPath("$.itens[0].decisao")
+                        .value("Recurso parcialmente provido."));
     }
 
     private void salvarDecisao(
@@ -188,6 +200,7 @@ class JurisprudenciaQueryServiceTest {
                 .titulo(titulo)
                 .tipo("Acórdão")
                 .resumo(ementa)
+                .decisao("Recurso parcialmente provido.")
                 .numeroProcesso("0702497-45.2026.8.07.0007")
                 .relator("Desembargador Exemplo")
                 .orgaoJulgador("2ª Turma Cível")

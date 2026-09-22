@@ -31,7 +31,7 @@ public class JurisprudenciaQueryService {
             "sem", "um", "uma", "uns", "umas", "que");
 
     private static final String[] CAMPOS_PESQUISAVEIS = {
-        "titulo", "ementa", "numeroProcesso", "relator", "orgaoJulgador"
+        "titulo", "ementa", "decisao", "numeroProcesso", "relator", "orgaoJulgador"
     };
 
     private final DecisaoJudicialRepository decisoes;
@@ -182,6 +182,7 @@ public class JurisprudenciaQueryService {
                 decisao.getNumeroProcesso(),
                 decisao.getTitulo(),
                 decisao.getEmenta(),
+                decisao.getDecisao(),
                 decisao.getRelator(),
                 decisao.getOrgaoJulgador(),
                 decisao.getDataJulgamento(),

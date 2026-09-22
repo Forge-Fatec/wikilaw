@@ -19,11 +19,13 @@ class DocumentAdaptersTest {
         var adapter=new TjdftAdapter(json);
         var doc=adapter.normalize(json.readTree("""
             {"uuid":"abc","identificador":"2170687","processo":"0702497-45.2026.8.07.0007",
-             "dataPublicacao":"2026-09-16T00:45:24Z","ementa":"Ementa legível","nomeRelator":"Relatora",
+             "dataPublicacao":"2026-09-16T00:45:24Z","ementa":"Ementa legível","decisao":"Recurso provido",
+             "nomeRelator":"Relatora",
              "inteiroTeorHtml":"Inteiro Teor indisponível.","possuiInteiroTeor":true}
             """));
         assertNull(doc.inteiroTeor());
         assertEquals("Ementa legível",doc.resumo());
+        assertEquals("Recurso provido",doc.decisao());
         assertEquals(LocalDate.of(2026,9,16),doc.dataPublicacao());
     }
     @Test void tjdftPaginationUsesHitsAndRejectsBadEnvelope() {
