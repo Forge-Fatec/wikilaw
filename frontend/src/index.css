@@ -119,9 +119,12 @@ nav a.active {
   margin: 0 auto 34px;
   line-height: 1.6;
 }
-.search-box {
+.search-form {
   max-width: 760px;
   margin: 0 auto;
+}
+
+.search-box {
   display: flex;
   background: #fff;
   border-radius: 8px;
@@ -148,6 +151,13 @@ nav a.active {
 }
 .search-box button:hover {
   background: var(--terracotta-dark);
+}
+
+.search-error {
+  color: #fff;
+  font-size: 14px;
+  margin: 10px 0 0;
+  text-align: left;
 }
 
 .layout {

@@ -126,6 +126,7 @@ async function carregarDocumentos(termo: string): Promise<Documento[]> {
 
 function App() {
   const [query, setQuery] = useState('')
+  const [erroValidacao, setErroValidacao] = useState<string | null>(null)
   const [filtros, setFiltros] = useState<Record<DocType, boolean>>({
     jurisprudencia: true,
     precedente: true,
@@ -143,6 +144,12 @@ function App() {
     useState<Documento | null>(null)
 
   const buscar = useCallback(async () => {
+    if (!query.trim()) {
+      setErroValidacao('Informe a descrição do caso para realizar a pesquisa.')
+      return
+    }
+
+    setErroValidacao(null)
     setCarregando(true)
     setErro(null)
     setPaginaAtual(1)
@@ -285,18 +292,36 @@ function App() {
           Pesquisa em linguagem natural entre jurisprudências, precedentes e
           doutrinas dos principais tribunais do país.
         </p>
-        <div className="search-box">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyUp={(e) => e.key === 'Enter' && buscar()}
-            placeholder="Ex.: dano moral por negativação indevida do nome do consumidor..."
-          />
-          <button onClick={buscar} disabled={carregando}>
-            {carregando ? 'BUSCANDO...' : '🔍 PESQUISAR'}
-          </button>
-        </div>
+        <form
+          className="search-form"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void buscar()
+          }}
+        >
+          <div className="search-box">
+            <input
+              type="text"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value)
+                if (erroValidacao) setErroValidacao(null)
+              }}
+              aria-label="Descrição do caso"
+              aria-invalid={Boolean(erroValidacao)}
+              aria-describedby={erroValidacao ? 'search-error' : undefined}
+              placeholder="Ex.: dano moral por negativação indevida do nome do consumidor..."
+            />
+            <button type="submit" disabled={carregando}>
+              {carregando ? 'BUSCANDO...' : '🔍 PESQUISAR'}
+            </button>
+          </div>
+          {erroValidacao && (
+            <p id="search-error" className="search-error" role="alert">
+              {erroValidacao}
+            </p>
+          )}
+        </form>
       </section>
 
       <div className="layout">
