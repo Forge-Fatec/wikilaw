@@ -1,6 +1,6 @@
 package forge.wikilaw.backend.controller;
 
-import forge.wikilaw.backend.entity.DocumentoBase;
+import forge.wikilaw.backend.dto.DocumentoDetalheResponse;
 import forge.wikilaw.backend.entity.PrecedenteProcesso;
 import forge.wikilaw.backend.service.DocumentQueryService;
 import jakarta.validation.constraints.*;
@@ -27,7 +27,7 @@ public class DocumentQueryController {
         return service.list(categoria,fonte,termo,tribunal,dataDe,dataAte,pagina,tamanho);
     }
     @GetMapping("/{categoria}/{id}")
-    public DocumentoBase detalhe(@PathVariable String categoria,@PathVariable Long id) {
+    public DocumentoDetalheResponse detalhe(@PathVariable String categoria,@PathVariable Long id) {
         return service.detail(categoria,id);
     }
     @GetMapping("/precedentes/{id}/processos")
