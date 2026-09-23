@@ -21,11 +21,14 @@ public class DocumentQueryService {
     private final TribunalRepository tribunals;
     private final PrecedenteProcessoRepository links;
     private final JurisprudenciaQueryService jurisprudence;
+    private final PrecedenteQueryService precedentSearch;
     public DocumentQueryService(DecisaoJudicialRepository decisions,PrecedenteRepository precedents,
             DocumentoDoutrinarioRepository doctrine,FonteDadosRepository sources,TribunalRepository tribunals,
-            PrecedenteProcessoRepository links,JurisprudenciaQueryService jurisprudence) {
+            PrecedenteProcessoRepository links,JurisprudenciaQueryService jurisprudence,
+            PrecedenteQueryService precedentSearch) {
         this.decisions=decisions;this.precedents=precedents;this.doctrine=doctrine;this.sources=sources;
         this.tribunals=tribunals;this.links=links;this.jurisprudence=jurisprudence;
+        this.precedentSearch=precedentSearch;
     }
     public Result list(String category,String source,String term,int page,int size) {
         return list(category,source,term,null,null,null,page,size);
@@ -40,7 +43,8 @@ public class DocumentQueryService {
         Page<? extends DocumentoBase> result=switch(category) {
             case "decisoes" -> jurisprudence.buscarPagina(
                     term,source,tribunal,dateFrom,dateTo,page,size);
-            case "precedentes" -> precedents.findAll(filter(sourceId(source),term,"questaoJuridica","tese","situacao"),paging);
+            case "precedentes" -> precedentSearch.buscarPagina(
+                    term,source,tribunal,null,null,dateFrom,dateTo,page,size);
             case "doutrina" -> doctrine.findAll(filter(sourceId(source),term,"resumo","autores","palavrasChave"),paging);
             default -> throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         };
@@ -50,12 +54,20 @@ public class DocumentQueryService {
             d instanceof DecisaoJudicial j?j.getNumeroProcesso():d instanceof Precedente p?p.getNumeroTema():null,
             d instanceof DecisaoJudicial j?j.getRelator():d instanceof DocumentoDoutrinario a?a.getAutores():null,
             d instanceof DecisaoJudicial j?j.getEmenta():d instanceof DocumentoDoutrinario a?a.getResumo():((Precedente)d).getQuestaoJuridica(),
-            d instanceof DecisaoJudicial j?j.getDecisao():null,
+            // Para o precedente, o equivalente ao dispositivo da decisão é a tese firmada.
+            d instanceof DecisaoJudicial j?j.getDecisao():d instanceof Precedente p?textoOuNulo(p.getTese()):null,
             tribunalNames.get(tribunalIdOf(d)),
             orgaoJulgadorOf(d),
             d instanceof DecisaoJudicial j?j.getDataJulgamento():d instanceof Precedente p?p.getDataJulgamento():null,
             d.getDataPublicacao(),d.getDataOriginal(),d.getUrlOriginal(),d.getIdRegistroBruto())).toList();
         return new Result(rows,page,size,result.getTotalElements(),result.getTotalPages());
+    }
+    /**
+     * Tema sem tese firmada chega como string vazia no CSV do STJ. O frontend usa
+     * {@code ??} para cair no texto padrão, que só cobre null — então normaliza aqui.
+     */
+    private String textoOuNulo(String valor) {
+        return valor==null || valor.isBlank()?null:valor;
     }
     private Long sourceId(String source) {
         if (source==null) return null;
