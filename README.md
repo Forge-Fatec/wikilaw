@@ -254,6 +254,41 @@ O backend também possui coletores isolados para TJDFT, STJ (acórdãos e preced
 
 Consulte [o guia das integrações](docs/INTEGRACOES.md) para exemplos no Swagger/PowerShell, paginação, consultas legíveis no pgAdmin e limitações de cada fonte. A BDTD está implementada e testada com XML de teste, mas a coleta real está bloqueada pela verificação de navegador do serviço; isso é registrado como falha, não como importação bem-sucedida.
 
+### Padrão das buscas de documentos
+
+A busca principal usa os endpoints `GET /api/documentos/decisoes`,
+`GET /api/documentos/precedentes` e `GET /api/documentos/doutrina`.
+Jurisprudência (`decisoes`) já utiliza a busca especializada por palavras-chave;
+precedentes e doutrina ainda devem ser migrados para o mesmo padrão estrutural.
+
+O componente compartilhado
+`forge.wikilaw.backend.service.search.SearchTermProcessor` define o contrato de
+processamento textual:
+
+- converte o termo para minúsculas;
+- separa letras e números com suporte a caracteres Unicode;
+- remove conectivos comuns em português;
+- elimina palavras repetidas preservando a ordem;
+- escapa `%`, `_` e `\` antes do uso em consultas `LIKE`.
+
+Novas buscas não devem duplicar essa lógica. O serviço especializado da
+categoria deve injetar `SearchTermProcessor`, definir seus campos pesquisáveis,
+filtros e ordenação, e expor uma consulta paginada para `DocumentQueryService`.
+O padrão esperado é:
+
+```text
+Busca de documentos
+├── DocumentQueryService
+│   ├── JurisprudenciaQueryService.buscarPagina()
+│   ├── PrecedenteQueryService.buscarPagina()
+│   └── DoutrinaQueryService.buscarPagina()
+└── SearchTermProcessor (compartilhado pelas três categorias)
+```
+
+Consulte [o guia de busca de documentos](docs/BUSCA_DOCUMENTOS.md) para os
+campos de cada categoria, limitações atuais e a sequência recomendada de
+implementação.
+
 As migrations acrescentam `decisao_judicial`, `precedente`, `precedente_processo`, `documento_doutrinario` e a visão de leitura `vw_documentos_pesquisa`. Os endpoints administrativos são para desenvolvimento local; as portas do Compose ficam publicadas apenas em `127.0.0.1`.
 
 ETL/Data Warehouse, OpenSearch, pgvector e IA permanecem fora desta entrega.

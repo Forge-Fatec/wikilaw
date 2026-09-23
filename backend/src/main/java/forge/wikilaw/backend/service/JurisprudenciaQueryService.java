@@ -6,13 +6,14 @@ import forge.wikilaw.backend.entity.DecisaoJudicial;
 import forge.wikilaw.backend.repository.DecisaoJudicialRepository;
 import forge.wikilaw.backend.repository.FonteDadosRepository;
 import forge.wikilaw.backend.repository.TribunalRepository;
+import forge.wikilaw.backend.service.search.SearchTermProcessor;
 import jakarta.persistence.criteria.Predicate;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -25,11 +26,6 @@ import org.springframework.web.server.ResponseStatusException;
 @Transactional(readOnly = true)
 public class JurisprudenciaQueryService {
 
-    private static final Set<String> PALAVRAS_IGNORADAS = Set.of(
-            "a", "o", "as", "os", "de", "da", "do", "das", "dos",
-            "e", "em", "no", "na", "nos", "nas", "por", "para", "com",
-            "sem", "um", "uma", "uns", "umas", "que");
-
     private static final String[] CAMPOS_PESQUISAVEIS = {
         "titulo", "ementa", "decisao", "numeroProcesso", "relator", "orgaoJulgador"
     };
@@ -37,14 +33,17 @@ public class JurisprudenciaQueryService {
     private final DecisaoJudicialRepository decisoes;
     private final FonteDadosRepository fontes;
     private final TribunalRepository tribunais;
+    private final SearchTermProcessor searchTerms;
 
     public JurisprudenciaQueryService(
             DecisaoJudicialRepository decisoes,
             FonteDadosRepository fontes,
-            TribunalRepository tribunais) {
+            TribunalRepository tribunais,
+            SearchTermProcessor searchTerms) {
         this.decisoes = decisoes;
         this.fontes = fontes;
         this.tribunais = tribunais;
+        this.searchTerms = searchTerms;
     }
 
     public JurisprudenciaSearchResponse buscar(
@@ -55,16 +54,8 @@ public class JurisprudenciaQueryService {
             LocalDate dataAte,
             int pagina,
             int tamanho) {
-        validarPeriodo(dataDe, dataAte);
-
-        Long idFonte = buscarIdFonte(fonte);
-        Long idTribunal = buscarIdTribunal(tribunal);
-        var ordenacao = Sort.by(
-                Sort.Order.desc("dataJulgamento").nullsLast(),
-                Sort.Order.desc("id"));
-        var resultado = decisoes.findAll(
-                filtro(termo, idFonte, idTribunal, dataDe, dataAte),
-                PageRequest.of(pagina, tamanho, ordenacao));
+        var resultado = buscarPagina(
+                termo, fonte, tribunal, dataDe, dataAte, pagina, tamanho);
 
         Map<Long, String> siglasFontes = new HashMap<>();
         fontes.findAll().forEach(item -> siglasFontes.put(item.getId(), item.getSigla()));
@@ -81,6 +72,26 @@ public class JurisprudenciaQueryService {
                 resultado.getSize(),
                 resultado.getTotalElements(),
                 resultado.getTotalPages());
+    }
+
+    Page<DecisaoJudicial> buscarPagina(
+            String termo,
+            String fonte,
+            String tribunal,
+            LocalDate dataDe,
+            LocalDate dataAte,
+            int pagina,
+            int tamanho) {
+        validarPeriodo(dataDe, dataAte);
+
+        Long idFonte = buscarIdFonte(fonte);
+        Long idTribunal = buscarIdTribunal(tribunal);
+        var ordenacao = Sort.by(
+                Sort.Order.desc("dataJulgamento").nullsLast(),
+                Sort.Order.desc("id"));
+        return decisoes.findAll(
+                filtro(termo, idFonte, idTribunal, dataDe, dataAte),
+                PageRequest.of(pagina, tamanho, ordenacao));
     }
 
     private Specification<DecisaoJudicial> filtro(
@@ -107,8 +118,8 @@ public class JurisprudenciaQueryService {
             }
             if (termo != null && !termo.isBlank()) {
                 var alternativas = new ArrayList<Predicate>();
-                for (String palavra : palavrasChave(termo)) {
-                    String padrao = "%" + escaparLike(palavra) + "%";
+                for (String palavra : searchTerms.tokenize(termo)) {
+                    String padrao = searchTerms.containsPattern(palavra);
                     for (String campo : CAMPOS_PESQUISAVEIS) {
                         alternativas.add(like(root, criteriaBuilder, campo, padrao));
                     }
@@ -126,23 +137,6 @@ public class JurisprudenciaQueryService {
             String campo,
             String padrao) {
         return criteriaBuilder.like(criteriaBuilder.lower(root.get(campo)), padrao, '\\');
-    }
-
-    private String escaparLike(String valor) {
-        return valor.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-    }
-
-    private Set<String> palavrasChave(String termo) {
-        var palavras = new java.util.LinkedHashSet<String>();
-        for (String palavra : termo.toLowerCase(Locale.ROOT).split("[^\\p{L}\\p{N}]+")) {
-            if (!palavra.isBlank() && !PALAVRAS_IGNORADAS.contains(palavra)) {
-                palavras.add(palavra);
-            }
-        }
-        if (palavras.isEmpty()) {
-            palavras.add(termo.trim().toLowerCase(Locale.ROOT));
-        }
-        return palavras;
     }
 
     private Long buscarIdFonte(String fonte) {

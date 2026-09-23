@@ -2,6 +2,7 @@ package forge.wikilaw.backend.service;
 
 import forge.wikilaw.backend.entity.*;
 import forge.wikilaw.backend.repository.*;
+import java.time.LocalDate;
 import java.util.*;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
@@ -19,24 +20,28 @@ public class DocumentQueryService {
     private final FonteDadosRepository sources;
     private final TribunalRepository tribunals;
     private final PrecedenteProcessoRepository links;
+    private final JurisprudenciaQueryService jurisprudence;
     public DocumentQueryService(DecisaoJudicialRepository decisions,PrecedenteRepository precedents,
             DocumentoDoutrinarioRepository doctrine,FonteDadosRepository sources,TribunalRepository tribunals,
-            PrecedenteProcessoRepository links) {
+            PrecedenteProcessoRepository links,JurisprudenciaQueryService jurisprudence) {
         this.decisions=decisions;this.precedents=precedents;this.doctrine=doctrine;this.sources=sources;
-        this.tribunals=tribunals;this.links=links;
+        this.tribunals=tribunals;this.links=links;this.jurisprudence=jurisprudence;
     }
     public Result list(String category,String source,String term,int page,int size) {
+        return list(category,source,term,null,null,null,page,size);
+    }
+    public Result list(String category,String source,String term,String tribunal,
+            LocalDate dateFrom,LocalDate dateTo,int page,int size) {
         Map<Long,String> sourceNames=new HashMap<>();
         sources.findAll().forEach(f -> sourceNames.put(f.getId(),f.getSigla()));
         Map<Long,String> tribunalNames=new HashMap<>();
         tribunals.findAll().forEach(t -> tribunalNames.put(t.getId(),t.getSigla()));
-        Long sourceId=source==null?null:sources.findBySigla(source.toUpperCase(Locale.ROOT))
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,"Fonte desconhecida")).getId();
         Pageable paging=PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"id"));
         Page<? extends DocumentoBase> result=switch(category) {
-            case "decisoes" -> decisions.findAll(filter(sourceId,term,"ementa","decisao","relator","numeroProcesso"),paging);
-            case "precedentes" -> precedents.findAll(filter(sourceId,term,"questaoJuridica","tese","situacao"),paging);
-            case "doutrina" -> doctrine.findAll(filter(sourceId,term,"resumo","autores","palavrasChave"),paging);
+            case "decisoes" -> jurisprudence.buscarPagina(
+                    term,source,tribunal,dateFrom,dateTo,page,size);
+            case "precedentes" -> precedents.findAll(filter(sourceId(source),term,"questaoJuridica","tese","situacao"),paging);
+            case "doutrina" -> doctrine.findAll(filter(sourceId(source),term,"resumo","autores","palavrasChave"),paging);
             default -> throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         };
         var rows=result.getContent().stream().map(d -> new Summary(d.getId(),sourceNames.get(d.getIdFonte()),category,
@@ -51,6 +56,11 @@ public class DocumentQueryService {
             d instanceof DecisaoJudicial j?j.getDataJulgamento():d instanceof Precedente p?p.getDataJulgamento():null,
             d.getDataPublicacao(),d.getDataOriginal(),d.getUrlOriginal(),d.getIdRegistroBruto())).toList();
         return new Result(rows,page,size,result.getTotalElements(),result.getTotalPages());
+    }
+    private Long sourceId(String source) {
+        if (source==null) return null;
+        return sources.findBySigla(source.toUpperCase(Locale.ROOT))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,"Fonte desconhecida")).getId();
     }
     public DocumentoBase detail(String category,Long id) {
         Optional<? extends DocumentoBase> d=switch(category) {
