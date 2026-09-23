@@ -4,9 +4,13 @@ import forge.wikilaw.backend.entity.DocumentoBase;
 import forge.wikilaw.backend.entity.PrecedenteProcesso;
 import forge.wikilaw.backend.service.DocumentQueryService;
 import jakarta.validation.constraints.*;
+import java.time.LocalDate;
 import java.util.List;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+@Validated
 @RestController
 @RequestMapping("/api/documentos")
 public class DocumentQueryController {
@@ -15,9 +19,12 @@ public class DocumentQueryController {
     @GetMapping("/{categoria}")
     public DocumentQueryService.Result listar(@PathVariable String categoria,
             @RequestParam(required=false) String fonte,@RequestParam(required=false) @Size(max=300) String termo,
+            @RequestParam(required=false) @Size(max=20) String tribunal,
+            @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate dataDe,
+            @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate dataAte,
             @RequestParam(defaultValue="0") @Min(0) @Max(100000) int pagina,
             @RequestParam(defaultValue="20") @Min(1) @Max(100) int tamanho) {
-        return service.list(categoria,fonte,termo,pagina,tamanho);
+        return service.list(categoria,fonte,termo,tribunal,dataDe,dataAte,pagina,tamanho);
     }
     @GetMapping("/{categoria}/{id}")
     public DocumentoBase detalhe(@PathVariable String categoria,@PathVariable Long id) {

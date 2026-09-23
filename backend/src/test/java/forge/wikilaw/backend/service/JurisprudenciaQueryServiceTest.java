@@ -127,6 +127,36 @@ class JurisprudenciaQueryServiceTest {
     }
 
     @Test
+    void endpointGenericoUsaBuscaEspecializadaDeJurisprudencia() throws Exception {
+        salvarDecisao(
+                "decisao-generica",
+                "Responsabilidade do fornecedor",
+                "A negativação foi considerada indevida.",
+                LocalDate.of(2025, 6, 1));
+
+        mockMvc.perform(get("/api/documentos/decisoes")
+                        .param("termo", "tributário inexistente consumidor negativação")
+                        .param("fonte", "tjdft")
+                        .param("tribunal", "tjdft")
+                        .param("dataDe", "2025-01-01")
+                        .param("dataAte", "2025-12-31")
+                        .param("tamanho", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.itens[0].titulo")
+                        .value("Responsabilidade do fornecedor"))
+                .andExpect(jsonPath("$.itens[0].tribunal").value("TJDFT"));
+    }
+
+    @Test
+    void endpointGenericoRejeitaPeriodoInvertido() throws Exception {
+        mockMvc.perform(get("/api/documentos/decisoes")
+                        .param("dataDe", "2025-12-31")
+                        .param("dataAte", "2025-01-01"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void ignoraDecisaoInativa() {
         salvarDecisao(
                 "decisao-inativa",

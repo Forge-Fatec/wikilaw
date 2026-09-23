@@ -159,6 +159,9 @@ GET /api/documentos/doutrina?fonte=BDJUR&termo=direito
 ```
 
 Retornam título, autores/relator, resumo/ementa, datas e link, sem exigir leitura do JSON bruto.
+Para `decisoes`, a busca usa a mesma lógica especializada de jurisprudência:
+separa o termo em palavras-chave, ignora conectivos comuns e também aceita os
+filtros opcionais `tribunal`, `dataDe` e `dataAte`.
 
 Detalhes e processos vinculados:
 
