@@ -1,6 +1,7 @@
 package forge.wikilaw.backend.service;
 
 import forge.wikilaw.backend.dto.DocumentoDetalheResponse;
+import forge.wikilaw.backend.dto.PrecedenteProcessoResponse;
 import forge.wikilaw.backend.entity.*;
 import forge.wikilaw.backend.repository.*;
 import java.time.LocalDate;
@@ -151,9 +152,22 @@ public class DocumentQueryService {
         if (idTribunal==null) return null;
         return tribunals.findById(idTribunal).map(Tribunal::getSigla).orElse(null);
     }
-    public List<PrecedenteProcesso> related(Long id) {
+    public List<PrecedenteProcessoResponse> related(Long id) {
         buscarAtivo("precedentes",id);
-        return links.findByIdPrecedenteOrderByNumeroRegistro(id);
+        return links.findByIdPrecedenteOrderByNumeroRegistro(id).stream()
+            .map(l -> new PrecedenteProcessoResponse(l.getNumeroRegistro(),
+                textoOuNulo(l.getDescricao()),textoOuNulo(l.getRelator()),
+                leadingCase(l.getLeadingCase())))
+            .toList();
+    }
+    /** O CSV do STJ codifica leading case como "S"/"N". */
+    private Boolean leadingCase(String valor) {
+        if (valor==null) return null;
+        return switch(valor.trim().toUpperCase(Locale.ROOT)) {
+            case "S" -> Boolean.TRUE;
+            case "N" -> Boolean.FALSE;
+            default -> null;
+        };
     }
     /**
      * Doutrina não tem tribunal (não é vinculada a um órgão julgador).

@@ -14,6 +14,7 @@ import forge.wikilaw.backend.repository.RegistroBrutoRepository;
 import forge.wikilaw.backend.repository.TribunalRepository;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -281,6 +282,41 @@ class DocumentQueryServiceTest {
                 .andExpect(jsonPath("$.doi").value("10.1234/rdt.2025.42"))
                 // Doutrina não tem tribunal.
                 .andExpect(jsonPath("$.tribunal").doesNotExist());
+    }
+
+    @Test
+    void processosVinculadosNaoExpoemChavesInternas() throws Exception {
+        tribunal("STJ");
+        var registro = registro("STJ");
+        var id = processor.process(DocumentSource.STJ_PRECEDENTES,
+                registro.getFonte().getId(), registro.getId(),
+                NormalizedDocument.builder()
+                        .identificador("tema-9")
+                        .titulo("Repetitivo 9")
+                        .tipo("Recurso Repetitivo")
+                        .numeroTema("9")
+                        .resumo("Questao submetida.")
+                        .processosRelacionados(List.of(
+                                new NormalizedDocument.RelatedProcess(
+                                        "201602784986", "REsp 1633613", "", "N", registro.getId()),
+                                new NormalizedDocument.RelatedProcess(
+                                        "201602785239", "REsp 1633614", "Ministro Exemplo", "S",
+                                        registro.getId())))
+                        .metadados("{}")
+                        .build());
+
+        mockMvc.perform(get("/api/documentos/precedentes/" + id + "/processos"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].numeroRegistro").value("201602784986"))
+                .andExpect(jsonPath("$[0].descricao").value("REsp 1633613"))
+                // "N"/"S" da fonte viram booleano; relator vazio vira nulo.
+                .andExpect(jsonPath("$[0].leadingCase").value(false))
+                .andExpect(jsonPath("$[0].relator").doesNotExist())
+                .andExpect(jsonPath("$[1].leadingCase").value(true))
+                .andExpect(jsonPath("$[1].relator").value("Ministro Exemplo"))
+                .andExpect(jsonPath("$[0].id").doesNotExist())
+                .andExpect(jsonPath("$[0].idPrecedente").doesNotExist())
+                .andExpect(jsonPath("$[0].idRegistroBruto").doesNotExist());
     }
 
     @Test
