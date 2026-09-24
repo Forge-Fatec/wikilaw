@@ -220,6 +220,21 @@ class JurisprudenciaQueryServiceTest {
                         .value("Recurso parcialmente provido."));
     }
 
+    @Test
+    void endpointDedicadoEntregaOsMesmosCamposDeExibicaoDoGenerico() throws Exception {
+        salvarDecisao(
+                "decisao-paridade",
+                "Dano moral por negativação indevida",
+                "Consumidor inscrito indevidamente.",
+                LocalDate.of(2025, 3, 15));
+
+        mockMvc.perform(get("/api/jurisprudencias").param("tamanho", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.itens[0].identificadorExterno").value("decisao-paridade"))
+                .andExpect(jsonPath("$.itens[0].tipoDecisao").value("Acórdão"))
+                .andExpect(jsonPath("$.itens[0].possuiInteiroTeor").value(false));
+    }
+
     private void salvarDecisao(
             String identificador,
             String titulo,

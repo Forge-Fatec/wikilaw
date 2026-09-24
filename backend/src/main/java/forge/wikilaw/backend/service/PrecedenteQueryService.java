@@ -160,6 +160,11 @@ public class PrecedenteQueryService {
         };
     }
 
+    /** Texto em branco vira nulo para a tela cair no rótulo padrão em vez de exibir vazio. */
+    private String textoOuNulo(String valor) {
+        return valor == null || valor.isBlank() ? null : valor;
+    }
+
     /** Tipo e situacao aceitam parte do valor da fonte ("repetitivo", "transito"). */
     private String padraoDeFiltro(String valor) {
         return searchTerms.containsPattern(valor.trim().toLowerCase(Locale.ROOT));
@@ -207,14 +212,17 @@ public class PrecedenteQueryService {
                 precedente.getId(),
                 siglasFontes.get(precedente.getIdFonte()),
                 siglasTribunais.get(precedente.getIdTribunal()),
+                precedente.getIdentificadorExterno(),
                 precedente.getNumeroTema(),
                 precedente.getTipoPrecedente(),
                 precedente.getTitulo(),
                 precedente.getQuestaoJuridica(),
-                precedente.getTese(),
-                precedente.getSituacao(),
+                // Controvérsia ainda não julgada chega com tese vazia no CSV do STJ.
+                textoOuNulo(precedente.getTese()),
+                textoOuNulo(precedente.getSituacao()),
                 precedente.getDataJulgamento(),
                 precedente.getDataPublicacao(),
+                precedente.getDataOriginal(),
                 precedente.getUrlOriginal());
     }
 }

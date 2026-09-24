@@ -173,14 +173,18 @@ public class JurisprudenciaQueryService {
                 decisao.getId(),
                 siglasFontes.get(decisao.getIdFonte()),
                 siglasTribunais.get(decisao.getIdTribunal()),
+                decisao.getIdentificadorExterno(),
                 decisao.getNumeroProcesso(),
+                decisao.getTipoDecisao(),
                 decisao.getTitulo(),
                 decisao.getEmenta(),
                 decisao.getDecisao(),
                 decisao.getRelator(),
                 decisao.getOrgaoJulgador(),
+                decisao.isPossuiInteiroTeor(),
                 decisao.getDataJulgamento(),
                 decisao.getDataPublicacao(),
+                decisao.getDataOriginal(),
                 decisao.getUrlOriginal());
     }
 }

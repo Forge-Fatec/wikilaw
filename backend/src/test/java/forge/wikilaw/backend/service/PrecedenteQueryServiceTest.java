@@ -314,6 +314,18 @@ class PrecedenteQueryServiceTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void endpointDedicadoEntregaIdentificadorENormalizaTeseVazia() throws Exception {
+        salvarPrecedente(
+                "controversia-7", "Controversia 7", "Controversia", "7",
+                "Questao ainda submetida.", "", "Vinculada a Tema", LocalDate.of(2025, 4, 1));
+
+        mockMvc.perform(get("/api/precedentes").param("tamanho", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.itens[0].identificadorExterno").value("controversia-7"))
+                .andExpect(jsonPath("$.itens[0].tese").doesNotExist());
+    }
+
     private void salvarPrecedente(
             String identificador,
             String titulo,

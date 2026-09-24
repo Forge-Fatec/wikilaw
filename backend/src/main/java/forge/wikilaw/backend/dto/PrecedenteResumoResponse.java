@@ -13,6 +13,7 @@ public record PrecedenteResumoResponse(
         Long id,
         String fonte,
         String tribunal,
+        String identificadorExterno,
         String numeroTema,
         String tipoPrecedente,
         String titulo,
@@ -21,5 +22,6 @@ public record PrecedenteResumoResponse(
         String situacao,
         LocalDate dataJulgamento,
         LocalDate dataPublicacao,
+        String dataOriginal,
         String urlOriginal) {
 }
