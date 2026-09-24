@@ -8,6 +8,7 @@
 | TJDFT | POST na API JurisDF | Decisões, ementas, relatores, órgão, datas e inteiro teor **somente quando efetivamente recebido** |
 | STJ | CKAN + recurso JSON de espelhos de acórdãos | Acórdãos, ementas, relator, órgão, datas e texto da decisão |
 | STJ_PRECEDENTES | CKAN + Temas.csv e Processos.csv | Tipo/número do precedente, questão, tese, situação e processos relacionados |
+| PANGEA | Parâmetros + pesquisa pública Pangea/BNP | Tribunal, espécie/número, questão, tese, situação e link ([guia](PANGEA.md)) |
 | BDJUR | DSpace REST/Discovery | Título, autores, resumo/descrição, tipo, assuntos, data e link |
 | BDTD | OAI-PMH, ListRecords/oai_dc | Títulos, autores, resumos, assuntos, datas e links, quando o servidor permitir a coleta |
 | SCIELO | ArticleMeta | Artigos, autores, resumos, revista/ISSN, palavras-chave, idioma e DOI quando recebido |
@@ -79,7 +80,7 @@ Endpoint:
 POST /api/integrations/documentos/{fonte}/import
 ```
 
-Fontes: `TJDFT`, `STJ`, `STJ_PRECEDENTES`, `BDJUR`, `BDTD`, `SCIELO` (maiúsculas).
+Fontes: `TJDFT`, `STJ`, `STJ_PRECEDENTES`, `BDJUR`, `BDTD`, `SCIELO`, `PANGEA` (maiúsculas).
 
 Cada chamada importa **uma página limitada**: padrão 10 itens, máximo 100. O resumo retorna `idCarga`, `status`, `recebidos`, `processados`, `erros`, `mensagemErro`, `ids`, `avisos` e `proxima`. HTTP 200 significa que a execução foi registrada; verifique o `status` da carga para saber se a fonte foi importada. Parâmetros inválidos/não suportados retornam HTTP 400.
 

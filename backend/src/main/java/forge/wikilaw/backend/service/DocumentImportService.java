@@ -99,7 +99,7 @@ public class DocumentImportService {
         return s.substring(0,Math.min(s.length(),500));
     }
     private void validate(DocumentSource s,DocumentImportRequest r) {
-        boolean search=s==DocumentSource.BDJUR || s==DocumentSource.TJDFT || s==DocumentSource.BDTD;
+        boolean search=s==DocumentSource.BDJUR || s==DocumentSource.TJDFT || s==DocumentSource.BDTD || s==DocumentSource.PANGEA;
         boolean offset=s==DocumentSource.STJ || s==DocumentSource.STJ_PRECEDENTES || s==DocumentSource.SCIELO || s==DocumentSource.BDTD;
         if ((!search && r.termo()!=null) || (offset && r.pagina()!=null) || (!offset && r.offset()!=null)
                 || (s!=DocumentSource.STJ && r.dataset()!=null)
