@@ -72,6 +72,21 @@ As novas fontes públicas não exigiram chave nas consultas realizadas. DataJud 
 
 As portas do Compose são publicadas apenas em `127.0.0.1`. Os endpoints de importação são administrativos de desenvolvimento, ainda sem autenticação/autorização de produção. Não exponha o backend por proxy/túnel público sem controles de acesso e rate limiting.
 
+No ambiente Docker, uma carga do TJDFT é executada sempre que o backend sobe. Por
+padrão são solicitadas 3 páginas de 20 resultados para o termo `dano moral`. As
+decisões são atualizadas pela chave externa, sem duplicá-las. A carga não impede o
+backend de permanecer disponível em caso de falha externa. Ela pode ser ajustada ou
+desativada pelas variáveis:
+
+- `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_ENABLED`;
+- `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_TERMO`;
+- `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_PAGINAS`;
+- `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_TAMANHO_PAGINA`;
+- `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_SOMENTE_SE_VAZIO`.
+
+Defina `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_SOMENTE_SE_VAZIO=true` para executar a
+carga somente enquanto não houver decisões ativas do TJDFT.
+
 ## Importar uma página
 
 Endpoint:
@@ -123,6 +138,18 @@ Não alterar o termo/tamanho/ISSN/dataset no meio da paginação. As coletas sã
 
 ## Ler os dados
 
+Busca específica e paginada de jurisprudência:
+
+```text
+GET /api/jurisprudencias?termo=dano%20moral&tribunal=TJDFT&dataDe=2025-01-01&dataAte=2025-12-31&pagina=0&tamanho=20
+```
+
+Os filtros `termo`, `fonte`, `tribunal`, `dataDe` e `dataAte` são opcionais. A frase
+é separada em palavras-chave e uma decisão é retornada quando qualquer palavra
+relevante aparece, sem diferenciar maiúsculas de minúsculas, no título, ementa,
+número do processo, relator ou órgão julgador. Conectivos comuns em português são
+ignorados. Somente decisões ativas são retornadas.
+
 Endpoints paginados (página zero, tamanho até 100):
 
 ```text
@@ -133,6 +160,9 @@ GET /api/documentos/doutrina?fonte=BDJUR&termo=direito
 ```
 
 Retornam título, autores/relator, resumo/ementa, datas e link, sem exigir leitura do JSON bruto.
+Para `decisoes`, a busca usa a mesma lógica especializada de jurisprudência:
+separa o termo em palavras-chave, ignora conectivos comuns e também aceita os
+filtros opcionais `tribunal`, `dataDe` e `dataAte`.
 
 Detalhes e processos vinculados:
 

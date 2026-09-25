@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface DecisaoJudicialRepository extends JpaRepository<DecisaoJudicial, Long>, JpaSpecificationExecutor<DecisaoJudicial> {
     Optional<DecisaoJudicial> findByIdFonteAndIdentificadorExterno(Long fonte, String identificador);
+    long countByIdFonteAndAtivoTrue(Long fonte);
 }

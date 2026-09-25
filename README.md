@@ -10,31 +10,31 @@ The platform will also include an **analysis dashboard**, providing a structured
 
 ## Features
 
-* Case law research;
-* Legal precedent research;
-* Legal doctrine research;
-* Artificial Intelligence-powered analysis of search results;
-* Assistance in interpreting and analyzing retrieved information;
-* Dashboard for legal data analysis and visualization.
+- Case law research;
+- Legal precedent research;
+- Legal doctrine research;
+- Artificial Intelligence-powered analysis of search results;
+- Assistance in interpreting and analyzing retrieved information;
+- Dashboard for legal data analysis and visualization.
 
 ## Technologies
 
 ### Backend
 
-* Java
-* Spring Boot
-* PostgreSQL
+- Java
+- Spring Boot
+- PostgreSQL
 
 ### Frontend
 
-* React
-* TypeScript
-* Vite
+- React
+- TypeScript
+- Vite
 
 ### Infrastructure
 
-* Docker
-* Docker Compose
+- Docker
+- Docker Compose
 
 ## How to Run
 
@@ -42,8 +42,11 @@ The platform will also include an **analysis dashboard**, providing a structured
 
 Before running the project, make sure you have installed:
 
-* Docker
-* Docker Compose
+- Docker
+- Docker Compose
+
+The backend targets Java 25.
+the application build, tests, and SonarQube analysis use Docker images with JDK 25.
 
 ### Starting the Services
 
@@ -69,6 +72,35 @@ After the containers have started:
 | ---------- | ----------------------- |
 | Frontend   | `http://localhost:3000` |
 | Backend    | `http://localhost:8080` |
+| PostgreSQL | `localhost:5432`        |
+| SonarQube  | `http://localhost:9000` |
+
+### Code Analysis with SonarQube
+
+The backend is configured with SonarScanner for Maven and JaCoCo. The scanner
+runs the tests, generates the XML coverage report, and sends the analysis to the
+local SonarQube instance.
+
+Create the local environment file and add the project token:
+
+```bash
+cp .env.example .env
+```
+
+```dotenv
+SONAR_TOKEN=your_project_token
+```
+
+The `.env` file is ignored by Git. You can also omit the file and export
+`SONAR_TOKEN` directly in the shell environment. Run the analysis with:
+
+```bash
+./sonar-analysis.sh
+```
+
+The script starts the local SonarQube dependency when necessary and runs Maven,
+the tests, JaCoCo, and SonarScanner in a JDK 25 container. The dashboard remains
+available at `http://localhost:9000`.
 | PostgreSQL | `localhost:5433`        |
 
 ### Stopping the Services
@@ -223,6 +255,41 @@ Também está disponível a [integração Pangea/BNP](docs/PANGEA.md), com pesqu
 O backend também possui coletores isolados para TJDFT, STJ (acórdãos e precedentes), BDJur, BDTD/OAI-PMH e SciELO/ArticleMeta. Eles reutilizam as cargas e os registros brutos, sem alterar o contrato do DataJud.
 
 Consulte [o guia das integrações](docs/INTEGRACOES.md) para exemplos no Swagger/PowerShell, paginação, consultas legíveis no pgAdmin e limitações de cada fonte. A BDTD está implementada e testada com XML de teste, mas a coleta real está bloqueada pela verificação de navegador do serviço; isso é registrado como falha, não como importação bem-sucedida.
+
+### Padrão das buscas de documentos
+
+A busca principal usa os endpoints `GET /api/documentos/decisoes`,
+`GET /api/documentos/precedentes` e `GET /api/documentos/doutrina`.
+Jurisprudência (`decisoes`) já utiliza a busca especializada por palavras-chave;
+precedentes e doutrina ainda devem ser migrados para o mesmo padrão estrutural.
+
+O componente compartilhado
+`forge.wikilaw.backend.service.search.SearchTermProcessor` define o contrato de
+processamento textual:
+
+- converte o termo para minúsculas;
+- separa letras e números com suporte a caracteres Unicode;
+- remove conectivos comuns em português;
+- elimina palavras repetidas preservando a ordem;
+- escapa `%`, `_` e `\` antes do uso em consultas `LIKE`.
+
+Novas buscas não devem duplicar essa lógica. O serviço especializado da
+categoria deve injetar `SearchTermProcessor`, definir seus campos pesquisáveis,
+filtros e ordenação, e expor uma consulta paginada para `DocumentQueryService`.
+O padrão esperado é:
+
+```text
+Busca de documentos
+├── DocumentQueryService
+│   ├── JurisprudenciaQueryService.buscarPagina()
+│   ├── PrecedenteQueryService.buscarPagina()
+│   └── DoutrinaQueryService.buscarPagina()
+└── SearchTermProcessor (compartilhado pelas três categorias)
+```
+
+Consulte [o guia de busca de documentos](docs/BUSCA_DOCUMENTOS.md) para os
+campos de cada categoria, limitações atuais e a sequência recomendada de
+implementação.
 
 As migrations acrescentam `decisao_judicial`, `precedente`, `precedente_processo`, `documento_doutrinario` e a visão de leitura `vw_documentos_pesquisa`. Os endpoints administrativos são para desenvolvimento local; as portas do Compose ficam publicadas apenas em `127.0.0.1`.
 
