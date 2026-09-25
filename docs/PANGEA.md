@@ -4,7 +4,7 @@ Adicionada em 17/09/2026. Usa a pesquisa pública do [Pangea/BNP](https://pangea
 
 ## Importar e consultar
 
-Após iniciar o backend (Flyway aplica V6 automaticamente):
+Após iniciar o backend (Flyway aplica V7 automaticamente):
 
 ```powershell
 Invoke-RestMethod 'http://localhost:8080/api/integrations/documentos/PANGEA/import' -Method Post -ContentType 'application/json' -Body '{"termo":"direito","pagina":0,"tamanhoPagina":3}'
