@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import './index.css'
 
 type DocType = 'jurisprudencia' | 'precedente' | 'doutrina'
+type Ordenacao = 'mais-recentes' | 'mais-antigos'
 
 const CATEGORIA_POR_TIPO: Record<DocType, string> = {
   jurisprudencia: 'decisoes',
@@ -135,6 +136,7 @@ function App() {
   const [tribunal, setTribunal] = useState('Todos os tribunais')
   const [dataDe, setDataDe] = useState('')
   const [dataAte, setDataAte] = useState('')
+  const [ordenacao, setOrdenacao] = useState<Ordenacao>('mais-recentes')
 
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [carregando, setCarregando] = useState(true)
@@ -212,7 +214,7 @@ function App() {
   }, [documentos])
 
   const resultados = useMemo(() => {
-    return documentos.filter((doc) => {
+    const filtrados = documentos.filter((doc) => {
       if (!filtros[doc.type]) return false
 
       if (tribunal !== 'Todos os tribunais' && doc.tribunal !== tribunal) {
@@ -227,7 +229,24 @@ function App() {
 
       return true
     })
-  }, [documentos, filtros, tribunal, dataDe, dataAte])
+
+    return filtrados.sort((a, b) => {
+      const dataA = a.dataPublicacao
+        ? new Date(a.dataPublicacao).getTime()
+        : NaN
+      const dataB = b.dataPublicacao
+        ? new Date(b.dataPublicacao).getTime()
+        : NaN
+      const aSemData = Number.isNaN(dataA)
+      const bSemData = Number.isNaN(dataB)
+
+      if (aSemData || bSemData) {
+        return Number(aSemData) - Number(bSemData)
+      }
+
+      return ordenacao === 'mais-recentes' ? dataB - dataA : dataA - dataB
+    })
+  }, [documentos, filtros, tribunal, dataDe, dataAte, ordenacao])
 
   const totalPaginas = Math.max(
     1,
@@ -411,15 +430,39 @@ function App() {
 
         <main>
           <div className="results-header">
-            <div>
+            <div className="results-summary">
               <h2>Resultados da pesquisa</h2>
-              <span>
+              <span className="results-count">
                 {carregando
                   ? 'Buscando...'
                   : `${resultados.length} documentos encontrados · Página ${paginaExibida} de ${totalPaginas}`}
               </span>
             </div>
-            <span>📄</span>
+            <div className="sort-control" role="group" aria-label="Ordenar resultados por data de publicação">
+              <span className="sort-label">ORDENAR POR DATA</span>
+              <div className="sort-options">
+                <button
+                  type="button"
+                  aria-pressed={ordenacao === 'mais-recentes'}
+                  onClick={() => {
+                    setOrdenacao('mais-recentes')
+                    voltarParaPrimeiraPagina()
+                  }}
+                >
+                  Mais recentes
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={ordenacao === 'mais-antigos'}
+                  onClick={() => {
+                    setOrdenacao('mais-antigos')
+                    voltarParaPrimeiraPagina()
+                  }}
+                >
+                  Mais antigos
+                </button>
+              </div>
+            </div>
           </div>
 
           {erro && <div className="empty">{erro}</div>}
