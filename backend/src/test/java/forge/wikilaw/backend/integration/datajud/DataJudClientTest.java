@@ -27,7 +27,7 @@ class DataJudClientTest {
     @Test
     void returnsRawBodyAndSendsRequiredHeaders() throws Exception {
         AtomicReference<String> authorization = new AtomicReference<>();
-        server = HttpServer.create(new InetSocketAddress(0), 0);
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/api_publica_tjsp/_search", exchange -> {
             authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
             byte[] body = "{\"hits\":{\"hits\":[]}}".getBytes(StandardCharsets.UTF_8);
@@ -46,7 +46,7 @@ class DataJudClientTest {
 
     @Test
     void reportsHttpErrorWithoutRetryingClientErrors() throws Exception {
-        server = HttpServer.create(new InetSocketAddress(0), 0);
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/api_publica_tjsp/_search", exchange -> {
             byte[] body = "bad request".getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(400, body.length);
@@ -65,7 +65,7 @@ class DataJudClientTest {
 
     private DataJudClient clientForServer() {
         DataJudProperties properties = new DataJudProperties();
-        properties.setBaseUrl("http://localhost:" + server.getAddress().getPort());
+        properties.setBaseUrl("http://127.0.0.1:" + server.getAddress().getPort());
         properties.setApiKey("public-test-key");
         properties.setConnectTimeout(Duration.ofSeconds(1));
         properties.setReadTimeout(Duration.ofSeconds(2));
