@@ -352,7 +352,7 @@ function App() {
               placeholder="Ex.: dano moral por negativação indevida do nome do consumidor..."
             />
             <button type="submit" disabled={carregando}>
-              {carregando ? 'BUSCANDO...' : '🔍 PESQUISAR'}
+              {carregando ? 'BUSCANDO...' : 'PESQUISAR'}
             </button>
           </div>
           {erroValidacao && (
