@@ -2,6 +2,8 @@ package forge.wikilaw.backend.integration.stj;
 
 import forge.wikilaw.backend.integration.documents.*;
 import static forge.wikilaw.backend.integration.documents.DocumentFields.*;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.*;
 
@@ -36,6 +38,19 @@ public class StjAdapter implements DocumentAdapter {
             .numeroProcesso(value(n,"numeroProcesso")).relator(value(n,"ministroRelator"))
             .orgaoJulgador(value(n,"nomeOrgaoJulgador")).dataJulgamento(date(value(n,"dataDecisao")))
             .dataPublicacao(pubDate).dataOriginal(pub)
-            .url(value(n,"_wikilaw_url")).metadados(json.writeValueAsString(n)).build();
+            .url(publicDecisionUrl(value(n,"siglaClasse"), value(n,"numeroProcesso")))
+            .metadados(json.writeValueAsString(n)).build();
+    }
+
+    private String publicDecisionUrl(String courtClass, String number) {
+        if (courtClass != null && !courtClass.isBlank() && number != null && !number.isBlank()) {
+            String numberDigits = number.replaceAll("\\D+", "");
+            if (numberDigits.isBlank()) return "https://scon.stj.jus.br/SCON/jurisprudencia/";
+            String query = "(" + courtClass.trim().toUpperCase(java.util.Locale.ROOT)
+                + " INPATH(CLAS) AND " + numberDigits + " INPATH(NUM))";
+            return "https://scon.stj.jus.br/SCON/jurisprudencia/toc.jsp?livre="
+                + URLEncoder.encode(query, StandardCharsets.UTF_8);
+        }
+        return "https://scon.stj.jus.br/SCON/jurisprudencia/";
     }
 }

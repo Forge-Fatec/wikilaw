@@ -17,6 +17,8 @@ const BADGE_POR_TIPO: Record<DocType, string> = {
 }
 
 const ITENS_POR_PAGINA = 10
+const ITENS_POR_PAGINA_API = 100
+const TODAS_AS_FONTES = 'Todas as fontes'
 
 // Ajuste aqui se o back rodar em outra porta/host.
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
@@ -71,10 +73,14 @@ interface Documento {
   urlOriginal: string | null
 }
 
-function formatarData(dataPublicacao: string | null): string {
-  if (!dataPublicacao) return 'Data não informada'
-  const d = new Date(dataPublicacao)
-  if (Number.isNaN(d.getTime())) return dataPublicacao
+function dataDoDocumento(documento: Documento): string | null {
+  return documento.dataPublicacao ?? documento.dataJulgamento
+}
+
+function formatarData(data: string | null): string {
+  if (!data) return 'Data não informada'
+  const d = new Date(data)
+  if (Number.isNaN(d.getTime())) return data
   return d.toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: 'long',
@@ -87,7 +93,7 @@ function toDocumento(tipo: DocType, item: ApiSummary): Documento {
     id: item.id,
     type: tipo,
     badge: BADGE_POR_TIPO[tipo],
-    fonte: item.fonte,
+    fonte: item.fonte ?? 'Fonte não informada',
     title: item.titulo,
     tipoDocumento: item.tipoDocumento,
     numeroProcessoOuTema: item.numeroProcessoOuTema,
@@ -103,26 +109,55 @@ function toDocumento(tipo: DocType, item: ApiSummary): Documento {
   }
 }
 
-async function carregarDocumentos(termo: string): Promise<Documento[]> {
-  const termoParam = termo.trim()
-    ? `&termo=${encodeURIComponent(termo.trim())}`
-    : ''
+async function carregarPagina(
+  tipo: DocType,
+  termo: string,
+  pagina: number,
+): Promise<ApiResult> {
+  const categoria = CATEGORIA_POR_TIPO[tipo]
+  const params = new URLSearchParams({
+    pagina: String(pagina),
+    tamanho: String(ITENS_POR_PAGINA_API),
+  })
+  if (termo.trim()) params.set('termo', termo.trim())
 
-  const respostas = await Promise.all(
-    (Object.keys(CATEGORIA_POR_TIPO) as DocType[]).map(async (tipo) => {
-      const categoria = CATEGORIA_POR_TIPO[tipo]
-      const res = await fetch(
-        `${API_BASE}/api/documentos/${categoria}?tamanho=50${termoParam}`,
-      )
-      if (!res.ok) {
-        throw new Error(`Erro ao buscar ${categoria} (status ${res.status})`)
-      }
-      const data: ApiResult = await res.json()
-      return data.itens.map((item) => toDocumento(tipo, item))
-    }),
+  const res = await fetch(`${API_BASE}/api/documentos/${categoria}?${params}`)
+  if (!res.ok) {
+    throw new Error(`Erro ao buscar ${categoria} (status ${res.status})`)
+  }
+  return res.json()
+}
+
+async function carregarCategoria(
+  tipo: DocType,
+  termo: string,
+): Promise<Documento[]> {
+  const primeira = await carregarPagina(tipo, termo, 0)
+  const documentos = primeira.itens.map((item) => toDocumento(tipo, item))
+
+  for (let pagina = 1; pagina < primeira.totalPaginas; pagina += 1) {
+    const data = await carregarPagina(tipo, termo, pagina)
+    documentos.push(...data.itens.map((item) => toDocumento(tipo, item)))
+  }
+
+  return documentos
+}
+
+async function carregarDocumentos(termo: string): Promise<Documento[]> {
+  const respostas = await Promise.allSettled(
+    (Object.keys(CATEGORIA_POR_TIPO) as DocType[]).map((tipo) =>
+      carregarCategoria(tipo, termo),
+    ),
   )
 
-  return respostas.flat()
+  const documentos = respostas.flatMap((resposta) =>
+    resposta.status === 'fulfilled' ? resposta.value : [],
+  )
+  if (!documentos.length && respostas.some((resposta) => resposta.status === 'rejected')) {
+    throw new Error('Nenhuma categoria pôde ser carregada')
+  }
+
+  return documentos
 }
 
 function App() {
@@ -134,6 +169,7 @@ function App() {
     doutrina: true,
   })
   const [tribunal, setTribunal] = useState('Todos os tribunais')
+  const [fonte, setFonte] = useState(TODAS_AS_FONTES)
   const [dataDe, setDataDe] = useState('')
   const [dataAte, setDataAte] = useState('')
   const [ordenacao, setOrdenacao] = useState<Ordenacao>('mais-recentes')
@@ -213,16 +249,26 @@ function App() {
     return Array.from(siglas).sort()
   }, [documentos])
 
+  const fontesDisponiveis = useMemo(() => {
+    const siglas = new Set(documentos.map((d) => d.fonte).filter(Boolean))
+    return Array.from(siglas).sort()
+  }, [documentos])
+
   const resultados = useMemo(() => {
     const filtrados = documentos.filter((doc) => {
       if (!filtros[doc.type]) return false
+
+      if (fonte !== TODAS_AS_FONTES && doc.fonte !== fonte) {
+        return false
+      }
 
       if (tribunal !== 'Todos os tribunais' && doc.tribunal !== tribunal) {
         return false
       }
 
-      if ((dataDe || dataAte) && doc.dataPublicacao) {
-        const docDate = new Date(doc.dataPublicacao)
+      const dataReferencia = dataDoDocumento(doc)
+      if ((dataDe || dataAte) && dataReferencia) {
+        const docDate = new Date(dataReferencia)
         if (dataDe && docDate < new Date(dataDe)) return false
         if (dataAte && docDate > new Date(dataAte)) return false
       }
@@ -231,12 +277,10 @@ function App() {
     })
 
     return filtrados.sort((a, b) => {
-      const dataA = a.dataPublicacao
-        ? new Date(a.dataPublicacao).getTime()
-        : NaN
-      const dataB = b.dataPublicacao
-        ? new Date(b.dataPublicacao).getTime()
-        : NaN
+      const dataAValor = dataDoDocumento(a)
+      const dataBValor = dataDoDocumento(b)
+      const dataA = dataAValor ? new Date(dataAValor).getTime() : NaN
+      const dataB = dataBValor ? new Date(dataBValor).getTime() : NaN
       const aSemData = Number.isNaN(dataA)
       const bSemData = Number.isNaN(dataB)
 
@@ -246,7 +290,7 @@ function App() {
 
       return ordenacao === 'mais-recentes' ? dataB - dataA : dataA - dataB
     })
-  }, [documentos, filtros, tribunal, dataDe, dataAte, ordenacao])
+  }, [documentos, filtros, fonte, tribunal, dataDe, dataAte, ordenacao])
 
   const totalPaginas = Math.max(
     1,
@@ -270,6 +314,7 @@ function App() {
 
   function limparFiltros() {
     setFiltros({ jurisprudencia: true, precedente: true, doutrina: true })
+    setFonte(TODAS_AS_FONTES)
     setTribunal('Todos os tribunais')
     setDataDe('')
     setDataAte('')
@@ -282,9 +327,7 @@ function App() {
         <div className="brand">
           <div className="brand-mark">L</div>
           <div className="brand-text">
-            <div className="name">
-              Lumen <em>Juris</em>
-            </div>
+            <div className="name">Wikilaw</div>
             <div className="tag">PESQUISA JURÍDICA</div>
           </div>
         </div>
@@ -375,6 +418,22 @@ function App() {
                 Doutrina
               </label>
             </div>
+          </div>
+
+          <div className="group">
+            <div className="group-label">FONTE</div>
+            <select
+              value={fonte}
+              onChange={(e) => {
+                setFonte(e.target.value)
+                voltarParaPrimeiraPagina()
+              }}
+            >
+              <option>{TODAS_AS_FONTES}</option>
+              {fontesDisponiveis.map((sigla) => (
+                <option key={sigla}>{sigla}</option>
+              ))}
+            </select>
           </div>
 
           <div className="group">
@@ -520,7 +579,7 @@ function App() {
                           .filter(Boolean)
                           .join(' — ') || doc.fonte}
                       </span>
-                      <span>🗓 {formatarData(doc.dataPublicacao)}</span>
+                      <span>🗓 {formatarData(dataDoDocumento(doc))}</span>
                     </div>
                   </div>
                 </article>

@@ -79,7 +79,7 @@ public class DocumentQueryService {
                 :doutrina!=null?doutrina.getResumo():precedente.getQuestaoJuridica(),
             // Para o precedente, o equivalente ao dispositivo da decisão é a tese firmada.
             decisao!=null?decisao.getDecisao():precedente!=null?textoOuNulo(precedente.getTese()):null,
-            tribunalNames.get(tribunalIdOf(d)),
+            tribunalOf(d, tribunalNames),
             orgaoJulgadorOf(d),
             precedente!=null?textoOuNulo(precedente.getSituacao()):null,
             decisao!=null?decisao.isPossuiInteiroTeor():null,
@@ -116,7 +116,7 @@ public class DocumentQueryService {
             d.getTitulo(),
             decisao!=null?decisao.getTipoDecisao()
                 :precedente!=null?precedente.getTipoPrecedente():doutrina.getTipoDocumento(),
-            tribunalSigla(tribunalIdOf(d)),
+            tribunalOf(d),
             orgaoJulgadorOf(d),
             decisao!=null?decisao.getNumeroProcesso():null,
             precedente!=null?precedente.getNumeroTema():null,
@@ -151,6 +151,19 @@ public class DocumentQueryService {
     private String tribunalSigla(Long idTribunal) {
         if (idTribunal==null) return null;
         return tribunals.findById(idTribunal).map(Tribunal::getSigla).orElse(null);
+    }
+    private String tribunalOf(DocumentoBase d, Map<Long,String> tribunalNames) {
+        if (d instanceof Precedente p) {
+            return tribunalNames.getOrDefault(p.getIdTribunal(), textoOuNulo(p.getTribunalOrigem()));
+        }
+        return tribunalNames.get(tribunalIdOf(d));
+    }
+    private String tribunalOf(DocumentoBase d) {
+        if (d instanceof Precedente p) {
+            var sigla = tribunalSigla(p.getIdTribunal());
+            return sigla != null ? sigla : textoOuNulo(p.getTribunalOrigem());
+        }
+        return tribunalSigla(tribunalIdOf(d));
     }
     public List<PrecedenteProcessoResponse> related(Long id) {
         buscarAtivo("precedentes",id);

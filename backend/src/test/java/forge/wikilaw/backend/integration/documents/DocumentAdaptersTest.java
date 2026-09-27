@@ -27,6 +27,7 @@ class DocumentAdaptersTest {
         assertEquals("Ementa legível",doc.resumo());
         assertEquals("Recurso provido",doc.decisao());
         assertEquals(LocalDate.of(2026,9,16),doc.dataPublicacao());
+        assertEquals("https://jurisdf.tjdft.jus.br/acordaos/abc",doc.url());
     }
     @Test void tjdftPaginationUsesHitsAndRejectsBadEnvelope() {
         var adapter=new TjdftAdapter(json);
@@ -48,6 +49,9 @@ class DocumentAdaptersTest {
         assertEquals(LocalDate.of(2026,8,5),doc.dataJulgamento());
         assertEquals("Negar provimento",doc.decisao());
         assertNull(doc.inteiroTeor());
+        assertTrue(doc.url().startsWith("https://scon.stj.jus.br/SCON/jurisprudencia/toc.jsp?livre="));
+        assertTrue(doc.url().contains("RESP"));
+        assertTrue(doc.url().contains("123"));
     }
     @Test void csvHandlesQuotedCommasNewlinesAndBom() {
         var adapter=new StjPrecedentesAdapter(json,new StjCatalog(json));
@@ -58,6 +62,10 @@ class DocumentAdaptersTest {
         var doc=adapter.normalize(rows.get(0));
         assertEquals("Dano, moral\nsegunda linha",doc.resumo());
         assertEquals("Texto com \"aspas\"",doc.tese());
+        assertEquals(
+            "https://processo.stj.jus.br/repetitivos/temas_repetitivos/pesquisa.jsp"
+                + "?novaConsulta=true&tipo_pesquisa=T&cod_tema_inicial=12&cod_tema_final=12",
+            doc.url());
         assertThrows(IllegalArgumentException.class,() -> adapter.parseCsv("erro,coluna\na,b"));
     }
     @Test void bdjurPreservesPartialDateAndTypeInsteadOfInventingBookContents() {
@@ -79,6 +87,15 @@ class DocumentAdaptersTest {
             "{\"_embedded\":{\"searchResult\":{\"page\":{\"totalElements\":0,\"totalPages\":0}}}}",1L));
         assertTrue(page.registros().isEmpty());
         assertNull(page.proxima());
+    }
+    @Test void bdjurUsesHandlePageInsteadOfBitstreamDownload() {
+        var adapter=new BdjurAdapter(json);
+        var doc=adapter.normalize(json.readTree("""
+            {"uuid":"id","handle":"2011/33144","name":"Direito",
+             "metadata":{"dc.title":[{"value":"Artigo"}],
+              "dc.identifier.uri":[{"value":"https://bdjur.stj.jus.br/jspui/bitstream/2011/33144/arquivo.pdf"}]}}
+            """));
+        assertEquals("https://bdjur.stj.jus.br/handle/2011/33144",doc.url());
     }
     @Test void scieloChoosesPortugueseAndKeepsIncompleteDate() {
         var adapter=new ScieloAdapter(json);

@@ -211,7 +211,9 @@ public class PrecedenteQueryService {
         return new PrecedenteResumoResponse(
                 precedente.getId(),
                 siglasFontes.get(precedente.getIdFonte()),
-                siglasTribunais.get(precedente.getIdTribunal()),
+                siglasTribunais.getOrDefault(
+                        precedente.getIdTribunal(),
+                        textoOuNulo(precedente.getTribunalOrigem())),
                 precedente.getIdentificadorExterno(),
                 precedente.getNumeroTema(),
                 precedente.getTipoPrecedente(),

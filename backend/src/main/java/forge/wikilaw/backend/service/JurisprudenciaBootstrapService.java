@@ -4,8 +4,11 @@ import forge.wikilaw.backend.config.JurisprudenciaBootstrapProperties;
 import forge.wikilaw.backend.entity.CargaStatus;
 import forge.wikilaw.backend.integration.documents.DocumentImportRequest;
 import forge.wikilaw.backend.integration.documents.DocumentSource;
+import forge.wikilaw.backend.integration.documents.SourcePage;
 import forge.wikilaw.backend.repository.DecisaoJudicialRepository;
+import forge.wikilaw.backend.repository.DocumentoDoutrinarioRepository;
 import forge.wikilaw.backend.repository.FonteDadosRepository;
+import forge.wikilaw.backend.repository.PrecedenteRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -16,22 +19,36 @@ import org.springframework.stereotype.Service;
 public class JurisprudenciaBootstrapService {
 
     private static final Logger log = LoggerFactory.getLogger(JurisprudenciaBootstrapService.class);
-    private static final String FONTE = "TJDFT";
+    private static final DocumentSource[] FONTES_DOCUMENTAIS = {
+            DocumentSource.TJDFT,
+            DocumentSource.STJ,
+            DocumentSource.STJ_PRECEDENTES,
+            DocumentSource.PANGEA,
+            DocumentSource.BDJUR,
+            DocumentSource.SCIELO,
+            DocumentSource.BDTD
+    };
 
     private final JurisprudenciaBootstrapProperties properties;
     private final DocumentImportService importService;
     private final FonteDadosRepository fontes;
     private final DecisaoJudicialRepository decisoes;
+    private final PrecedenteRepository precedentes;
+    private final DocumentoDoutrinarioRepository doutrina;
 
     public JurisprudenciaBootstrapService(
             JurisprudenciaBootstrapProperties properties,
             DocumentImportService importService,
             FonteDadosRepository fontes,
-            DecisaoJudicialRepository decisoes) {
+            DecisaoJudicialRepository decisoes,
+            PrecedenteRepository precedentes,
+            DocumentoDoutrinarioRepository doutrina) {
         this.properties = properties;
         this.importService = importService;
         this.fontes = fontes;
         this.decisoes = decisoes;
+        this.precedentes = precedentes;
+        this.doutrina = doutrina;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -42,49 +59,110 @@ public class JurisprudenciaBootstrapService {
         try {
             importarPaginas();
         } catch (RuntimeException exception) {
-            log.error("Carga inicial de jurisprudência falhou; backend continuará disponível: {}",
+            log.error("Carga inicial documental falhou; backend continuara disponivel: {}",
                     exception.getMessage(), exception);
         }
     }
 
     void importarPaginas() {
-        var fonte = fontes.findBySigla(FONTE)
-                .orElseThrow(() -> new IllegalStateException("Fonte TJDFT não cadastrada"));
-        long existentes = decisoes.countByIdFonteAndAtivoTrue(fonte.getId());
-        if (properties.isSomenteSeVazio() && existentes > 0) {
-            log.info("Carga inicial TJDFT ignorada: {} decisões ativas já cadastradas", existentes);
-            return;
-        }
-
-        log.info("Iniciando carga automática TJDFT: termo='{}', páginas={}, tamanho={}",
+        log.info("Iniciando carga automatica documental: termo='{}', paginas={}, tamanho={}",
                 properties.getTermo(), properties.getPaginas(), properties.getTamanhoPagina());
         int processados = 0;
-        for (int pagina = 0; pagina < properties.getPaginas(); pagina++) {
-            var request = new DocumentImportRequest(
-                    properties.getTermo(),
-                    pagina,
-                    properties.getTamanhoPagina(),
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null);
-            var resultado = importService.importar(DocumentSource.TJDFT, request);
+        for (DocumentSource fonte : FONTES_DOCUMENTAIS) {
+            processados += importarFonte(fonte);
+        }
+        log.info("Carga automatica documental finalizada: {} documentos processados", processados);
+    }
+
+    int importarFonte(DocumentSource source) {
+        var fonte = fontes.findBySigla(source.sigla());
+        if (fonte.isEmpty()) {
+            log.warn("Carga automatica {} ignorada: fonte nao cadastrada", source);
+            return 0;
+        }
+
+        long existentes = contarAtivos(source, fonte.get().getId());
+        if (properties.isSomenteSeVazio() && existentes > 0) {
+            log.info("Carga automatica {} ignorada: {} documentos ativos ja cadastrados",
+                    source, existentes);
+            return 0;
+        }
+
+        int processados = 0;
+        var request = primeiraRequisicao(source);
+        for (int etapa = 0; etapa < properties.getPaginas(); etapa++) {
+            DocumentImportService.ImportResult resultado;
+            try {
+                resultado = importService.importar(source, request);
+            } catch (RuntimeException exception) {
+                log.error("Carga automatica {} falhou; proximas fontes continuarao: {}",
+                        source, exception.getMessage(), exception);
+                break;
+            }
+
             processados += resultado.processados();
-            log.info("Carga automática TJDFT página={} status={} recebidos={} processados={} erros={}",
-                    pagina,
+            log.info("Carga automatica {} etapa={} status={} recebidos={} processados={} erros={}",
+                    source,
+                    etapa,
                     resultado.status(),
                     resultado.recebidos(),
                     resultado.processados(),
                     resultado.erros());
 
-            if (resultado.status() == CargaStatus.FALHA || resultado.recebidos() == 0) {
+            if (resultado.status() == CargaStatus.FALHA || resultado.proxima() == null) {
                 break;
             }
+            request = proximaRequisicao(source, request, resultado.proxima());
         }
-        log.info("Carga automática TJDFT finalizada: {} decisões processadas", processados);
+        return processados;
+    }
+
+    private long contarAtivos(DocumentSource source, Long fonteId) {
+        return switch (source) {
+            case TJDFT, STJ -> decisoes.countByIdFonteAndAtivoTrue(fonteId);
+            case STJ_PRECEDENTES, PANGEA -> precedentes.countByIdFonteAndAtivoTrue(fonteId);
+            case BDJUR, BDTD, SCIELO -> doutrina.countByIdFonteAndAtivoTrue(fonteId);
+        };
+    }
+
+    private DocumentImportRequest primeiraRequisicao(DocumentSource source) {
+        return switch (source) {
+            case TJDFT, BDJUR, PANGEA -> new DocumentImportRequest(
+                    properties.getTermo(), 0, properties.getTamanhoPagina(),
+                    null, null, null, null, null, null, null, null);
+            case BDTD -> new DocumentImportRequest(
+                    properties.getTermo(), null, properties.getTamanhoPagina(),
+                    0, null, null, null, null, null, null, null);
+            case STJ, STJ_PRECEDENTES, SCIELO -> new DocumentImportRequest(
+                    null, null, properties.getTamanhoPagina(),
+                    0, null, null, null, null, null, null, null);
+        };
+    }
+
+    private DocumentImportRequest proximaRequisicao(
+            DocumentSource source,
+            DocumentImportRequest atual,
+            SourcePage.Continuacao proxima) {
+        return switch (source) {
+            case TJDFT, BDJUR, PANGEA -> new DocumentImportRequest(
+                    atual.termo(), proxima.pagina(), atual.tamanhoPagina(),
+                    null, null, null, null, null, null, null, null);
+            case STJ -> new DocumentImportRequest(
+                    null, null, atual.tamanhoPagina(),
+                    proxima.offset(), atual.dataset(), proxima.recursoId(),
+                    null, null, null, null, null);
+            case STJ_PRECEDENTES -> new DocumentImportRequest(
+                    null, null, atual.tamanhoPagina(),
+                    proxima.offset(), null, proxima.recursoId(),
+                    null, null, null, null, null);
+            case SCIELO -> new DocumentImportRequest(
+                    null, null, atual.tamanhoPagina(),
+                    proxima.offset(), null, null,
+                    atual.issn(), null, null, atual.desde(), atual.ate());
+            case BDTD -> new DocumentImportRequest(
+                    atual.termo(), null, atual.tamanhoPagina(),
+                    proxima.offset(), null, null,
+                    null, proxima.resumptionToken(), atual.conjunto(), atual.desde(), atual.ate());
+        };
     }
 }

@@ -39,8 +39,10 @@ public class BdjurAdapter implements DocumentAdapter {
         String date = metadata(n, "dc.date.issued");
         String summary = metadata(n, "dc.description.abstract");
         if (summary.isBlank()) summary = metadata(n, "dc.description");
-        String url = metadata(n, "dc.identifier.uri");
-        if (url.isBlank()) url = "https://bdjur.stj.jus.br/handle/" + required(n, "handle");
+        String handle = value(n, "handle");
+        String url = handle == null || handle.isBlank()
+            ? metadata(n, "dc.identifier.uri")
+            : "https://bdjur.stj.jus.br/handle/" + handle;
         return NormalizedDocument.builder().identificador(id).titulo(plain(title))
             .tipo(metadata(n, "dc.type")).resumo(plain(summary))
             .autores(metadata(n, "dc.contributor.author")).idioma(metadata(n, "dc.language.iso"))
