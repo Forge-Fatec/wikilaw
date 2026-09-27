@@ -325,19 +325,12 @@ function App() {
     <>
       <header className="header">
         <div className="brand">
-          <div className="brand-mark">L</div>
+          <div className="brand-mark">W</div>
           <div className="brand-text">
             <div className="name">Wikilaw</div>
             <div className="tag">PESQUISA JURÍDICA</div>
           </div>
         </div>
-        <nav>
-          <a href="#" className="active">
-            JURISPRUDÊNCIA
-          </a>
-          <a href="#">PRECEDENTES</a>
-          <a href="#">DOUTRINA</a>
-        </nav>
       </header>
 
       <section className="hero">
