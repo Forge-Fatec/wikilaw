@@ -35,6 +35,6 @@ public class TjdftAdapter implements DocumentAdapter {
             .dataJulgamento(date(value(n, "dataJulgamento")))
             .dataPublicacao(date(value(n, "dataPublicacao"))).dataOriginal(value(n, "dataPublicacao"))
             .decisao(value(n, "decisao")).inteiroTeor(plain(inteiro))
-            .url("https://jurisdf.tjdft.jus.br/").metadados(json.writeValueAsString(n)).build();
+            .url("https://jurisdf.tjdft.jus.br/acordaos/" + id).metadados(json.writeValueAsString(n)).build();
     }
 }

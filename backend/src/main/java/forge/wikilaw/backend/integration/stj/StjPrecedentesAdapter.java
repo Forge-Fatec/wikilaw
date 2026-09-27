@@ -70,7 +70,19 @@ public class StjPrecedentesAdapter implements DocumentAdapter {
             .resumo(value(n,"questaoSubmetidaAJulgamento")).tese(value(n,"teseFirmada"))
             .situacao(value(n,"situacao")).dataJulgamento(date(value(n,"dataJulgamento")))
             .dataPublicacao(date(value(n,"dataPublicacaoAcordao"))).dataOriginal(value(n,"dataPublicacaoAcordao"))
-            .url(value(n,"_wikilaw_url")).processosRelacionados(linked)
+            .url(publicThemeUrl(value(n,"numeroPrecedente"))).processosRelacionados(linked)
             .metadados(json.writeValueAsString(n)).build();
+    }
+
+    private String publicThemeUrl(String number) {
+        if (number != null) {
+            String digits = number.replaceAll("\\D+", "");
+            if (!digits.isBlank()) {
+                return "https://processo.stj.jus.br/repetitivos/temas_repetitivos/pesquisa.jsp"
+                    + "?novaConsulta=true&tipo_pesquisa=T&cod_tema_inicial=" + digits
+                    + "&cod_tema_final=" + digits;
+            }
+        }
+        return "https://processo.stj.jus.br/repetitivos/temas_repetitivos/?pesquisaAvancada=true";
     }
 }
