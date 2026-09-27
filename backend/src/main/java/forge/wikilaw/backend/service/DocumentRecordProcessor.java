@@ -45,12 +45,17 @@ public class DocumentRecordProcessor {
             } else d.setIdProcesso(null);
             return decisions.saveAndFlush(d).getId();
         }
-        if (source==DocumentSource.STJ_PRECEDENTES) {
+        if (source==DocumentSource.STJ_PRECEDENTES || source==DocumentSource.PANGEA) {
             var p=precedents.findByIdFonteAndIdentificadorExterno(sourceId,n.identificador()).orElseGet(Precedente::new);
             common(p,sourceId,rawId,n);
             p.setNumeroTema(n.numeroTema()); p.setTipoPrecedente(n.tipo()); p.setQuestaoJuridica(n.resumo());
             p.setTese(n.tese()); p.setSituacao(n.situacao()); p.setDataJulgamento(n.dataJulgamento());
-            p.setIdTribunal(tribunals.findBySigla("STJ").orElseThrow().getId());
+            String tribunal=source==DocumentSource.STJ_PRECEDENTES ? "STJ" : n.tribunal();
+            if (tribunal==null || !tribunal.matches("[A-Z0-9]{2,20}"))
+                throw new IllegalArgumentException("Tribunal de origem inválido");
+            p.setTribunalOrigem(tribunal);
+            p.setIdTribunal(tribunals.findBySigla("TJDF".equals(tribunal) ? "TJDFT" : tribunal)
+                .map(Tribunal::getId).orElse(null));
             p=precedents.saveAndFlush(p);
             links.deleteByIdPrecedente(p.getId());
             links.flush();
@@ -87,7 +92,7 @@ public class DocumentRecordProcessor {
         DocumentoBase d;
         if (source==DocumentSource.STJ || source==DocumentSource.TJDFT)
             d=decisions.findByIdFonteAndIdentificadorExterno(fonte,identificador).orElse(null);
-        else if (source==DocumentSource.STJ_PRECEDENTES)
+        else if (source==DocumentSource.STJ_PRECEDENTES || source==DocumentSource.PANGEA)
             d=precedents.findByIdFonteAndIdentificadorExterno(fonte,identificador).orElse(null);
         else d=doctrine.findByIdFonteAndIdentificadorExterno(fonte,identificador).orElse(null);
         if (d!=null) {

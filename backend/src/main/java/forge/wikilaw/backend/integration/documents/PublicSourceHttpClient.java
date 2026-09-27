@@ -11,7 +11,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class PublicSourceHttpClient {
     private static final Set<String> HOSTS = Set.of("dadosabertos.web.stj.jus.br",
-        "jurisdf.tjdft.jus.br", "bdjur.stj.jus.br", "bdtd.ibict.br", "articlemeta.scielo.org");
+        "jurisdf.tjdft.jus.br", "bdjur.stj.jus.br", "bdtd.ibict.br", "articlemeta.scielo.org",
+        "pangeabnp.pdpj.jus.br");
     private static final int MAX_BYTES = 32 * 1024 * 1024;
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10))
         .followRedirects(HttpClient.Redirect.NEVER).build();

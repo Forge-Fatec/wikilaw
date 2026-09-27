@@ -14,6 +14,48 @@ function printStep(cenario: string, etapa: string): void {
 }
 
 test.describe('busca por conteúdos jurídicos', () => {
+  test('ordena os resultados por data antes da paginação', async ({ page }) => {
+    const itens = Array.from({ length: 11 }, (_, index) => ({
+      id: index + 1,
+      fonte: 'Fonte de teste',
+      categoria: 'decisoes',
+      titulo: `Documento ${index + 1}`,
+      tipoDocumento: null,
+      numeroProcessoOuTema: null,
+      autoresOuRelator: null,
+      resumoOuEmenta: null,
+      decisao: null,
+      tribunal: null,
+      orgaoJulgador: null,
+      dataJulgamento: null,
+      dataPublicacao: `2024-01-${String(index + 1).padStart(2, '0')}`,
+      dataOriginal: null,
+      urlOriginal: null,
+      idRegistroBruto: null,
+    }))
+
+    await page.route('**/api/documentos/**', async (route) => {
+      const resposta = route.request().url().includes('/decisoes')
+        ? { ...EMPTY_RESPONSE, itens, total: itens.length }
+        : EMPTY_RESPONSE
+      await route.fulfill({ json: resposta })
+    })
+
+    await abrirFrontend(page)
+    await expect(page.getByText('11 documentos encontrados')).toBeVisible()
+    await expect(page.locator('.card h3').first()).toHaveText('Documento 11')
+
+    await page.getByRole('navigation', { name: 'Páginas de resultados' })
+      .getByRole('button', { name: '2' }).click()
+    await expect(page.locator('.card h3').first()).toHaveText('Documento 1')
+
+    await page.getByRole('button', { name: 'Mais antigos' }).click()
+    await expect(page.getByText('Página 1 de 2')).toBeVisible()
+    await expect(page.locator('.card h3').first()).toHaveText('Documento 1')
+    await expect(page.getByRole('button', { name: 'Mais antigos' }))
+      .toHaveAttribute('aria-pressed', 'true')
+  })
+
   test('inicia a busca ao enviar a descrição do caso', async ({ page }) => {
     const cenario = 'descrição preenchida'
     const requisicoes: string[] = []

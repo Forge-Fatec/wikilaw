@@ -250,6 +250,8 @@ A paginação segue o `search_after` ordenado por `@timestamp`, conforme a docum
 
 ### Jurisprudência, precedentes e doutrina
 
+Também está disponível a [integração Pangea/BNP](docs/PANGEA.md), com pesquisa pública e importação de precedentes, questões e teses.
+
 O backend também possui coletores isolados para TJDFT, STJ (acórdãos e precedentes), BDJur, BDTD/OAI-PMH e SciELO/ArticleMeta. Eles reutilizam as cargas e os registros brutos, sem alterar o contrato do DataJud.
 
 Consulte [o guia das integrações](docs/INTEGRACOES.md) para exemplos no Swagger/PowerShell, paginação, consultas legíveis no pgAdmin e limitações de cada fonte. A BDTD está implementada e testada com XML de teste, mas a coleta real está bloqueada pela verificação de navegador do serviço; isso é registrado como falha, não como importação bem-sucedida.

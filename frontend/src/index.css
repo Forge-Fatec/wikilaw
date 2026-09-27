@@ -255,7 +255,9 @@ select,
 .results-header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
   margin-bottom: 16px;
 }
 .results-header h2 {
@@ -264,10 +266,47 @@ select,
   font-size: 21px;
   margin: 0;
 }
-.results-header span {
+.results-count {
+  display: block;
   font-size: 12.5px;
   color: var(--muted);
-  margin-left: 8px;
+  margin-top: 4px;
+}
+.sort-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.sort-label {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.sort-options {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+}
+.sort-options button {
+  border: 0;
+  border-radius: 5px;
+  padding: 7px 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.sort-options button[aria-pressed='true'] {
+  background: var(--navy);
+  color: #fff;
+}
+.sort-options button:focus-visible {
+  outline: 2px solid var(--terracotta-dark);
+  outline-offset: 2px;
 }
 
 .card {

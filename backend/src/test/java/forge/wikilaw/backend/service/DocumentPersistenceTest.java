@@ -83,4 +83,19 @@ class DocumentPersistenceTest {
         assertEquals(1,links.findByIdPrecedenteOrderByNumeroRegistro(id).size());
         assertEquals("Tese",precedents.findById(id).orElseThrow().getTese());
     }
+
+    @Test void pangeaUpsertsPrecedentsWithoutAssumingEveryOriginIsStj() {
+        var r=raw("PANGEA");
+        var n=NormalizedDocument.builder().identificador("tjba-nt-1").titulo("TJBA — NT nº 1")
+            .tribunal("TJBA").tipo("NT").numeroTema("1").tese("Texto").build();
+        var id=processor.process(DocumentSource.PANGEA,r.getFonte().getId(),r.getId(),n);
+        assertEquals(id,processor.process(DocumentSource.PANGEA,r.getFonte().getId(),r.getId(),n));
+        var p=precedents.findById(id).orElseThrow();
+        assertEquals("TJBA",p.getTribunalOrigem());
+        assertNull(p.getIdTribunal());
+        assertEquals(1,queries.list("precedentes","PANGEA",null,0,10).total());
+        assertEquals(0,queries.list("doutrina","PANGEA",null,0,10).total());
+        processor.indisponibilizar(DocumentSource.PANGEA,r.getFonte().getId(),n.identificador());
+        assertEquals(0,queries.list("precedentes","PANGEA",null,0,10).total());
+    }
 }
