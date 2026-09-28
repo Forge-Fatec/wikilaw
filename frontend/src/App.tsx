@@ -88,6 +88,45 @@ function formatarData(data: string | null): string {
   })
 }
 
+// Só links http(s) são aceitos: evita abrir esquemas como javascript: vindos da fonte.
+function urlDeAcesso(url: string | null): string | null {
+  if (!url?.trim()) return null
+  try {
+    const { protocol } = new URL(url.trim())
+    return protocol === 'http:' || protocol === 'https:' ? url.trim() : null
+  } catch {
+    return null
+  }
+}
+
+function AcessoFonte({
+  url,
+  className,
+}: {
+  url: string | null
+  className: string
+}) {
+  if (!url) {
+    return (
+      <button
+        type="button"
+        className={`${className} indisponivel`}
+        disabled
+        title="Esta fonte não informou um link para o documento original."
+      >
+        FONTE INDISPONÍVEL
+      </button>
+    )
+  }
+
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className={className}>
+      ACESSAR FONTE ORIGINAL ↗
+      <span className="sr-only"> (abre em nova aba)</span>
+    </a>
+  )
+}
+
 function toDocumento(tipo: DocType, item: ApiSummary): Documento {
   return {
     id: item.id,
@@ -105,7 +144,7 @@ function toDocumento(tipo: DocType, item: ApiSummary): Documento {
     dataJulgamento: item.dataJulgamento,
     dataPublicacao: item.dataPublicacao,
     dataOriginal: item.dataOriginal,
-    urlOriginal: item.urlOriginal,
+    urlOriginal: urlDeAcesso(item.urlOriginal),
   }
 }
 
@@ -375,7 +414,7 @@ function App() {
               placeholder="Ex.: dano moral por negativação indevida do nome do consumidor..."
             />
             <button type="submit" disabled={carregando}>
-              {carregando ? 'BUSCANDO...' : '🔍 PESQUISAR'}
+              {carregando ? 'BUSCANDO...' : 'PESQUISAR'}
             </button>
           </div>
           {erroValidacao && (
@@ -581,6 +620,7 @@ function App() {
                       </span>
                       <span>🗓 {formatarData(dataDoDocumento(doc))}</span>
                     </div>
+                    <AcessoFonte url={doc.urlOriginal} className="source-link" />
                   </div>
                 </article>
               )
@@ -750,18 +790,12 @@ function App() {
               <p>{documentoSelecionado.text}</p>
             </div>
 
-            {documentoSelecionado.urlOriginal && (
-              <footer className="modal-footer">
-                <a
-                  href={documentoSelecionado.urlOriginal}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="source-button"
-                >
-                  IR PARA A FONTE ORIGINAL ↗
-                </a>
-              </footer>
-            )}
+            <footer className="modal-footer">
+              <AcessoFonte
+                url={documentoSelecionado.urlOriginal}
+                className="source-button"
+              />
+            </footer>
           </section>
         </div>
       )}
