@@ -1,13 +1,14 @@
 package forge.wikilaw.backend;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-class BackendApplicationTests {
+class ExampleTest {
 
-	@Test
-	void contextLoads() {
-	}
+    @Test
+    void shouldSumTwoNumbers() {
+        int result = 2 + 2;
 
+        assertEquals(4, result);
+    }
 }

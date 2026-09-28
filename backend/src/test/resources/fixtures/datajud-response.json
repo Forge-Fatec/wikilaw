@@ -1,0 +1,49 @@
+{
+  "took": 15,
+  "timed_out": false,
+  "hits": {
+    "total": {"value": 1, "relation": "eq"},
+    "hits": [
+      {
+        "_index": "api_publica_tjsp",
+        "_id": "TJSP_JE_40017037420268260360",
+        "_source": {
+          "id": "TJSP_JE_40017037420268260360",
+          "tribunal": "TJSP",
+          "grau": "JE",
+          "numeroProcesso": "40017037420268260360",
+          "dataAjuizamento": "20260615154838",
+          "nivelSigilo": 0,
+          "orgaoJulgador": {
+            "codigo": 9913,
+            "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Mococa",
+            "codigoMunicipioIBGE": 3530508
+          },
+          "classe": {"codigo": 12154, "nome": "Execução de Título Extrajudicial"},
+          "sistema": {"codigo": 4, "nome": "Projudi"},
+          "formato": {"codigo": 1, "nome": "Eletrônico"},
+          "dataHoraUltimaAtualizacao": "2026-08-21T14:10:10.52Z",
+          "@timestamp": "2026-08-21T14:10:10.52Z",
+          "movimentos": [
+            {
+              "codigo": 60,
+              "dataHora": "2026-07-30T02:58:41Z",
+              "nome": "Expedição de documento",
+              "complementosTabelados": [
+                {"codigo": 4, "descricao": "tipo_de_documento", "valor": 170, "nome": "Carta"}
+              ],
+              "orgaoJulgador": {"codigo": "9913", "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Mococa"}
+            },
+            {
+              "codigo": 15216,
+              "dataHora": "2026-07-29T13:35:03Z",
+              "orgaoJulgador": {"codigo": "9913", "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Mococa"}
+            }
+          ],
+          "assuntos": [{"codigo": 4972, "nome": "Duplicata"}]
+        },
+        "sort": [1787321410520]
+      }
+    ]
+  }
+}

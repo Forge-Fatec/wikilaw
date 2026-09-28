@@ -1,4 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
+import { FRONTEND_URL } from './tests/helpers/test-helper';
+
+const frontendUrl = new URL(FRONTEND_URL);
+const viewport = { width: 1440, height: 900 };
 
 /**
  * Read environment variables from file.
@@ -13,6 +17,10 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './tests',
+  timeout: 60_000,
+  expect: {
+    timeout: 10_000,
+  },
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -26,7 +34,13 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
-    // baseURL: 'http://localhost:3000',
+    baseURL: FRONTEND_URL,
+
+    viewport,
+    actionTimeout: 15_000,
+    navigationTimeout: 30_000,
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -36,17 +50,26 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport,
+      },
     },
 
     {
       name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
+      use: {
+        ...devices['Desktop Firefox'],
+        viewport,
+      },
     },
 
     {
       name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
+      use: {
+        ...devices['Desktop Safari'],
+        viewport,
+      },
     },
 
     /* Test against mobile viewports. */
@@ -71,9 +94,9 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
-  // webServer: {
-  //   command: 'npm run start',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  // },
+  webServer: {
+    command: `npm run dev -- --host ${frontendUrl.hostname} --port ${frontendUrl.port} --strictPort`,
+    url: FRONTEND_URL,
+    reuseExistingServer: !process.env.CI,
+  },
 });
