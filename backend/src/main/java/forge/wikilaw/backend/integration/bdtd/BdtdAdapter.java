@@ -33,7 +33,7 @@ public class BdtdAdapter implements DocumentAdapter {
         var response = fetch.get(url, "XML");
         ParsedOai parsed = parse(response.texto());
         String filter = r.query().toLowerCase(Locale.ROOT);
-        var matching = parsed.records().stream().filter(n -> n.path("deleted").asBoolean(false)
+        var matching = parsed.records().stream().filter(n -> r.fullCollection() || n.path("deleted").asBoolean(false)
             || n.toString().toLowerCase(Locale.ROOT).contains(filter)).toList();
         int from = Math.min(r.start(),matching.size());
         int to = Math.min(from+r.size(),matching.size());

@@ -42,8 +42,12 @@ public class PublicSourceHttpClient {
                 future.cancel(true);
                 throw e;
             }
-            return new Response(response.statusCode(), new String(response.body(), StandardCharsets.UTF_8),
-                response.headers().firstValue("Content-Type").orElse(""));
+            String contentType = response.headers().firstValue("Content-Type").orElse("");
+            boolean zip = uri.getPath().toLowerCase(java.util.Locale.ROOT).endsWith(".zip")
+                    && response.statusCode()>=200 && response.statusCode()<300
+                    && !contentType.toLowerCase(java.util.Locale.ROOT).contains("text/html");
+            return new Response(response.statusCode(), zip ? java.util.Base64.getEncoder().encodeToString(response.body())
+                    : new String(response.body(), StandardCharsets.UTF_8),contentType);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Coleta interrompida", e);

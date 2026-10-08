@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.ObjectMapper;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class DocumentImportService {
@@ -26,6 +28,10 @@ public class DocumentImportService {
         this.cargas=cargas; this.raw=raw; this.http=http; this.json=json; this.processor=processor;
     }
     public ImportResult importar(DocumentSource source,DocumentImportRequest request) {
+        return importar(source, request, new HashMap<>());
+    }
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public ImportResult importar(DocumentSource source,DocumentImportRequest request,Map<String,Long> snapshots) {
         validate(source,request);
         CargaDados carga=cargas.iniciar(source.sigla());
         log.info("Iniciando carga documental id={} fonte={}",carga.getId(),source);
@@ -38,8 +44,10 @@ public class DocumentImportService {
         AtomicInteger responses=new AtomicInteger();
         try {
             SourcePage page=adapters.get(source).collect(request,(url,body,format) ->
-                fetch(carga,url,body,format,responses));
+                fetchSnapshot(source,snapshots,carga,url,body,format,responses));
             received=page.registros().size();
+            errors=page.falhasColeta();
+            if (page.falhasColeta()>0) messages.addAll(page.avisos());
             warnings.addAll(page.avisos());
             next=page.proxima();
             for (var row:page.registros()) {
@@ -64,6 +72,22 @@ public class DocumentImportService {
         log.info("Carga documental id={} fonte={} status={} recebidos={} processados={} erros={}",
             carga.getId(),source,completed.getStatus(),received,processed,errors);
         return new ImportResult(carga.getId(),source,completed.getStatus(),received,processed,errors,message,ids,next,warnings);
+    }
+    private AuditedFetch.Payload fetchSnapshot(DocumentSource source,Map<String,Long> snapshots,
+            CargaDados carga,String url,String body,String format,AtomicInteger count) {
+        // STJ paginates local files: keep one durable snapshot per job, instead of
+        // downloading the same catalogue/JSON/CSV again for every offset.
+        boolean cacheable = body == null && (source == DocumentSource.STJ || source == DocumentSource.STJ_PRECEDENTES);
+        if (cacheable && snapshots.containsKey(url)) return raw.lerPayload(snapshots.get(url));
+        var payload = fetch(carga,url,body,format,count);
+        if (cacheable) {
+            // Keep catalogues and only the current STJ file; older snapshots stay
+            // audited in registro_bruto, without growing the task checkpoint.
+            if (source == DocumentSource.STJ && !url.contains("/api/"))
+                snapshots.keySet().removeIf(key -> !key.contains("/api/"));
+            if (snapshots.size() < 32) snapshots.put(url,payload.registroBrutoId());
+        }
+        return payload;
     }
     private AuditedFetch.Payload fetch(CargaDados carga,String url,String body,String format,AtomicInteger count) {
         for (int attempt=0;attempt<3;attempt++) {
@@ -98,7 +122,11 @@ public class DocumentImportService {
         String s=e.getMessage()==null?e.getClass().getSimpleName():e.getMessage();
         return s.substring(0,Math.min(s.length(),500));
     }
-    private void validate(DocumentSource s,DocumentImportRequest r) {
+    public void validate(DocumentSource s,DocumentImportRequest r) {
+        if ((r.orgao()!=null || r.tipo()!=null) && (s!=DocumentSource.PANGEA || !r.fullCollection()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Partições orgao/tipo disponíveis somente no acervo completo Pangea");
+        if (r.fullCollection() && (r.termo()!=null || r.issn()!=null || r.conjunto()!=null || r.desde()!=null || r.ate()!=null))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"acervoCompleto não aceita filtros de termo, ISSN, conjunto ou datas");
         boolean search=s==DocumentSource.BDJUR || s==DocumentSource.TJDFT || s==DocumentSource.BDTD || s==DocumentSource.PANGEA;
         boolean offset=s==DocumentSource.STJ || s==DocumentSource.STJ_PRECEDENTES || s==DocumentSource.SCIELO || s==DocumentSource.BDTD;
         if ((!search && r.termo()!=null) || (offset && r.pagina()!=null) || (!offset && r.offset()!=null)
