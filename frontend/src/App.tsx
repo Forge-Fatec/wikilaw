@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import './index.css'
+import { calcularIndicadores } from './indicadores'
 
 type DocType = 'jurisprudencia' | 'precedente' | 'doutrina'
 type Ordenacao = 'mais-recentes' | 'mais-antigos'
@@ -331,6 +332,8 @@ function App() {
     })
   }, [documentos, filtros, fonte, tribunal, dataDe, dataAte, ordenacao])
 
+  const indicadores = useMemo(() => calcularIndicadores(resultados), [resultados])
+
   const totalPaginas = Math.max(
     1,
     Math.ceil(resultados.length / ITENS_POR_PAGINA),
@@ -555,6 +558,33 @@ function App() {
               </div>
             </div>
           </div>
+
+          {!erro && !carregando && (
+            <section className="indicadores" aria-label="Indicadores da pesquisa">
+              <div className="indicador">
+                <span className="indicador-label">ADERÊNCIA</span>
+                <strong className="indicador-valor">
+                  {indicadores.aderencia === null
+                    ? '—'
+                    : `${indicadores.aderencia}%`}
+                </strong>
+                <span className="indicador-detalhe">
+                  {indicadores.classificadas
+                    ? `${indicadores.favoraveis} de ${indicadores.classificadas} decisões favoráveis ao recurso`
+                    : 'Nenhuma decisão com resultado identificado'}
+                </span>
+              </div>
+              <div className="indicador">
+                <span className="indicador-label">DECISÕES ANALISADAS</span>
+                <strong className="indicador-valor">
+                  {indicadores.totalDecisoes}
+                </strong>
+                <span className="indicador-detalhe">
+                  {indicadores.classificadas} com resultado identificado
+                </span>
+              </div>
+            </section>
+          )}
 
           {erro && <div className="empty">{erro}</div>}
 
