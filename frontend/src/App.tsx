@@ -138,6 +138,7 @@ function App() {
 
   // Carrega os resultados iniciais (sem termo) assim que a página abre.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     buscar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
