@@ -1,5 +1,7 @@
 # Pangea/BNP — integração de pesquisa
 
+> SCRUM-244: a importação retorna HTTP 202 com `idTarefa`; aguarde a conclusão antes da consulta de dados. Veja [o fluxo assíncrono](IMPORTACAO_ASSINCRONA.md).
+
 Adicionada em 17/09/2026. Usa a pesquisa pública do [Pangea/BNP](https://pangeabnp.pdpj.jus.br/), não a API autenticada de alimentação do BNP pelos tribunais.
 
 ## Importar e consultar
@@ -24,7 +26,7 @@ WHERE f.sigla = 'PANGEA' AND p.ativo
 ORDER BY p.id_precedente;
 ```
 
-A página do WikiLaw inicia em 0, convertida para 1 no Pangea. Importação padrão: 10 itens, máximo 100. Use `proxima.pagina` mantendo termo e tamanho. Sem termo informado, pesquisa “direito”. A ordenação é textual; resultados podem mudar entre chamadas.
+A página do WikiLaw inicia em 0, convertida para 1 no Pangea. Importação padrão: 10 itens, máximo 100. Use `?maximoPaginas=N` no POST; o worker mantém termo e tamanho e avança as páginas automaticamente. Sem termo informado, pesquisa “direito”. A ordenação é textual; resultados podem mudar entre chamadas.
 
 Nenhuma nova chave, cookie ou autenticação foi necessária nas requisições públicas verificadas. A integração não envia dados para cadastro no CNJ. Parâmetros não suportados pelo coletor, como `offset`, são rejeitados. Não há filtro específico por tribunal/espécie neste endpoint inicial: pesquisa em todas as opções disponibilizadas pelo catálogo.
 

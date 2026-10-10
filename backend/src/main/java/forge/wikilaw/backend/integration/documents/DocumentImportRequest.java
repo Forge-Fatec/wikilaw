@@ -15,12 +15,30 @@ public record DocumentImportRequest(
     @Size(max = 4000) String resumptionToken,
     @Size(max = 300) String conjunto,
     @Pattern(regexp = "[0-9]{4}-[0-9]{2}-[0-9]{2}") String desde,
-    @Pattern(regexp = "[0-9]{4}-[0-9]{2}-[0-9]{2}") String ate
+    @Pattern(regexp = "[0-9]{4}-[0-9]{2}-[0-9]{2}") String ate,
+    Boolean acervoCompleto,
+    @Size(max = 30) String orgao,
+    @Size(max = 30) String tipo
 ) {
+    public DocumentImportRequest(String termo, Integer pagina, Integer tamanhoPagina, Integer offset,
+            String dataset, String recursoId, String issn, String resumptionToken, String conjunto,
+            String desde, String ate, Boolean acervoCompleto) {
+        this(termo,pagina,tamanhoPagina,offset,dataset,recursoId,issn,resumptionToken,conjunto,desde,ate,acervoCompleto,null,null);
+    }
+    public DocumentImportRequest(String termo, Integer pagina, Integer tamanhoPagina, Integer offset,
+            String dataset, String recursoId, String issn, String resumptionToken, String conjunto,
+            String desde, String ate) {
+        this(termo,pagina,tamanhoPagina,offset,dataset,recursoId,issn,resumptionToken,conjunto,desde,ate,false);
+    }
+    public boolean fullCollection() { return Boolean.TRUE.equals(acervoCompleto); }
+    public DocumentImportRequest withFullCollection() {
+        return new DocumentImportRequest(termo,pagina,tamanhoPagina,offset,dataset,recursoId,issn,
+                resumptionToken,conjunto,desde,ate,true,orgao,tipo);
+    }
     public int page() { return pagina == null ? 0 : pagina; }
     public int size() { return tamanhoPagina == null ? 10 : tamanhoPagina; }
     public int start() { return offset == null ? 0 : offset; }
-    public String query() { return termo == null || termo.isBlank() ? "direito" : termo.trim(); }
+    public String query() { return fullCollection() ? "" : termo == null || termo.isBlank() ? "direito" : termo.trim(); }
     public String journal() { return issn == null ? "1808-2432" : issn; }
     public String datasetName() { return dataset == null ? "espelhos-de-acordaos-corte-especial" : dataset; }
 }

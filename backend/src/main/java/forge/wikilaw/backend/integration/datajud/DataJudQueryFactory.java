@@ -30,6 +30,17 @@ public class DataJudQueryFactory {
                     .put("numeroProcesso", request.numeroProcesso().replaceAll("\\D", ""));
         }
 
+        if (request.desde() != null || request.ate() != null) {
+            ObjectNode original = query.deepCopy();
+            query.removeAll();
+            ObjectNode bool = query.putObject("bool");
+            bool.putArray("must").add(original);
+            ObjectNode range = bool.putArray("filter").addObject().putObject("range")
+                    .putObject("@timestamp");
+            if (request.desde() != null) range.put("gte", request.desde().toString());
+            if (request.ate() != null) range.put("lte", request.ate().toString());
+        }
+
         root.putArray("sort")
                 .addObject()
                 .putObject("@timestamp")

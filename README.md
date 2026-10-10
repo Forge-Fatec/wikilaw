@@ -191,9 +191,24 @@ Set-Location backend
 .\mvnw.cmd test
 ```
 
+### Carga completa automática
+
+Ao iniciar o backend, o modo completo prepara cargas das fontes documentais sem filtro
+por assunto e segue a paginação até esgotar os resultados públicos disponíveis. DataJud
+é incluído para TJSP/TJRJ/TJMG se `DATAJUD_API_KEY` estiver configurada. A carga não para
+após três páginas; o progresso fica no PostgreSQL e é reutilizado após reiniciar.
+Uma primeira carga concluída não é repetida em cada inicialização.
+
+`WIKILAW_BOOTSTRAP_JURISPRUDENCIA_COMPLETO=false` permite voltar à amostra limitada;
+`WIKILAW_BOOTSTRAP_JURISPRUDENCIA_ENABLED=false` desativa a preparação automática.
+Veja [cobertura e limitações da carga completa](docs/IMPORTACAO_ASSINCRONA.md).
+
 ### Disparar uma carga
 
-O endpoint administrativo síncrono recebe somente parâmetros controlados e devolve um resumo:
+O endpoint administrativo enfileira uma tarefa persistida e retorna HTTP 202 com
+`idTarefa` e o header `Location`. Consulte o progresso em
+`GET /api/integrations/tarefas/{idTarefa}`. Veja [importação em segundo plano](docs/IMPORTACAO_ASSINCRONA.md)
+para retomada, limites e cargas incrementais.
 
 ```bash
 curl -X POST http://localhost:8080/api/integrations/datajud/import \
@@ -212,7 +227,11 @@ Também é possível consultar um número CNJ específico:
 }
 ```
 
-`tamanhoPagina` aceita de 1 a 100 e `maximoPaginas`, de 1 a 50. O retorno contém `idCarga`, `fonte`, `tribunal`, `status`, `recebidos`, `processados`, `erros` e uma mensagem resumida. O endpoint nunca devolve o conjunto importado.
+`tamanhoPagina` aceita de 1 a 100 e `maximoPaginas`, de 1 a 100000, com padrão de uma
+página. O POST retorna a tarefa pendente; a consulta de progresso mostra páginas,
+recebidos, processados, erros e `ultimaCarga`. Os dados importados são consultados
+pelos endpoints de pesquisa, após o processamento. O worker salva a continuação
+por página; `LIMITE_ATINGIDO` indica mais trabalho e permite retomada.
 
 ### Tabelas preenchidas e mapeamento
 
@@ -246,7 +265,7 @@ docker compose exec postgres psql -U wikilaw -d wikilaw -c \
 
 Uma consulta real feita durante a implementação confirmou os aliases e os campos documentados pelo CNJ. Ela também mostrou `dataAjuizamento` no formato compacto `yyyyMMddHHmmss` e movimentos com código/data, mas sem `nome`. Por isso o mapper aceita datas compactas e ISO-8601, e a migration permite `movimento_processual.nome` nulo. O payload bruto preserva qualquer campo desconhecido ou divergente.
 
-A paginação segue o `search_after` ordenado por `@timestamp`, conforme a documentação do CNJ. Os limites do endpoint evitam uma coleta acidentalmente ilimitada. Não foi identificado limite numérico oficial de requisições; portanto não há retry infinito nem suposição de rate limit.
+A paginação segue o `search_after` ordenado por `@timestamp`, conforme a documentação do CNJ. O modo manual limitado usa orçamento de páginas; `ateEsgotar=true` continua até o fim da consulta. Não foi identificado limite numérico oficial de requisições; portanto não há retry infinito nem suposição de rate limit.
 
 ### Jurisprudência, precedentes e doutrina
 
