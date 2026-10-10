@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { calcularIndicadores } from './indicadores'
 
 interface DistribuicaoItem {
   categoria: string;
