@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import './index.css'
+import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
+import { useDistribuicaoMerito } from './components/hooks/useDistribuicaoMerito'
 import { calcularIndicadores } from './indicadores'
 
 type DocType = 'jurisprudencia' | 'precedente' | 'doutrina'
@@ -221,6 +223,12 @@ function App() {
   const [documentoSelecionado, setDocumentoSelecionado] =
     useState<Documento | null>(null)
 
+  const {
+    data: dadosMerito,
+    loading: carregandoMerito,
+    error: erroMerito,
+  } = useDistribuicaoMerito()
+
   const buscar = useCallback(async () => {
     if (!query.trim()) {
       setErroValidacao('Informe a descrição do caso para realizar a pesquisa.')
@@ -422,105 +430,121 @@ function App() {
       </section>
 
       <div className="layout">
-        <aside className="filters">
-          <h3>▤ Filtros</h3>
+        <div className="top-row">
+          <aside className="filters">
+            <h3>▤ Filtros</h3>
 
-          <div className="group doc-types">
-            <div className="group-label">TIPO DE DOCUMENTO</div>
-            <div className="check-row">
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={filtros.jurisprudencia}
-                  onChange={() => toggleFiltro('jurisprudencia')}
-                />
-                Jurisprudência
-              </label>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={filtros.precedente}
-                  onChange={() => toggleFiltro('precedente')}
-                />
-                Precedente
-              </label>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={filtros.doutrina}
-                  onChange={() => toggleFiltro('doutrina')}
-                />
-                Doutrina
-              </label>
-            </div>
-          </div>
-
-          <div className="group">
-            <div className="group-label">FONTE</div>
-            <select
-              value={fonte}
-              onChange={(e) => {
-                setFonte(e.target.value)
-                voltarParaPrimeiraPagina()
-              }}
-            >
-              <option>{TODAS_AS_FONTES}</option>
-              {fontesDisponiveis.map((sigla) => (
-                <option key={sigla}>{sigla}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="group">
-            <div className="group-label">TRIBUNAL</div>
-            <select
-              value={tribunal}
-              onChange={(e) => {
-                setTribunal(e.target.value)
-                voltarParaPrimeiraPagina()
-              }}
-            >
-              <option>Todos os tribunais</option>
-              {tribunaisDisponiveis.map((sigla) => (
-                <option key={sigla}>{sigla}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="group">
-            <div className="group-label">PERÍODO</div>
-            <div className="date-row">
-              <div>
-                <label>De</label>
-                <input
-                  className="date-input"
-                  type="date"
-                  value={dataDe}
-                  onChange={(e) => {
-                    setDataDe(e.target.value)
-                    voltarParaPrimeiraPagina()
-                  }}
-                />
-              </div>
-              <div>
-                <label>Até</label>
-                <input
-                  className="date-input"
-                  type="date"
-                  value={dataAte}
-                  onChange={(e) => {
-                    setDataAte(e.target.value)
-                    voltarParaPrimeiraPagina()
-                  }}
-                />
+            <div className="group doc-types">
+              <div className="group-label">TIPO DE DOCUMENTO</div>
+              <div className="check-row">
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={filtros.jurisprudencia}
+                    onChange={() => toggleFiltro('jurisprudencia')}
+                  />
+                  Jurisprudência
+                </label>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={filtros.precedente}
+                    onChange={() => toggleFiltro('precedente')}
+                  />
+                  Precedente
+                </label>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={filtros.doutrina}
+                    onChange={() => toggleFiltro('doutrina')}
+                  />
+                  Doutrina
+                </label>
               </div>
             </div>
-          </div>
 
-          <button className="clear-btn" onClick={limparFiltros}>
-            LIMPAR FILTROS
-          </button>
-        </aside>
+            <div className="group">
+              <div className="group-label">FONTE</div>
+              <select
+                value={fonte}
+                onChange={(e) => {
+                  setFonte(e.target.value)
+                  voltarParaPrimeiraPagina()
+                }}
+              >
+                <option>{TODAS_AS_FONTES}</option>
+                {fontesDisponiveis.map((sigla) => (
+                  <option key={sigla}>{sigla}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="group">
+              <div className="group-label">TRIBUNAL</div>
+              <select
+                value={tribunal}
+                onChange={(e) => {
+                  setTribunal(e.target.value)
+                  voltarParaPrimeiraPagina()
+                }}
+              >
+                <option>Todos os tribunais</option>
+                {tribunaisDisponiveis.map((sigla) => (
+                  <option key={sigla}>{sigla}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="group">
+              <div className="group-label">PERÍODO</div>
+              <div className="date-row">
+                <div>
+                  <label>De</label>
+                  <input
+                    className="date-input"
+                    type="date"
+                    value={dataDe}
+                    onChange={(e) => {
+                      setDataDe(e.target.value)
+                      voltarParaPrimeiraPagina()
+                    }}
+                  />
+                </div>
+                <div>
+                  <label>Até</label>
+                  <input
+                    className="date-input"
+                    type="date"
+                    value={dataAte}
+                    onChange={(e) => {
+                      setDataAte(e.target.value)
+                      voltarParaPrimeiraPagina()
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button className="clear-btn" onClick={limparFiltros}>
+              LIMPAR FILTROS
+            </button>
+          </aside>
+
+          {carregandoMerito ? (
+            <div className="chart-container">
+              <h3>Distribuição do Mérito</h3>
+              <p className="chart-loading">Carregando gráfico...</p>
+            </div>
+          ) : erroMerito ? (
+            <div className="chart-container">
+              <h3>Distribuição do Mérito</h3>
+              <p className="chart-error">{erroMerito}</p>
+            </div>
+          ) : (
+            <BarChartDistribuicao data={dadosMerito} titulo="Distribuição do Mérito" />
+          )}
+        </div>
 
         <main>
           <div className="results-header">

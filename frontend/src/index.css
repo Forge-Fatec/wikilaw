@@ -169,6 +169,21 @@ nav a.active {
   gap: 24px;
 }
 
+.top-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.top-row .filters {
+  flex: 1;
+  min-width: 280px;
+}
+.top-row .chart-container {
+  flex: 0 0 340px;
+  max-width: 340px;
+}
+
 .filters {
   background: #fff;
   border: 1px solid var(--line);
@@ -673,6 +688,36 @@ select,
   font-size: 13.5px;
 }
 
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 20px;
+}
+.chart-container {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 24px 28px;
+  box-shadow: 0 20px 40px -32px rgba(30, 27, 48, 0.3);
+}
+.chart-container h3 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 18px;
+  margin: 0 0 14px;
+  color: var(--ink);
+}
+.chart-container .chart-loading,
+.chart-container .chart-error {
+  padding: 40px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+.chart-container .chart-error {
+  color: var(--terracotta-dark);
+}
+
 @media (max-width: 760px) {
   .header {
     flex-direction: column;
@@ -684,6 +729,13 @@ select,
   }
   .layout {
     margin-top: -16px;
+  }
+  .top-row {
+    flex-direction: column;
+  }
+  .top-row .chart-container {
+    max-width: 100%;
+    flex-basis: auto;
   }
   .filters {
     flex-direction: column;
