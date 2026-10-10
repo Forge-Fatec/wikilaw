@@ -582,6 +582,33 @@ function App() {
             </div>
           </div>
 
+                    {!erro && !carregando && (
+            <section className="indicadores" aria-label="Indicadores da pesquisa">
+              <div className="indicador">
+                <span className="indicador-label">ADERÊNCIA</span>
+                <strong className="indicador-valor">
+                  {indicadores.aderencia === null
+                    ? '—'
+                    : `${indicadores.aderencia}%`}
+                </strong>
+                <span className="indicador-detalhe">
+                  {indicadores.classificadas
+                    ? `${indicadores.favoraveis} de ${indicadores.classificadas} decisões favoráveis ao recurso`
+                    : 'Nenhuma decisão com resultado identificado'}
+                </span>
+              </div>
+              <div className="indicador">
+                <span className="indicador-label">DECISÕES ANALISADAS</span>
+                <strong className="indicador-valor">
+                  {indicadores.totalDecisoes}
+                </strong>
+                <span className="indicador-detalhe">
+                  {indicadores.classificadas} com resultado identificado
+                </span>
+              </div>
+            </section>
+          )}
+
           {erro && <div className="empty">{erro}</div>}
 
           {!erro && !carregando && resultados.length === 0 && (
