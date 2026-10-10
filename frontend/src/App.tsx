@@ -323,6 +323,8 @@ function App() {
       return true
     })
 
+    const indicadores = useMemo(() => calcularIndicadores(resultados), [resultados])
+
     return filtrados.sort((a, b) => {
       const dataAValor = dataDoDocumento(a)
       const dataBValor = dataDoDocumento(b)
