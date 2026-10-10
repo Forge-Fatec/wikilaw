@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import './index.css'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
 import { useDistribuicaoMerito } from './components/hooks/useDistribuicaoMerito'
+import { calcularIndicadores } from './indicadores'
 
 type DocType = 'jurisprudencia' | 'precedente' | 'doutrina'
 type Ordenacao = 'mais-recentes' | 'mais-antigos'
@@ -323,8 +324,6 @@ function App() {
       return true
     })
 
-    const indicadores = useMemo(() => calcularIndicadores(resultados), [resultados])
-
     return filtrados.sort((a, b) => {
       const dataAValor = dataDoDocumento(a)
       const dataBValor = dataDoDocumento(b)
@@ -340,6 +339,8 @@ function App() {
       return ordenacao === 'mais-recentes' ? dataB - dataA : dataA - dataB
     })
   }, [documentos, filtros, fonte, tribunal, dataDe, dataAte, ordenacao])
+
+  const indicadores = useMemo(() => calcularIndicadores(resultados), [resultados])
 
   const totalPaginas = Math.max(
     1,
@@ -582,7 +583,7 @@ function App() {
             </div>
           </div>
 
-                    {!erro && !carregando && (
+          {!erro && !carregando && (
             <section className="indicadores" aria-label="Indicadores da pesquisa">
               <div className="indicador">
                 <span className="indicador-label">ADERÊNCIA</span>
