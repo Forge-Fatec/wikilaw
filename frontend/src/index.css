@@ -324,6 +324,40 @@ select,
   outline-offset: 2px;
 }
 
+.indicadores {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.indicador {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--terracotta);
+  border-radius: 10px;
+  padding: 18px 22px;
+}
+.indicador-label {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.indicador-valor {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 34px;
+  line-height: 1.1;
+  color: var(--navy);
+}
+.indicador-detalhe {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
 .card {
   background: #fff;
   border: 1px solid var(--line);
@@ -709,6 +743,9 @@ select,
   }
   .hero h1 {
     font-size: 27px;
+  }
+  .indicadores {
+    grid-template-columns: 1fr;
   }
   .card {
     padding: 22px 20px;
