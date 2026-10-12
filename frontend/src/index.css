@@ -179,8 +179,19 @@ nav a.active {
   flex: 1;
   min-width: 280px;
 }
-.top-row .chart-container {
-  flex: 0 0 340px;
+.top-row .charts-grid {
+  flex: 1 1 500px;
+  min-width: 280px;
+}
+
+.charts-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.charts-grid .chart-container {
+  flex: 1 1 260px;
+  min-width: 240px;
   max-width: 340px;
 }
 
@@ -733,9 +744,12 @@ select,
   .top-row {
     flex-direction: column;
   }
-  .top-row .chart-container {
+  .top-row .charts-grid {
+    width: 100%;
+  }
+  .charts-grid .chart-container {
     max-width: 100%;
-    flex-basis: auto;
+    flex-basis: 100%;
   }
   .filters {
     flex-direction: column;

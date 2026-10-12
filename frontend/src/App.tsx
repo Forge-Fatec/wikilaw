@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import './index.css'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
 import { useDistribuicaoMerito } from './components/hooks/useDistribuicaoMerito'
+import { useDistribuicaoCamaraTurma } from './components/hooks/useDistribuicaoCamaraTurma'
 import { calcularIndicadores } from './indicadores'
 
 type DocType = 'jurisprudencia' | 'precedente' | 'doutrina'
@@ -228,6 +229,12 @@ function App() {
     loading: carregandoMerito,
     error: erroMerito,
   } = useDistribuicaoMerito()
+
+  const {
+    data: dadosCamaraTurma,
+    loading: carregandoCamaraTurma,
+    error: erroCamaraTurma,
+  } = useDistribuicaoCamaraTurma()
 
   const buscar = useCallback(async () => {
     if (!query.trim()) {
@@ -531,19 +538,35 @@ function App() {
             </button>
           </aside>
 
-          {carregandoMerito ? (
-            <div className="chart-container">
-              <h3>Distribuição do Mérito</h3>
-              <p className="chart-loading">Carregando gráfico...</p>
-            </div>
-          ) : erroMerito ? (
-            <div className="chart-container">
-              <h3>Distribuição do Mérito</h3>
-              <p className="chart-error">{erroMerito}</p>
-            </div>
-          ) : (
-            <BarChartDistribuicao data={dadosMerito} titulo="Distribuição do Mérito" />
-          )}
+          <div className="charts-grid">
+            {carregandoMerito ? (
+              <div className="chart-container">
+                <h3>Distribuição do Mérito</h3>
+                <p className="chart-loading">Carregando gráfico...</p>
+              </div>
+            ) : erroMerito ? (
+              <div className="chart-container">
+                <h3>Distribuição do Mérito</h3>
+                <p className="chart-error">{erroMerito}</p>
+              </div>
+            ) : (
+              <BarChartDistribuicao data={dadosMerito} titulo="Distribuição do Mérito" />
+            )}
+
+            {carregandoCamaraTurma ? (
+              <div className="chart-container">
+                <h3>Distribuição por Câmara/Turma</h3>
+                <p className="chart-loading">Carregando gráfico...</p>
+              </div>
+            ) : erroCamaraTurma ? (
+              <div className="chart-container">
+                <h3>Distribuição por Câmara/Turma</h3>
+                <p className="chart-error">{erroCamaraTurma}</p>
+              </div>
+            ) : (
+              <BarChartDistribuicao data={dadosCamaraTurma} titulo="Distribuição por Câmara/Turma" />
+            )}
+          </div>
         </div>
 
         <main>
