@@ -292,6 +292,22 @@ select,
   font-size: 21px;
   margin: 0;
 }
+.export-pdf-btn {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 10px 16px;
+  background: var(--ink, #1f2f3d);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.export-pdf-btn:hover:not(:disabled) { background: #354f60; }
+.export-pdf-btn:focus-visible { outline: 3px solid #7197b1; outline-offset: 3px; }
+.export-pdf-btn:disabled { opacity: .5; cursor: not-allowed; }
+.export-message { font-size: 13px; color: var(--muted); margin: 0 0 16px; }
+.export-error { color: #a33225; }
 .results-count {
   display: block;
   font-size: 12.5px;

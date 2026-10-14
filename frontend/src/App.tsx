@@ -205,6 +205,10 @@ async function carregarDocumentos(termo: string): Promise<Documento[]> {
 
 function App() {
   const [query, setQuery] = useState('')
+  const [termoPesquisado, setTermoPesquisado] = useState('')
+  const [exportando, setExportando] = useState(false)
+  const [erroExportacao, setErroExportacao] = useState<string | null>(null)
+  const [exportacaoConcluida, setExportacaoConcluida] = useState(false)
   const [erroValidacao, setErroValidacao] = useState<string | null>(null)
   const [filtros, setFiltros] = useState<Record<DocType, boolean>>({
     jurisprudencia: true,
@@ -243,12 +247,15 @@ function App() {
     }
 
     setErroValidacao(null)
+    setErroExportacao(null)
+    setExportacaoConcluida(false)
     setCarregando(true)
     setErro(null)
     setPaginaAtual(1)
     setDocumentoSelecionado(null)
     try {
       setDocumentos(await carregarDocumentos(query))
+      setTermoPesquisado(query.trim())
     } catch {
       setErro(ERRO_CARREGAMENTO)
       setDocumentos([])
@@ -349,6 +356,62 @@ function App() {
 
   const indicadores = useMemo(() => calcularIndicadores(resultados), [resultados])
 
+  async function exportarPdf() {
+    if (carregando || exportando || erro || !resultados.length) return
+    setErroExportacao(null)
+    setExportacaoConcluida(false)
+    if (resultados.length > 5000) {
+      setErroExportacao('A exportação permite até 5.000 resultados por PDF. Refine os filtros e tente novamente.')
+      return
+    }
+    setExportando(true)
+    try {
+      const response = await fetch(`${API_BASE}/api/pesquisas/exportacoes/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          termo: termoPesquisado,
+          categorias: (Object.keys(filtros) as DocType[])
+            .filter((tipo) => filtros[tipo]).map((tipo) => CATEGORIA_POR_TIPO[tipo]),
+          fonte: fonte === TODAS_AS_FONTES ? null : fonte,
+          tribunal: tribunal === 'Todos os tribunais' ? null : tribunal,
+          dataDe: dataDe || null,
+          dataAte: dataAte || null,
+          ordenacao,
+          resultados: resultados.map((documento) => ({
+            categoria: CATEGORIA_POR_TIPO[documento.type], id: documento.id,
+          })),
+        }),
+      })
+      if (!response.ok) {
+        if (response.status === 409) throw new Error('Um resultado não está mais disponível. Atualize a pesquisa e tente novamente.')
+        if (response.status === 413) throw new Error('O relatório é muito grande. Refine os filtros e tente novamente.')
+        if (response.status === 400) throw new Error('Confira os filtros e o período da pesquisa antes de exportar.')
+        throw new Error('Não foi possível gerar o PDF. Tente novamente.')
+      }
+      const pdf = await response.blob()
+      const signature = await pdf.slice(0, 5).text()
+      if (!response.headers.get('Content-Type')?.includes('application/pdf') || signature !== '%PDF-') {
+        throw new Error('O arquivo recebido não é um PDF válido. Tente novamente.')
+      }
+      const filename = response.headers.get('Content-Disposition')?.match(/filename="?(wikilaw-[\w.-]+\.pdf)"?/i)?.[1]
+        ?? `wikilaw-pesquisa-${new Date().toISOString().slice(0, 10)}.pdf`
+      const url = URL.createObjectURL(pdf)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      setExportacaoConcluida(true)
+    } catch (error) {
+      setErroExportacao(error instanceof Error ? error.message : 'Não foi possível baixar o PDF. Tente novamente.')
+    } finally {
+      setExportando(false)
+    }
+  }
+
   const totalPaginas = Math.max(
     1,
     Math.ceil(resultados.length / ITENS_POR_PAGINA),
@@ -362,6 +425,8 @@ function App() {
   function voltarParaPrimeiraPagina() {
     setPaginaAtual(1)
     setDocumentoSelecionado(null)
+    setErroExportacao(null)
+    setExportacaoConcluida(false)
   }
 
   function toggleFiltro(type: DocType) {
@@ -414,6 +479,7 @@ function App() {
           <div className="search-box">
             <input
               type="text"
+              maxLength={300}
               value={query}
               onChange={(event) => {
                 setQuery(event.target.value)
@@ -579,6 +645,15 @@ function App() {
                   : `${resultados.length} documentos encontrados · Página ${paginaExibida} de ${totalPaginas}`}
               </span>
             </div>
+            <button
+              type="button"
+              className="export-pdf-btn"
+              disabled={carregando || exportando || Boolean(erro) || resultados.length === 0}
+              onClick={() => void exportarPdf()}
+              aria-busy={exportando}
+            >
+              {exportando ? 'Gerando PDF...' : 'Exportar PDF'}
+            </button>
             <div className="sort-control" role="group" aria-label="Ordenar resultados por data de publicação">
               <span className="sort-label">ORDENAR POR DATA</span>
               <div className="sort-options">
@@ -605,6 +680,9 @@ function App() {
               </div>
             </div>
           </div>
+
+          {erroExportacao && <p className="export-message export-error" role="alert">{erroExportacao}</p>}
+          {exportacaoConcluida && <p className="export-message" role="status">PDF gerado. O download foi iniciado.</p>}
 
           {!erro && !carregando && (
             <section className="indicadores" aria-label="Indicadores da pesquisa">
