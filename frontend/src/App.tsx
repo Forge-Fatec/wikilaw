@@ -3,6 +3,7 @@ import './index.css'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
 import { useDistribuicaoMerito } from './components/hooks/useDistribuicaoMerito'
 import { useDistribuicaoCamaraTurma } from './components/hooks/useDistribuicaoCamaraTurma'
+import { useEvolucaoTemporalTese } from './components/hooks/useEvolucaoTemporalTese'
 import { calcularIndicadores } from './indicadores'
 
 type DocType = 'jurisprudencia' | 'precedente' | 'doutrina'
@@ -235,6 +236,12 @@ function App() {
     loading: carregandoCamaraTurma,
     error: erroCamaraTurma,
   } = useDistribuicaoCamaraTurma()
+
+  const {
+    data: dadosEvolucaoTese,
+    loading: carregandoEvolucaoTese,
+    error: erroEvolucaoTese,
+  } = useEvolucaoTemporalTese()
 
   const buscar = useCallback(async () => {
     if (!query.trim()) {
@@ -565,6 +572,20 @@ function App() {
               </div>
             ) : (
               <BarChartDistribuicao data={dadosCamaraTurma} titulo="Distribuição por Câmara/Turma" />
+            )}
+
+            {carregandoEvolucaoTese ? (
+              <div className="chart-container">
+                <h3>Evolução Temporal da Tese</h3>
+                <p className="chart-loading">Carregando gráfico...</p>
+              </div>
+            ) : erroEvolucaoTese ? (
+              <div className="chart-container">
+                <h3>Evolução Temporal da Tese</h3>
+                <p className="chart-error">{erroEvolucaoTese}</p>
+              </div>
+            ) : (
+              <BarChartDistribuicao data={dadosEvolucaoTese} titulo="Evolução Temporal da Tese" />
             )}
           </div>
         </div>
