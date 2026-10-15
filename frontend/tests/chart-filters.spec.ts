@@ -95,25 +95,38 @@ async function clicarNaBarra(page: Page, titulo: string, indice: number) {
   const container = grafico(page, titulo)
   const eixo = EIXO_DAS_CATEGORIAS[titulo]
   const superficie = container.locator('svg.recharts-surface')
-  const [svg, tick, area] = await Promise.all([
-    superficie.boundingBox(),
-    container
-      .locator(`.recharts-${eixo}Axis .recharts-cartesian-axis-tick-line`)
-      .nth(indice)
-      .boundingBox(),
-    container.locator('.recharts-cartesian-grid').boundingBox(),
-  ])
-  if (!svg || !tick || !area) throw new Error(`Gráfico "${titulo}" não renderizado`)
-  // Posição relativa ao SVG, que não muda quando o Playwright rola até ele.
-  const [x, y] =
-    eixo === 'x'
-      ? [tick.x + tick.width / 2, area.y + area.height / 2]
-      : [area.x + area.width / 2, tick.y + tick.height / 2]
-  const position = { x: x - svg.x, y: y - svg.y }
-  // O Recharts só sabe a categoria sob o mouse no quadro seguinte ao hover;
-  // o tooltip aparecer é o sinal de que o clique já vai ser reconhecido.
-  await superficie.hover({ position })
-  await expect(container.locator('.recharts-tooltip-wrapper')).toBeVisible()
+  const tooltip = container.locator('.recharts-tooltip-wrapper')
+  let position = { x: 0, y: 0 }
+
+  // Rolar até o gráfico encaixa a busca na barra fixa, o que mexe no layout
+  // enquanto a página se acomoda: mede e passa o mouse de novo até o Recharts
+  // reconhecer a categoria (o tooltip aparecer é esse sinal).
+  await expect(async () => {
+    await container.evaluate(async (el) => {
+      el.scrollIntoView({ block: 'center' })
+      await new Promise((pronto) =>
+        requestAnimationFrame(() => requestAnimationFrame(pronto)),
+      )
+    })
+    const [svg, tick, area] = await Promise.all([
+      superficie.boundingBox(),
+      container
+        .locator(`.recharts-${eixo}Axis .recharts-cartesian-axis-tick-line`)
+        .nth(indice)
+        .boundingBox(),
+      container.locator('.recharts-cartesian-grid').boundingBox(),
+    ])
+    if (!svg || !tick || !area) throw new Error(`Gráfico "${titulo}" não renderizado`)
+    // Posição relativa ao SVG, que não muda quando a página rola.
+    const [x, y] =
+      eixo === 'x'
+        ? [tick.x + tick.width / 2, area.y + area.height / 2]
+        : [area.x + area.width / 2, tick.y + tick.height / 2]
+    position = { x: x - svg.x, y: y - svg.y }
+    await superficie.hover({ position, timeout: 3_000 })
+    await expect(tooltip).toBeVisible({ timeout: 1_500 })
+  }).toPass({ timeout: 20_000 })
+
   await superficie.click({ position })
 }
 

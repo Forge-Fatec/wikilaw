@@ -264,21 +264,45 @@ nav a.active {
   margin-left: auto;
 }
 
-/* Depois da primeira pesquisa: sem o hero, a busca entra na barra e a barra
-   fica presa no topo ao rolar. */
-.layout.busca-na-barra {
-  margin-top: 24px;
-}
-.layout.busca-na-barra .toolbar {
+/* Faixa presa no topo ao rolar. Ocupa a largura toda do layout e, presa,
+   ganha o fundo da página: o conteúdo que passa por baixo não aparece em
+   volta nem acima da barra. */
+.barra-fixa {
   position: sticky;
-  top: 8px;
+  top: 0;
   z-index: 20;
+  margin: 0 -32px;
+  padding: 8px 32px;
+  transition: background-color 0.15s;
+}
+.barra-fixa[data-presa] {
+  background: var(--cream);
+}
+.barra-fixa[data-presa] .toolbar {
   box-shadow: 0 12px 28px -18px rgba(30, 27, 48, 0.45);
 }
-.toolbar .search-form {
+
+/* --encaixe vai de 0 (busca no hero) a 1 (busca na barra) conforme a rolagem.
+   A busca do hero desce e some; a da barra cresce da esquerda e aparece. */
+.busca-destaque {
+  opacity: calc(1 - var(--encaixe, 0));
+  transform: translateY(calc(var(--encaixe, 0) * 28px))
+    scale(calc(1 - var(--encaixe, 0) * 0.06));
+}
+.busca-encaixe {
   flex: 1 1 340px;
   min-width: 0;
-  max-width: 560px;
+  max-width: calc(var(--encaixe, 0) * 560px);
+  opacity: var(--encaixe, 0);
+  transform: translateY(calc((1 - var(--encaixe, 0)) * -8px));
+}
+/* Durante a transição corta o que ainda não cabe; encaixada, a mensagem de
+   validação pode aparecer abaixo do campo. */
+.busca-encaixe[data-fase='transicao'] {
+  overflow: hidden;
+}
+.toolbar .search-form {
+  min-width: 0;
   margin: 0;
 }
 .toolbar .search-box {
@@ -961,26 +985,28 @@ select,
   }
   /* A barra fixa não pode tomar a tela do celular: chips numa linha só, com
      rolagem lateral. */
-  .layout.busca-na-barra .toolbar {
-    top: 0;
+  .barra-fixa .toolbar {
     padding: 10px;
   }
-  .layout.busca-na-barra .toolbar-row {
+  .barra-fixa .toolbar-row {
     gap: 8px;
   }
-  .layout.busca-na-barra .active-filters {
+  .barra-fixa .active-filters {
     flex: 1 1 0;
     flex-wrap: nowrap;
     min-width: 0;
     overflow-x: auto;
     scrollbar-width: none;
   }
-  .layout.busca-na-barra .chip {
+  .barra-fixa .chip {
     white-space: nowrap;
   }
-  .toolbar .search-form {
+  /* No celular a busca ocupa uma linha própria: entra crescendo na altura. */
+  .busca-encaixe {
     flex-basis: 100%;
     max-width: none;
+    max-height: calc(var(--encaixe, 0) * 80px);
+    overflow: hidden;
   }
   .filters {
     flex-direction: column;

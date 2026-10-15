@@ -33,6 +33,13 @@ const ROTULO_POR_TIPO: Record<DocType, string> = {
   doutrina: 'Doutrina',
 }
 
+// Onde está a busca: no hero, a caminho da barra fixa ou já dentro dela.
+type FaseEncaixe = 'destaque' | 'transicao' | 'barra'
+
+// Distância (px) do topo da tela em que a busca do hero começa a ir para a
+// barra; o encaixe termina quando ela some pelo topo.
+const INICIO_ENCAIXE = 160
+
 interface FiltroAtivo {
   chave: string
   rotulo: string
@@ -321,26 +328,64 @@ function App() {
   const [erroValidacao, setErroValidacao] = useState<string | null>(null)
   const [filtros, setFiltros] = useState<Record<DocType, boolean>>(TODOS_OS_TIPOS)
   const [filtrosAbertos, setFiltrosAbertos] = useState(false)
-  const barraRef = useRef<HTMLElement>(null)
+  const faixaRef = useRef<HTMLDivElement>(null)
+  const buscaDestaqueRef = useRef<HTMLDivElement>(null)
   const cargaRef = useRef<AbortController | null>(null)
-  const buscaNaBarra = termoPesquisado.trim() !== ''
+  const [encaixe, setEncaixe] = useState<FaseEncaixe>('destaque')
 
-  // Com a barra fixa no topo, o panorama (também fixo) precisa começar abaixo
-  // dela; a altura muda quando o painel de filtros abre ou os chips quebram linha.
+  // A busca do hero "desce" para a barra fixa conforme a página rola e volta
+  // ao subir. O progresso (0 a 1) vai para a variável CSS --encaixe, que
+  // anima as duas buscas acompanhando a rolagem; o estado React só muda
+  // nas fronteiras, para não renderizar a cada quadro.
   useEffect(() => {
-    const barra = barraRef.current
-    if (!buscaNaBarra || !barra) return
+    const raiz = document.documentElement
+    let quadro = 0
+
+    const atualizar = () => {
+      quadro = 0
+      const busca = buscaDestaqueRef.current
+      const faixa = faixaRef.current
+      if (!busca || !faixa) return
+
+      const { bottom } = busca.getBoundingClientRect()
+      const progresso = Math.min(1, Math.max(0, (INICIO_ENCAIXE - bottom) / INICIO_ENCAIXE))
+      raiz.style.setProperty('--encaixe', progresso.toFixed(3))
+      setEncaixe(progresso === 0 ? 'destaque' : progresso === 1 ? 'barra' : 'transicao')
+      // Só pinta o fundo da faixa quando ela está presa: antes disso ela fica
+      // sobre o hero e o fundo apareceria como uma tarja.
+      faixa.toggleAttribute('data-presa', faixa.getBoundingClientRect().top <= 0)
+    }
+    const agendar = () => {
+      if (!quadro) quadro = requestAnimationFrame(atualizar)
+    }
+
+    agendar()
+    window.addEventListener('scroll', agendar, { passive: true })
+    window.addEventListener('resize', agendar)
+    return () => {
+      cancelAnimationFrame(quadro)
+      window.removeEventListener('scroll', agendar)
+      window.removeEventListener('resize', agendar)
+      raiz.style.removeProperty('--encaixe')
+    }
+  }, [])
+
+  // O panorama (também fixo) precisa começar abaixo da faixa; a altura muda
+  // quando o painel de filtros abre, a busca entra ou os chips quebram linha.
+  useEffect(() => {
+    const faixa = faixaRef.current
+    if (!faixa) return
 
     const raiz = document.documentElement
     const observador = new ResizeObserver(() => {
-      raiz.style.setProperty('--altura-barra', `${barra.offsetHeight}px`)
+      raiz.style.setProperty('--altura-barra', `${faixa.offsetHeight}px`)
     })
-    observador.observe(barra)
+    observador.observe(faixa)
     return () => {
       observador.disconnect()
       raiz.style.removeProperty('--altura-barra')
     }
-  }, [buscaNaBarra])
+  }, [])
   const [tribunal, setTribunal] = useState(TODOS_OS_TRIBUNAIS)
   const [fonte, setFonte] = useState(TODAS_AS_FONTES)
   const [dataDe, setDataDe] = useState('')
@@ -597,7 +642,9 @@ function App() {
     })
   }
 
-  const formularioBusca = (
+  // A mesma busca aparece no hero e na barra fixa (as duas compartilham o
+  // texto digitado); os ids mudam para não repetir no DOM durante a transição.
+  const formularioBusca = (origem: 'destaque' | 'barra') => (
     <form
       className="search-form"
       role="search"
@@ -616,7 +663,7 @@ function App() {
           }}
           aria-label="Descrição do caso"
           aria-invalid={Boolean(erroValidacao)}
-          aria-describedby={erroValidacao ? 'search-error' : undefined}
+          aria-describedby={erroValidacao ? `search-error-${origem}` : undefined}
           placeholder="Ex.: dano moral por negativação indevida do nome do consumidor..."
         />
         {/* Fica habilitado durante a carga: uma nova pesquisa substitui a anterior. */}
@@ -625,7 +672,7 @@ function App() {
         </button>
       </div>
       {erroValidacao && (
-        <p id="search-error" className="search-error" role="alert">
+        <p id={`search-error-${origem}`} className="search-error" role="alert">
           {erroValidacao}
         </p>
       )}
@@ -644,158 +691,168 @@ function App() {
         </div>
       </header>
 
-      {/* Depois da primeira pesquisa a busca sai do destaque e passa para a
-          barra fixa, junto dos filtros, para refinar sem voltar ao topo. */}
-      {!buscaNaBarra && (
-        <section className="hero">
-          <div className="hero-rule" />
-          <h1>
-            Descreva o seu caso.{' '}
-            <em>
-              Nós
-              <br />
-              encontramos o direito.
-            </em>
-          </h1>
-          <p>
-            Pesquisa em linguagem natural entre jurisprudências, precedentes e
-            doutrinas dos principais tribunais do país.
-          </p>
-          {formularioBusca}
-        </section>
-      )}
+      <section className="hero">
+        <div className="hero-rule" />
+        <h1>
+          Descreva o seu caso.{' '}
+          <em>
+            Nós
+            <br />
+            encontramos o direito.
+          </em>
+        </h1>
+        <p>
+          Pesquisa em linguagem natural entre jurisprudências, precedentes e
+          doutrinas dos principais tribunais do país.
+        </p>
+        {/* Já encaixada na barra, esta cópia está fora da tela: sai do foco e
+            dos leitores de tela para não haver duas buscas ativas. */}
+        <div
+          className="busca-destaque"
+          ref={buscaDestaqueRef}
+          inert={encaixe === 'barra'}
+        >
+          {formularioBusca('destaque')}
+        </div>
+      </section>
 
-      <div className={buscaNaBarra ? 'layout busca-na-barra' : 'layout'}>
-        <section className="toolbar" ref={barraRef} aria-label="Busca e filtros">
-          <div className="toolbar-row">
-            {buscaNaBarra && formularioBusca}
-            {filtrosAtivos.length > 0 && (
-              <>
-                <ul className="active-filters" aria-label="Filtros ativos">
-                  {filtrosAtivos.map((filtro) => (
-                    <li key={filtro.chave}>
-                      <button
-                        type="button"
-                        className="chip"
-                        aria-label={`Remover filtro ${filtro.rotulo}`}
-                        onClick={() => {
-                          filtro.remover()
+      <div className="layout">
+        <div className="barra-fixa" ref={faixaRef}>
+          <section className="toolbar" aria-label="Busca e filtros">
+            <div className="toolbar-row">
+              {encaixe !== 'destaque' && (
+                <div className="busca-encaixe" data-fase={encaixe}>
+                  {formularioBusca('barra')}
+                </div>
+              )}
+              {filtrosAtivos.length > 0 && (
+                <>
+                  <ul className="active-filters" aria-label="Filtros ativos">
+                    {filtrosAtivos.map((filtro) => (
+                      <li key={filtro.chave}>
+                        <button
+                          type="button"
+                          className="chip"
+                          aria-label={`Remover filtro ${filtro.rotulo}`}
+                          onClick={() => {
+                            filtro.remover()
+                            voltarParaPrimeiraPagina()
+                          }}
+                        >
+                          {filtro.rotulo}
+                          <span aria-hidden="true"> ×</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <button type="button" className="clear-link" onClick={limparFiltros}>
+                    Limpar filtros
+                  </button>
+                </>
+              )}
+
+              <button
+                type="button"
+                className="filters-toggle"
+                aria-expanded={filtrosAbertos}
+                aria-controls="painel-filtros"
+                onClick={() => setFiltrosAbertos((aberto) => !aberto)}
+              >
+                <span aria-hidden="true">▤</span> Filtros
+                {filtrosAtivos.length > 0 && (
+                  <span className="filters-count">{filtrosAtivos.length}</span>
+                )}
+                <span className="chevron" aria-hidden="true">▾</span>
+              </button>
+            </div>
+
+            {filtrosAbertos && (
+              <div id="painel-filtros" className="filters">
+                <fieldset className="group doc-types">
+                  <legend className="group-label">TIPO DE DOCUMENTO</legend>
+                  <div className="check-row">
+                    {(Object.keys(ROTULO_POR_TIPO) as DocType[]).map((tipo) => (
+                      <label className="check" key={tipo}>
+                        <input
+                          type="checkbox"
+                          checked={filtros[tipo]}
+                          onChange={() => toggleFiltro(tipo)}
+                        />
+                        {ROTULO_POR_TIPO[tipo]}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <div className="group">
+                  <label className="group-label" htmlFor="filtro-fonte">FONTE</label>
+                  <select
+                    id="filtro-fonte"
+                    value={fonte}
+                    onChange={(e) => {
+                      setFonte(e.target.value)
+                      voltarParaPrimeiraPagina()
+                    }}
+                  >
+                    <option>{TODAS_AS_FONTES}</option>
+                    {fontesDisponiveis.map((sigla) => (
+                      <option key={sigla}>{sigla}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="group">
+                  <label className="group-label" htmlFor="filtro-tribunal">TRIBUNAL</label>
+                  <select
+                    id="filtro-tribunal"
+                    value={tribunal}
+                    onChange={(e) => {
+                      setTribunal(e.target.value)
+                      voltarParaPrimeiraPagina()
+                    }}
+                  >
+                    <option>{TODOS_OS_TRIBUNAIS}</option>
+                    {tribunaisDisponiveis.map((sigla) => (
+                      <option key={sigla}>{sigla}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <fieldset className="group">
+                  <legend className="group-label">PERÍODO</legend>
+                  <div className="date-row">
+                    <div>
+                      <label htmlFor="filtro-data-de">De</label>
+                      <input
+                        id="filtro-data-de"
+                        className="date-input"
+                        type="date"
+                        value={dataDe}
+                        onChange={(e) => {
+                          setDataDe(e.target.value)
                           voltarParaPrimeiraPagina()
                         }}
-                      >
-                        {filtro.rotulo}
-                        <span aria-hidden="true"> ×</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <button type="button" className="clear-link" onClick={limparFiltros}>
-                  Limpar filtros
-                </button>
-              </>
-            )}
-
-            <button
-              type="button"
-              className="filters-toggle"
-              aria-expanded={filtrosAbertos}
-              aria-controls="painel-filtros"
-              onClick={() => setFiltrosAbertos((aberto) => !aberto)}
-            >
-              <span aria-hidden="true">▤</span> Filtros
-              {filtrosAtivos.length > 0 && (
-                <span className="filters-count">{filtrosAtivos.length}</span>
-              )}
-              <span className="chevron" aria-hidden="true">▾</span>
-            </button>
-          </div>
-
-          {filtrosAbertos && (
-            <div id="painel-filtros" className="filters">
-              <fieldset className="group doc-types">
-                <legend className="group-label">TIPO DE DOCUMENTO</legend>
-                <div className="check-row">
-                  {(Object.keys(ROTULO_POR_TIPO) as DocType[]).map((tipo) => (
-                    <label className="check" key={tipo}>
-                      <input
-                        type="checkbox"
-                        checked={filtros[tipo]}
-                        onChange={() => toggleFiltro(tipo)}
                       />
-                      {ROTULO_POR_TIPO[tipo]}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-
-              <div className="group">
-                <label className="group-label" htmlFor="filtro-fonte">FONTE</label>
-                <select
-                  id="filtro-fonte"
-                  value={fonte}
-                  onChange={(e) => {
-                    setFonte(e.target.value)
-                    voltarParaPrimeiraPagina()
-                  }}
-                >
-                  <option>{TODAS_AS_FONTES}</option>
-                  {fontesDisponiveis.map((sigla) => (
-                    <option key={sigla}>{sigla}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="group">
-                <label className="group-label" htmlFor="filtro-tribunal">TRIBUNAL</label>
-                <select
-                  id="filtro-tribunal"
-                  value={tribunal}
-                  onChange={(e) => {
-                    setTribunal(e.target.value)
-                    voltarParaPrimeiraPagina()
-                  }}
-                >
-                  <option>{TODOS_OS_TRIBUNAIS}</option>
-                  {tribunaisDisponiveis.map((sigla) => (
-                    <option key={sigla}>{sigla}</option>
-                  ))}
-                </select>
-              </div>
-
-              <fieldset className="group">
-                <legend className="group-label">PERÍODO</legend>
-                <div className="date-row">
-                  <div>
-                    <label htmlFor="filtro-data-de">De</label>
-                    <input
-                      id="filtro-data-de"
-                      className="date-input"
-                      type="date"
-                      value={dataDe}
-                      onChange={(e) => {
-                        setDataDe(e.target.value)
-                        voltarParaPrimeiraPagina()
-                      }}
-                    />
+                    </div>
+                    <div>
+                      <label htmlFor="filtro-data-ate">Até</label>
+                      <input
+                        id="filtro-data-ate"
+                        className="date-input"
+                        type="date"
+                        value={dataAte}
+                        onChange={(e) => {
+                          setDataAte(e.target.value)
+                          voltarParaPrimeiraPagina()
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label htmlFor="filtro-data-ate">Até</label>
-                    <input
-                      id="filtro-data-ate"
-                      className="date-input"
-                      type="date"
-                      value={dataAte}
-                      onChange={(e) => {
-                        setDataAte(e.target.value)
-                        voltarParaPrimeiraPagina()
-                      }}
-                    />
-                  </div>
-                </div>
-              </fieldset>
-            </div>
-          )}
-        </section>
+                </fieldset>
+              </div>
+            )}
+          </section>
+        </div>
 
         <div className="content">
           {/* Fica ao lado da lista (e acima dela em telas estreitas): clicar
