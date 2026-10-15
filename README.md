@@ -277,6 +277,9 @@ Consulte [o guia das integrações](docs/INTEGRACOES.md) para exemplos no Swagge
 
 ### Padrão das buscas de documentos
 
+Os indicadores e gráficos da tela vêm de `GET /api/dashboard` e dos endpoints
+por agregação em `/api/dashboard/*`; veja [o dashboard da pesquisa](docs/DASHBOARD.md).
+
 A busca principal usa os endpoints `GET /api/documentos/decisoes`,
 `GET /api/documentos/precedentes` e `GET /api/documentos/doutrina`.
 Jurisprudência (`decisoes`) já utiliza a busca especializada por palavras-chave;

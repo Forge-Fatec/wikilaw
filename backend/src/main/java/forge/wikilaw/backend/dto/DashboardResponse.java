@@ -5,7 +5,9 @@ import java.util.List;
 public record DashboardResponse(
         Indicadores indicadores,
         List<DistribuicaoItem> distribuicaoMerito,
-        List<DistribuicaoItem> distribuicaoCamaraTurma) {
+        List<DistribuicaoItem> distribuicaoCamaraTurma,
+        List<DistribuicaoItem> distribuicaoTribunal,
+        List<DistribuicaoItem> evolucaoAnual) {
 
     /** aderencia vai de 0 a 100; null quando nenhuma decisão tem resultado identificável. */
     public record Indicadores(
