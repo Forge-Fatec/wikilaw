@@ -1,5 +1,4 @@
 import { expect, test, type Page } from '@playwright/test'
-import { classificarResultado } from '../src/indicadores'
 import { abrirFrontend } from './helpers/test-helper'
 
 const EMPTY_RESPONSE = {
@@ -14,22 +13,17 @@ function printStep(cenario: string, etapa: string): void {
   console.info(`[dashboard][${cenario}] ${etapa}`)
 }
 
-function item(
-  id: number,
-  categoria: string,
-  tribunal: string,
-  decisao: string | null,
-) {
+function item(id: number, categoria: string, tribunal: string) {
   return {
     id,
-    fonte: 'Fonte de teste',
+    fonte: 'TJDFT',
     categoria,
     titulo: `Documento ${id}`,
     tipoDocumento: null,
     numeroProcessoOuTema: null,
     autoresOuRelator: null,
     resumoOuEmenta: null,
-    decisao,
+    decisao: null,
     tribunal,
     orgaoJulgador: null,
     dataJulgamento: null,
@@ -41,31 +35,54 @@ function item(
 }
 
 const DECISOES = [
-  item(1, 'decisoes', 'TJSP', 'Recurso provido.'),
-  item(2, 'decisoes', 'TJSP', 'Recurso parcialmente provido.'),
-  item(3, 'decisoes', 'TJRJ', 'Recurso desprovido.'),
-  item(4, 'decisoes', 'TJRJ', 'Negaram provimento ao recurso.'),
-  item(5, 'decisoes', 'TJSP', null),
-  item(6, 'decisoes', 'TJSP', 'Homologado o acordo entre as partes.'),
+  item(1, 'decisoes', 'TJSP'),
+  item(2, 'decisoes', 'TJRJ'),
 ]
 
-// O campo "decisao" de precedentes traz a tese e não deve entrar na conta.
-const PRECEDENTES = [
-  item(7, 'precedentes', 'STJ', 'É procedente a restituição em dobro.'),
-]
+function dashboard(
+  totalDecisoes: number,
+  classificadas: number,
+  favoraveis: number,
+  aderencia: number | null,
+) {
+  return {
+    indicadores: { totalDecisoes, classificadas, favoraveis, aderencia },
+    distribuicaoMerito: [
+      { categoria: 'Provido', quantidade: favoraveis },
+      { categoria: 'Parcialmente provido', quantidade: 0 },
+      { categoria: 'Desprovido', quantidade: classificadas - favoraveis },
+      { categoria: 'Não identificado', quantidade: totalDecisoes - classificadas },
+    ],
+    distribuicaoCamaraTurma: totalDecisoes
+      ? [{ categoria: '1ª Turma Cível', quantidade: totalDecisoes }]
+      : [],
+  }
+}
+
+// O back responde por recorte; o mock devolve números diferentes por tribunal
+// para provar que a tela repassa os filtros e exibe o que o back calculou.
+const POR_TRIBUNAL: Record<string, ReturnType<typeof dashboard>> = {
+  '': dashboard(6, 4, 2, 50),
+  TJRJ: dashboard(2, 2, 0, 0),
+  TJSP: dashboard(4, 2, 2, 100),
+}
 
 async function mockarApi(page: Page) {
+  const consultas: URLSearchParams[] = []
+
   await page.route('**/api/documentos/**', async (route) => {
-    const url = route.request().url()
-    const itens = url.includes('/decisoes')
-      ? DECISOES
-      : url.includes('/precedentes')
-        ? PRECEDENTES
-        : []
+    const itens = route.request().url().includes('/decisoes') ? DECISOES : []
     await route.fulfill({
       json: { ...EMPTY_RESPONSE, itens, total: itens.length, totalPaginas: 1 },
     })
   })
+  await page.route('**/api/dashboard*', async (route) => {
+    const params = new URL(route.request().url()).searchParams
+    consultas.push(params)
+    await route.fulfill({ json: POR_TRIBUNAL[params.get('tribunal') ?? ''] })
+  })
+
+  return consultas
 }
 
 function indicador(page: Page, rotulo: string) {
@@ -79,32 +96,19 @@ function valor(page: Page, rotulo: string) {
   return indicador(page, rotulo).locator('.indicador-valor')
 }
 
-test.describe('dashboard de indicadores da pesquisa', () => {
-  test('classifica o resultado a partir do texto da decisão', () => {
-    expect(classificarResultado('Recurso provido.')).toBe('provido')
-    expect(classificarResultado('Deram provimento ao apelo.')).toBe('provido')
-    expect(classificarResultado('Pedido julgado procedente.')).toBe('provido')
-    expect(classificarResultado('Recurso parcialmente provido.')).toBe('parcial')
-    expect(classificarResultado('Deram parcial provimento.')).toBe('parcial')
-    expect(classificarResultado('Procedente em parte.')).toBe('parcial')
-    expect(classificarResultado('Recurso desprovido.')).toBe('desprovido')
-    expect(classificarResultado('Recurso improvido.')).toBe('desprovido')
-    expect(classificarResultado('Recurso não provido.')).toBe('desprovido')
-    expect(classificarResultado('Negou-se provimento.')).toBe('desprovido')
-    expect(classificarResultado('Pedido improcedente.')).toBe('desprovido')
-    expect(classificarResultado('Homologado o acordo.')).toBe('indefinido')
-    expect(classificarResultado(null)).toBe('indefinido')
-  })
+function grafico(page: Page, titulo: string) {
+  return page.locator('.chart-container').filter({ hasText: titulo })
+}
 
-  test('exibe aderência e total de decisões dos resultados', async ({ page }) => {
-    const cenario = 'resultados carregados'
+test.describe('dashboard integrado à pesquisa ativa', () => {
+  test('exibe os indicadores e gráficos calculados pelo back', async ({ page }) => {
+    const cenario = 'carga inicial'
 
     printStep(cenario, 'Configurando mock da API')
     await mockarApi(page)
 
     printStep(cenario, 'Abrindo o frontend')
     await abrirFrontend(page)
-    await expect(page.getByText('7 documentos encontrados')).toBeVisible()
 
     printStep(cenario, 'Validando os indicadores')
     await expect(valor(page, 'ADERÊNCIA')).toHaveText('50%')
@@ -115,13 +119,37 @@ test.describe('dashboard de indicadores da pesquisa', () => {
     await expect(indicador(page, 'DECISÕES ANALISADAS')).toContainText(
       '4 com resultado identificado',
     )
+
+    printStep(cenario, 'Validando os gráficos')
+    await expect(grafico(page, 'Resultado dos recursos')).toContainText('Desprovido')
+    await expect(grafico(page, 'Decisões por órgão julgador')).toContainText(
+      '1ª Turma Cível',
+    )
   })
 
-  test('recalcula os indicadores ao aplicar filtros', async ({ page }) => {
+  test('envia o termo pesquisado ao dashboard', async ({ page }) => {
+    const cenario = 'pesquisa por termo'
+
+    printStep(cenario, 'Configurando mock da API')
+    const consultas = await mockarApi(page)
+
+    printStep(cenario, 'Pesquisando')
+    await abrirFrontend(page)
+    await expect(valor(page, 'ADERÊNCIA')).toHaveText('50%')
+    await page.getByLabel('Descrição do caso').fill('dano moral')
+    await page.getByRole('button', { name: 'PESQUISAR' }).click()
+
+    printStep(cenario, 'Validando a consulta enviada')
+    await expect
+      .poll(() => consultas.at(-1)?.get('termo'))
+      .toBe('dano moral')
+  })
+
+  test('recalcula o dashboard ao aplicar filtros', async ({ page }) => {
     const cenario = 'filtro por tribunal'
 
     printStep(cenario, 'Configurando mock da API')
-    await mockarApi(page)
+    const consultas = await mockarApi(page)
 
     printStep(cenario, 'Abrindo o frontend')
     await abrirFrontend(page)
@@ -132,29 +160,56 @@ test.describe('dashboard de indicadores da pesquisa', () => {
     await expect(valor(page, 'ADERÊNCIA')).toHaveText('0%')
     await expect(valor(page, 'DECISÕES ANALISADAS')).toHaveText('2')
 
-    printStep(cenario, 'Filtrando por TJSP')
+    printStep(cenario, 'Filtrando por TJSP e período')
     await page.locator('.filters select').nth(1).selectOption('TJSP')
+    await page.locator('.date-input').first().fill('2024-01-01')
     await expect(valor(page, 'ADERÊNCIA')).toHaveText('100%')
     await expect(valor(page, 'DECISÕES ANALISADAS')).toHaveText('4')
+    await expect
+      .poll(() => consultas.at(-1)?.toString())
+      .toBe('tribunal=TJSP&dataDe=2024-01-01')
   })
 
-  test('indica ausência de base de cálculo sem decisões', async ({ page }) => {
-    const cenario = 'sem decisões'
+  test('indica ausência de decisões sem consultar o back', async ({ page }) => {
+    const cenario = 'sem jurisprudência'
 
     printStep(cenario, 'Configurando mock da API')
-    await mockarApi(page)
+    const consultas = await mockarApi(page)
 
     printStep(cenario, 'Abrindo o frontend')
     await abrirFrontend(page)
+    await expect(valor(page, 'ADERÊNCIA')).toHaveText('50%')
+    const consultasAntes = consultas.length
 
     printStep(cenario, 'Removendo jurisprudência dos filtros')
     await page.getByLabel('Jurisprudência').uncheck()
 
-    printStep(cenario, 'Validando os indicadores vazios')
+    printStep(cenario, 'Validando o dashboard vazio')
     await expect(valor(page, 'ADERÊNCIA')).toHaveText('—')
     await expect(indicador(page, 'ADERÊNCIA')).toContainText(
       'Nenhuma decisão com resultado identificado',
     )
     await expect(valor(page, 'DECISÕES ANALISADAS')).toHaveText('0')
+    await expect(grafico(page, 'Resultado dos recursos')).toContainText(
+      'Nenhuma decisão na pesquisa atual.',
+    )
+    expect(consultas.length).toBe(consultasAntes)
+  })
+
+  test('mostra erro nos gráficos quando o dashboard falha', async ({ page }) => {
+    const cenario = 'falha do dashboard'
+
+    printStep(cenario, 'Configurando mock da API com falha')
+    await mockarApi(page)
+    await page.route('**/api/dashboard*', (route) => route.fulfill({ status: 500 }))
+
+    printStep(cenario, 'Abrindo o frontend')
+    await abrirFrontend(page)
+
+    printStep(cenario, 'Validando a mensagem de erro')
+    await expect(grafico(page, 'Resultado dos recursos')).toContainText(
+      'Não foi possível carregar o dashboard da pesquisa.',
+    )
+    await expect(page.getByText('2 documentos encontrados')).toBeVisible()
   })
 })
