@@ -187,6 +187,7 @@ nav a.active {
 .charts-grid {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 20px;
 }
 .charts-grid .chart-container {
@@ -691,6 +692,13 @@ select,
   cursor: not-allowed;
   opacity: 0.45;
 }
+.pagination-ellipsis {
+  min-width: 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
 
 .empty {
   text-align: center;
@@ -717,6 +725,7 @@ select,
   font-size: 18px;
   margin: 0 0 14px;
   color: var(--ink);
+  text-align: center;
 }
 .chart-container .chart-loading,
 .chart-container .chart-error {

@@ -1,10 +1,13 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import './index.css'
+import { API_BASE } from './api'
+import { paginasVisiveis, RETICENCIAS } from './paginacao'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
-import { useDistribuicaoMerito } from './components/hooks/useDistribuicaoMerito'
-import { useDistribuicaoCamaraTurma } from './components/hooks/useDistribuicaoCamaraTurma'
-import { useEvolucaoTemporalTese } from './components/hooks/useEvolucaoTemporalTese'
-import { calcularIndicadores } from './indicadores'
+import {
+  useDashboard,
+  type DistribuicaoItem,
+  type RecorteDashboard,
+} from './components/hooks/useDashboard'
 
 type DocType = 'jurisprudencia' | 'precedente' | 'doutrina'
 type Ordenacao = 'mais-recentes' | 'mais-antigos'
@@ -24,9 +27,8 @@ const BADGE_POR_TIPO: Record<DocType, string> = {
 const ITENS_POR_PAGINA = 10
 const ITENS_POR_PAGINA_API = 100
 const TODAS_AS_FONTES = 'Todas as fontes'
+const TODOS_OS_TRIBUNAIS = 'Todos os tribunais'
 
-// Ajuste aqui se o back rodar em outra porta/host.
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 const ERRO_CARREGAMENTO =
   'Não foi possível carregar os resultados. Verifique se o back-end está rodando em ' +
   API_BASE +
@@ -132,6 +134,36 @@ function AcessoFonte({
   )
 }
 
+function GraficoDashboard({
+  titulo,
+  dados,
+  carregando,
+  erro,
+}: {
+  titulo: string
+  dados: DistribuicaoItem[] | undefined
+  carregando: boolean
+  erro: string | null
+}) {
+  const vazio = !dados?.some((item) => item.quantidade > 0)
+  if (carregando || erro || vazio) {
+    return (
+      <div className="chart-container">
+        <h3>{titulo}</h3>
+        {carregando ? (
+          <p className="chart-loading">Carregando gráfico...</p>
+        ) : erro ? (
+          <p className="chart-error">{erro}</p>
+        ) : (
+          <p className="chart-loading">Nenhuma decisão na pesquisa atual.</p>
+        )}
+      </div>
+    )
+  }
+
+  return <BarChartDistribuicao data={dados ?? []} titulo={titulo} />
+}
+
 function toDocumento(tipo: DocType, item: ApiSummary): Documento {
   return {
     id: item.id,
@@ -206,13 +238,15 @@ async function carregarDocumentos(termo: string): Promise<Documento[]> {
 
 function App() {
   const [query, setQuery] = useState('')
+  // Termo da última pesquisa enviada; `query` muda a cada tecla digitada.
+  const [termoPesquisado, setTermoPesquisado] = useState('')
   const [erroValidacao, setErroValidacao] = useState<string | null>(null)
   const [filtros, setFiltros] = useState<Record<DocType, boolean>>({
     jurisprudencia: true,
     precedente: true,
     doutrina: true,
   })
-  const [tribunal, setTribunal] = useState('Todos os tribunais')
+  const [tribunal, setTribunal] = useState(TODOS_OS_TRIBUNAIS)
   const [fonte, setFonte] = useState(TODAS_AS_FONTES)
   const [dataDe, setDataDe] = useState('')
   const [dataAte, setDataAte] = useState('')
@@ -225,23 +259,26 @@ function App() {
   const [documentoSelecionado, setDocumentoSelecionado] =
     useState<Documento | null>(null)
 
-  const {
-    data: dadosMerito,
-    loading: carregandoMerito,
-    error: erroMerito,
-  } = useDistribuicaoMerito()
+  // O dashboard é baseado em decisões (jurisprudência); sem esse filtro marcado,
+  // não há base de cálculo — então o hook não consulta nada (recorte null).
+  const recorteDashboard: RecorteDashboard | null = useMemo(() => {
+    if (!filtros.jurisprudencia) return null
+    return {
+      termo: termoPesquisado,
+      fonte: fonte !== TODAS_AS_FONTES ? fonte : null,
+      tribunal: tribunal !== TODOS_OS_TRIBUNAIS ? tribunal : null,
+      dataDe,
+      dataAte,
+    }
+  }, [filtros.jurisprudencia, termoPesquisado, fonte, tribunal, dataDe, dataAte])
 
   const {
-    data: dadosCamaraTurma,
-    loading: carregandoCamaraTurma,
-    error: erroCamaraTurma,
-  } = useDistribuicaoCamaraTurma()
+    dados: dashboard,
+    carregando: carregandoDashboard,
+    erro: erroDashboard,
+  } = useDashboard(recorteDashboard)
 
-  const {
-    data: dadosEvolucaoTese,
-    loading: carregandoEvolucaoTese,
-    error: erroEvolucaoTese,
-  } = useEvolucaoTemporalTese()
+  const indicadores = dashboard?.indicadores ?? null
 
   const buscar = useCallback(async () => {
     if (!query.trim()) {
@@ -250,6 +287,7 @@ function App() {
     }
 
     setErroValidacao(null)
+    setTermoPesquisado(query)
     setCarregando(true)
     setErro(null)
     setPaginaAtual(1)
@@ -324,7 +362,7 @@ function App() {
         return false
       }
 
-      if (tribunal !== 'Todos os tribunais' && doc.tribunal !== tribunal) {
+      if (tribunal !== TODOS_OS_TRIBUNAIS && doc.tribunal !== tribunal) {
         return false
       }
 
@@ -354,8 +392,6 @@ function App() {
     })
   }, [documentos, filtros, fonte, tribunal, dataDe, dataAte, ordenacao])
 
-  const indicadores = useMemo(() => calcularIndicadores(resultados), [resultados])
-
   const totalPaginas = Math.max(
     1,
     Math.ceil(resultados.length / ITENS_POR_PAGINA),
@@ -379,7 +415,7 @@ function App() {
   function limparFiltros() {
     setFiltros({ jurisprudencia: true, precedente: true, doutrina: true })
     setFonte(TODAS_AS_FONTES)
-    setTribunal('Todos os tribunais')
+    setTribunal(TODOS_OS_TRIBUNAIS)
     setDataDe('')
     setDataAte('')
     voltarParaPrimeiraPagina()
@@ -503,7 +539,7 @@ function App() {
                   voltarParaPrimeiraPagina()
                 }}
               >
-                <option>Todos os tribunais</option>
+                <option>{TODOS_OS_TRIBUNAIS}</option>
                 {tribunaisDisponiveis.map((sigla) => (
                   <option key={sigla}>{sigla}</option>
                 ))}
@@ -546,47 +582,24 @@ function App() {
           </aside>
 
           <div className="charts-grid">
-            {carregandoMerito ? (
-              <div className="chart-container">
-                <h3>Distribuição do Mérito</h3>
-                <p className="chart-loading">Carregando gráfico...</p>
-              </div>
-            ) : erroMerito ? (
-              <div className="chart-container">
-                <h3>Distribuição do Mérito</h3>
-                <p className="chart-error">{erroMerito}</p>
-              </div>
-            ) : (
-              <BarChartDistribuicao data={dadosMerito} titulo="Distribuição do Mérito" />
-            )}
-
-            {carregandoCamaraTurma ? (
-              <div className="chart-container">
-                <h3>Distribuição por Câmara/Turma</h3>
-                <p className="chart-loading">Carregando gráfico...</p>
-              </div>
-            ) : erroCamaraTurma ? (
-              <div className="chart-container">
-                <h3>Distribuição por Câmara/Turma</h3>
-                <p className="chart-error">{erroCamaraTurma}</p>
-              </div>
-            ) : (
-              <BarChartDistribuicao data={dadosCamaraTurma} titulo="Distribuição por Câmara/Turma" />
-            )}
-
-            {carregandoEvolucaoTese ? (
-              <div className="chart-container">
-                <h3>Evolução Temporal da Tese</h3>
-                <p className="chart-loading">Carregando gráfico...</p>
-              </div>
-            ) : erroEvolucaoTese ? (
-              <div className="chart-container">
-                <h3>Evolução Temporal da Tese</h3>
-                <p className="chart-error">{erroEvolucaoTese}</p>
-              </div>
-            ) : (
-              <BarChartDistribuicao data={dadosEvolucaoTese} titulo="Evolução Temporal da Tese" />
-            )}
+            <GraficoDashboard
+              titulo="Distribuição do Mérito"
+              dados={dashboard?.distribuicaoMerito}
+              carregando={carregandoDashboard}
+              erro={erroDashboard}
+            />
+            <GraficoDashboard
+              titulo="Distribuição por Câmara/Turma"
+              dados={dashboard?.distribuicaoCamaraTurma}
+              carregando={carregandoDashboard}
+              erro={erroDashboard}
+            />
+            <GraficoDashboard
+              titulo="Evolução Temporal da Tese"
+              dados={dashboard?.evolucaoAnual}
+              carregando={carregandoDashboard}
+              erro={erroDashboard}
+            />
           </div>
         </div>
 
@@ -627,7 +640,7 @@ function App() {
             </div>
           </div>
 
-          {!erro && !carregando && (
+          {!erro && !carregando && indicadores && (
             <section className="indicadores" aria-label="Indicadores da pesquisa">
               <div className="indicador">
                 <span className="indicador-label">ADERÊNCIA</span>
@@ -733,8 +746,16 @@ function App() {
               >
                 ANTERIOR
               </button>
-              {Array.from({ length: totalPaginas }, (_, index) => index + 1).map(
-                (pagina) => (
+              {paginasVisiveis(paginaExibida, totalPaginas).map((pagina, index) =>
+                pagina === RETICENCIAS ? (
+                  <span
+                    className="pagination-ellipsis"
+                    aria-hidden="true"
+                    key={`reticencias-${index}`}
+                  >
+                    {RETICENCIAS}
+                  </span>
+                ) : (
                   <button
                     type="button"
                     className={pagina === paginaExibida ? 'active' : ''}
