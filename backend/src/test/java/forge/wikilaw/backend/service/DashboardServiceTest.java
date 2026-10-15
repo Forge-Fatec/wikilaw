@@ -110,10 +110,48 @@ class DashboardServiceTest {
         salvarDecisao("d3", "Concurso público", "Recurso desprovido.", "3ª Turma Cível", LocalDate.of(2025, 1, 10));
 
         var resumo = service.resumir(new DashboardFiltro(
-                "negativação", "tjdft", "tjdft", LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)));
+                "negativação", "tjdft", "tjdft", LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31), null, null));
 
         assertEquals(new DashboardResponse.Indicadores(1, 1, 1, 100), resumo.indicadores());
         assertEquals(List.of(new DistribuicaoItem("1ª Turma Cível", 1)), resumo.distribuicaoCamaraTurma());
+    }
+
+    @Test
+    void selecaoNosGraficosRecortaOsDemaisMasNaoOProprioGrafico() {
+        salvarDecisao("d1", "Dano moral", "Recurso provido.", "1ª Turma Cível", LocalDate.of(2024, 1, 10));
+        salvarDecisao("d2", "Dano moral", "Recurso desprovido.", "1ª Turma Cível", LocalDate.of(2025, 1, 10));
+        salvarDecisao("d3", "Dano moral", "Recurso provido.", "2ª Turma Cível", LocalDate.of(2025, 2, 10));
+        salvarDecisao("d4", "Dano moral", "Recurso provido.", null, LocalDate.of(2025, 3, 10));
+
+        var resumo = service.resumir(new DashboardFiltro(
+                null, null, null, null, null, "Provido", "1ª Turma Cível"));
+
+        assertEquals(new DashboardResponse.Indicadores(1, 1, 1, 100), resumo.indicadores());
+        // O gráfico de resultado só sofre o recorte do órgão; o de órgão, só o do resultado.
+        assertEquals(List.of(
+                new DistribuicaoItem("Provido", 1),
+                new DistribuicaoItem("Parcialmente provido", 0),
+                new DistribuicaoItem("Desprovido", 1),
+                new DistribuicaoItem("Não identificado", 0)),
+                resumo.distribuicaoMerito());
+        assertEquals(List.of(
+                new DistribuicaoItem("1ª Turma Cível", 1),
+                new DistribuicaoItem("2ª Turma Cível", 1),
+                new DistribuicaoItem("Não informado", 1)),
+                resumo.distribuicaoCamaraTurma());
+        assertEquals(List.of(new DistribuicaoItem("2024", 1)), resumo.evolucaoAnual());
+    }
+
+    @Test
+    void selecaoDeOrgaoNaoInformadoEDeResultadoDesconhecido() throws Exception {
+        salvarDecisao("d1", "Dano moral", "Recurso provido.", null, LocalDate.of(2025, 1, 10));
+        salvarDecisao("d2", "Dano moral", "Recurso provido.", "1ª Turma Cível", LocalDate.of(2025, 1, 10));
+
+        mockMvc.perform(get("/api/dashboard").param("orgaoJulgador", "Não informado"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.indicadores.totalDecisoes").value(1));
+        assertEquals(0, service.indicadores(new DashboardFiltro(
+                null, null, null, null, null, "Outros", null)).totalDecisoes());
     }
 
     @Test
@@ -132,7 +170,7 @@ class DashboardServiceTest {
     void fonteOuTribunalSemCadastroResultaEmRecorteVazio() {
         salvarDecisao("d1", "Dano moral", "Recurso provido.", "1ª Turma Cível", LocalDate.of(2025, 1, 10));
 
-        var resumo = service.resumir(new DashboardFiltro(null, null, "STF", null, null));
+        var resumo = service.resumir(new DashboardFiltro(null, null, "STF", null, null, null, null));
 
         assertEquals(new DashboardResponse.Indicadores(0, 0, 0, null), resumo.indicadores());
         assertNull(resumo.indicadores().aderencia());
@@ -185,7 +223,7 @@ class DashboardServiceTest {
                 new DistribuicaoItem("STJ", 1)),
                 service.distribuicaoTribunal(DashboardFiltro.semFiltros()));
         assertEquals(List.of(new DistribuicaoItem("STJ", 1)),
-                service.distribuicaoTribunal(new DashboardFiltro(null, "stj", null, null, null)));
+                service.distribuicaoTribunal(new DashboardFiltro(null, "stj", null, null, null, null, null)));
     }
 
     @Test

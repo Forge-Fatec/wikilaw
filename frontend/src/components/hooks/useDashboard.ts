@@ -26,7 +26,14 @@ export interface RecorteDashboard {
   tribunal: string | null
   dataDe: string
   dataAte: string
+  // Categorias selecionadas nos gráficos (rótulo da barra).
+  resultado: string | null
+  orgaoJulgador: string | null
 }
+
+// Mesmos rótulos que o back usa nas distribuições (DashboardService).
+export const NAO_INFORMADO = 'Não informado'
+export const OUTROS = 'Outros'
 
 export const DASHBOARD_VAZIO: Dashboard = {
   indicadores: { totalDecisoes: 0, classificadas: 0, favoraveis: 0, aderencia: null },
@@ -45,6 +52,8 @@ function urlDoRecorte(recorte: RecorteDashboard): string {
   if (recorte.tribunal) params.set('tribunal', recorte.tribunal)
   if (recorte.dataDe) params.set('dataDe', recorte.dataDe)
   if (recorte.dataAte) params.set('dataAte', recorte.dataAte)
+  if (recorte.resultado) params.set('resultado', recorte.resultado)
+  if (recorte.orgaoJulgador) params.set('orgaoJulgador', recorte.orgaoJulgador)
   return `${API_BASE}/api/dashboard?${params}`
 }
 

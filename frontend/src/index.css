@@ -737,6 +737,32 @@ select,
 .chart-container .chart-error {
   color: var(--terracotta-dark);
 }
+.chart-container .chart-hint {
+  margin: -6px 0 6px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+.chart-container .chart-selecao {
+  display: block;
+  margin: -6px auto 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--terracotta);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--terracotta-dark);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chart-container .chart-selecao:hover {
+  background: var(--terracotta);
+  color: #fff;
+}
+.chart-container .chart-selecao:focus-visible {
+  outline: 2px solid var(--terracotta-dark);
+  outline-offset: 2px;
+}
 
 @media (max-width: 760px) {
   .header {

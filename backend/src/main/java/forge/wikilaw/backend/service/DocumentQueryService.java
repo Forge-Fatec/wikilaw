@@ -79,6 +79,8 @@ public class DocumentQueryService {
                 :doutrina!=null?doutrina.getResumo():precedente.getQuestaoJuridica(),
             // Para o precedente, o equivalente ao dispositivo da decisão é a tese firmada.
             decisao!=null?decisao.getDecisao():precedente!=null?textoOuNulo(precedente.getTese()):null,
+            // Mesma classificação do dashboard, para a tela filtrar pela barra clicada.
+            decisao!=null?ResultadoDecisao.classificar(decisao.getDecisao()).rotulo():null,
             tribunalOf(d, tribunalNames),
             orgaoJulgadorOf(d),
             precedente!=null?textoOuNulo(precedente.getSituacao()):null,
@@ -221,7 +223,7 @@ public class DocumentQueryService {
      */
     public record Summary(Long id,String fonte,String categoria,String identificadorExterno,
         String titulo,String tipoDocumento,String numeroProcessoOuTema,
-        String autoresOuRelator,String resumoOuEmenta,String decisao,
+        String autoresOuRelator,String resumoOuEmenta,String decisao,String resultado,
         String tribunal,String orgaoJulgador,
         String situacao,Boolean possuiInteiroTeor,
         String periodico,String doi,String issn,String idioma,String palavrasChave,

@@ -5,11 +5,21 @@ import { paginasVisiveis, RETICENCIAS } from './paginacao'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
 import {
   useDashboard,
+  NAO_INFORMADO,
+  OUTROS,
   type DistribuicaoItem,
 } from './components/hooks/useDashboard'
 
 type DocType = 'jurisprudencia' | 'precedente' | 'doutrina'
 type Ordenacao = 'mais-recentes' | 'mais-antigos'
+
+// Categoria escolhida em cada gráfico do dashboard; null = sem filtro.
+interface SelecaoGraficos {
+  resultado: string | null
+  orgaoJulgador: string | null
+}
+
+const SEM_SELECAO: SelecaoGraficos = { resultado: null, orgaoJulgador: null }
 
 const CATEGORIA_POR_TIPO: Record<DocType, string> = {
   jurisprudencia: 'decisoes',
@@ -43,6 +53,8 @@ interface ApiSummary {
   autoresOuRelator: string | null
   resumoOuEmenta: string | null
   decisao: string | null
+  // Rótulo do resultado do recurso, como no gráfico; só vem em decisões.
+  resultado?: string | null
   tribunal: string | null
   orgaoJulgador: string | null
   dataJulgamento: string | null
@@ -71,12 +83,18 @@ interface Documento {
   autoresOuRelator: string | null
   text: string
   decisao: string | null
+  resultado: string | null
   tribunal: string | null
   orgaoJulgador: string | null
   dataJulgamento: string | null
   dataPublicacao: string | null
   dataOriginal: string | null
   urlOriginal: string | null
+}
+
+// Mesma normalização do back ao agrupar o gráfico de órgão julgador.
+function orgaoDoGrafico(orgaoJulgador: string | null): string {
+  return orgaoJulgador?.trim().replace(/\s+/g, ' ') || NAO_INFORMADO
 }
 
 function dataDoDocumento(documento: Documento): string | null {
@@ -138,29 +156,55 @@ function GraficoDashboard({
   dados,
   carregando,
   erro,
+  selecionada,
+  onSelecionar,
+  onLimparSelecao,
 }: {
   titulo: string
   dados: DistribuicaoItem[] | undefined
   carregando: boolean
   erro: string | null
+  selecionada: string | null
+  onSelecionar: (item: DistribuicaoItem) => void
+  onLimparSelecao: () => void
 }) {
   const vazio = !dados?.some((item) => item.quantidade > 0)
-  if (carregando || erro || vazio) {
-    return (
-      <div className="chart-container">
-        <h3>{titulo}</h3>
-        {carregando ? (
-          <p className="chart-loading">Carregando gráfico...</p>
-        ) : erro ? (
-          <p className="chart-error">{erro}</p>
-        ) : (
-          <p className="chart-loading">Nenhuma decisão na pesquisa atual.</p>
-        )}
-      </div>
-    )
-  }
+  const exibeGrafico = !carregando && !erro && !vazio
 
-  return <BarChartDistribuicao data={dados ?? []} titulo={titulo} />
+  return (
+    <div className="chart-container">
+      <h3>{titulo}</h3>
+      {/* Fica visível mesmo sem gráfico: o filtro continua valendo na lista. */}
+      {selecionada ? (
+        <button
+          type="button"
+          className="chart-selecao"
+          aria-label={`Remover filtro ${selecionada}`}
+          onClick={onLimparSelecao}
+        >
+          Filtrando: {selecionada}
+          <span aria-hidden="true"> ×</span>
+        </button>
+      ) : (
+        exibeGrafico && (
+          <p className="chart-hint">Clique em uma barra para filtrar os resultados.</p>
+        )
+      )}
+      {carregando ? (
+        <p className="chart-loading">Carregando gráfico...</p>
+      ) : erro ? (
+        <p className="chart-error">{erro}</p>
+      ) : vazio ? (
+        <p className="chart-loading">Nenhuma decisão na pesquisa atual.</p>
+      ) : (
+        <BarChartDistribuicao
+          data={dados ?? []}
+          selecionada={selecionada}
+          onSelecionar={onSelecionar}
+        />
+      )}
+    </div>
+  )
 }
 
 function toDocumento(tipo: DocType, item: ApiSummary): Documento {
@@ -175,6 +219,7 @@ function toDocumento(tipo: DocType, item: ApiSummary): Documento {
     autoresOuRelator: item.autoresOuRelator,
     text: item.resumoOuEmenta ?? 'Sem resumo disponível.',
     decisao: item.decisao,
+    resultado: item.resultado ?? null,
     tribunal: item.tribunal,
     orgaoJulgador: item.orgaoJulgador,
     dataJulgamento: item.dataJulgamento,
@@ -250,6 +295,7 @@ function App() {
   const [dataDe, setDataDe] = useState('')
   const [dataAte, setDataAte] = useState('')
   const [ordenacao, setOrdenacao] = useState<Ordenacao>('mais-recentes')
+  const [selecao, setSelecao] = useState<SelecaoGraficos>(SEM_SELECAO)
 
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [carregando, setCarregando] = useState(true)
@@ -268,6 +314,7 @@ function App() {
           tribunal: tribunal === TODOS_OS_TRIBUNAIS ? null : tribunal,
           dataDe,
           dataAte,
+          ...selecao,
         }
       : null,
   )
@@ -359,6 +406,19 @@ function App() {
         return false
       }
 
+      // Resultado e órgão julgador só existem em decisões: com uma barra
+      // selecionada, precedentes e doutrina saem da lista.
+      if (selecao.resultado || selecao.orgaoJulgador) {
+        if (doc.type !== 'jurisprudencia') return false
+        if (selecao.resultado && doc.resultado !== selecao.resultado) return false
+        if (
+          selecao.orgaoJulgador &&
+          orgaoDoGrafico(doc.orgaoJulgador) !== selecao.orgaoJulgador
+        ) {
+          return false
+        }
+      }
+
       const dataReferencia = dataDoDocumento(doc)
       if ((dataDe || dataAte) && dataReferencia) {
         const docDate = new Date(dataReferencia)
@@ -383,7 +443,7 @@ function App() {
 
       return ordenacao === 'mais-recentes' ? dataB - dataA : dataA - dataB
     })
-  }, [documentos, filtros, fonte, tribunal, dataDe, dataAte, ordenacao])
+  }, [documentos, filtros, fonte, tribunal, dataDe, dataAte, selecao, ordenacao])
 
   const totalPaginas = Math.max(
     1,
@@ -401,7 +461,27 @@ function App() {
   }
 
   function toggleFiltro(type: DocType) {
+    // Sem jurisprudência os gráficos ficam vazios, então a seleção neles perde o sentido.
+    if (type === 'jurisprudencia' && filtros.jurisprudencia) {
+      setSelecao(SEM_SELECAO)
+    }
     setFiltros((prev) => ({ ...prev, [type]: !prev[type] }))
+    voltarParaPrimeiraPagina()
+  }
+
+  // Clicar na barra selecionada desfaz o filtro. "Outros" agrupa vários órgãos
+  // e barra vazia não traria resultado, então nenhuma das duas é selecionável.
+  function alternarSelecao(grafico: keyof SelecaoGraficos, item: DistribuicaoItem) {
+    if (selecao[grafico] === item.categoria) {
+      limparSelecao(grafico)
+    } else if (item.categoria !== OUTROS && item.quantidade > 0) {
+      setSelecao((prev) => ({ ...prev, [grafico]: item.categoria }))
+      voltarParaPrimeiraPagina()
+    }
+  }
+
+  function limparSelecao(grafico: keyof SelecaoGraficos) {
+    setSelecao((prev) => ({ ...prev, [grafico]: null }))
     voltarParaPrimeiraPagina()
   }
 
@@ -411,6 +491,7 @@ function App() {
     setTribunal(TODOS_OS_TRIBUNAIS)
     setDataDe('')
     setDataAte('')
+    setSelecao(SEM_SELECAO)
     voltarParaPrimeiraPagina()
   }
 
@@ -580,12 +661,18 @@ function App() {
               dados={dashboard.dados?.distribuicaoMerito}
               carregando={dashboard.carregando}
               erro={dashboard.erro}
+              selecionada={selecao.resultado}
+              onSelecionar={(item) => alternarSelecao('resultado', item)}
+              onLimparSelecao={() => limparSelecao('resultado')}
             />
             <GraficoDashboard
               titulo="Decisões por órgão julgador"
               dados={dashboard.dados?.distribuicaoCamaraTurma}
               carregando={dashboard.carregando}
               erro={dashboard.erro}
+              selecionada={selecao.orgaoJulgador}
+              onSelecionar={(item) => alternarSelecao('orgaoJulgador', item)}
+              onLimparSelecao={() => limparSelecao('orgaoJulgador')}
             />
           </div>
         </div>
