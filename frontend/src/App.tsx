@@ -1,10 +1,13 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import './index.css'
+import { API_BASE } from './api'
+import { paginasVisiveis, RETICENCIAS } from './paginacao'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
-import { useDistribuicaoMerito } from './components/hooks/useDistribuicaoMerito'
-import { useDistribuicaoCamaraTurma } from './components/hooks/useDistribuicaoCamaraTurma'
-import { calcularIndicadores } from './indicadores'
 import { ExportPdfDialog } from './components/ExportPdfDialog'
+import {
+  useDashboard,
+  type DistribuicaoItem,
+} from './components/hooks/useDashboard'
 
 type DocType = 'jurisprudencia' | 'precedente' | 'doutrina'
 type Ordenacao = 'mais-recentes' | 'mais-antigos'
@@ -24,9 +27,8 @@ const BADGE_POR_TIPO: Record<DocType, string> = {
 const ITENS_POR_PAGINA = 10
 const ITENS_POR_PAGINA_API = 100
 const TODAS_AS_FONTES = 'Todas as fontes'
+const TODOS_OS_TRIBUNAIS = 'Todos os tribunais'
 
-// Ajuste aqui se o back rodar em outra porta/host.
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 const ERRO_CARREGAMENTO =
   'Não foi possível carregar os resultados. Verifique se o back-end está rodando em ' +
   API_BASE +
@@ -132,6 +134,36 @@ function AcessoFonte({
   )
 }
 
+function GraficoDashboard({
+  titulo,
+  dados,
+  carregando,
+  erro,
+}: {
+  titulo: string
+  dados: DistribuicaoItem[] | undefined
+  carregando: boolean
+  erro: string | null
+}) {
+  const vazio = !dados?.some((item) => item.quantidade > 0)
+  if (carregando || erro || vazio) {
+    return (
+      <div className="chart-container">
+        <h3>{titulo}</h3>
+        {carregando ? (
+          <p className="chart-loading">Carregando gráfico...</p>
+        ) : erro ? (
+          <p className="chart-error">{erro}</p>
+        ) : (
+          <p className="chart-loading">Nenhuma decisão na pesquisa atual.</p>
+        )}
+      </div>
+    )
+  }
+
+  return <BarChartDistribuicao data={dados ?? []} titulo={titulo} />
+}
+
 function toDocumento(tipo: DocType, item: ApiSummary): Documento {
   return {
     id: item.id,
@@ -206,6 +238,7 @@ async function carregarDocumentos(termo: string): Promise<Documento[]> {
 
 function App() {
   const [query, setQuery] = useState('')
+  // The dashboard and PDF describe the last submitted search, not the current input.
   const [termoPesquisado, setTermoPesquisado] = useState('')
   const [exportando, setExportando] = useState(false)
   const [modalExportacao, setModalExportacao] = useState(false)
@@ -218,7 +251,7 @@ function App() {
     precedente: true,
     doutrina: true,
   })
-  const [tribunal, setTribunal] = useState('Todos os tribunais')
+  const [tribunal, setTribunal] = useState(TODOS_OS_TRIBUNAIS)
   const [fonte, setFonte] = useState(TODAS_AS_FONTES)
   const [dataDe, setDataDe] = useState('')
   const [dataAte, setDataAte] = useState('')
@@ -231,17 +264,20 @@ function App() {
   const [documentoSelecionado, setDocumentoSelecionado] =
     useState<Documento | null>(null)
 
-  const {
-    data: dadosMerito,
-    loading: carregandoMerito,
-    error: erroMerito,
-  } = useDistribuicaoMerito()
-
-  const {
-    data: dadosCamaraTurma,
-    loading: carregandoCamaraTurma,
-    error: erroCamaraTurma,
-  } = useDistribuicaoCamaraTurma()
+  // O dashboard é calculado no back com o mesmo recorte da lista. Só
+  // jurisprudência entra na conta, então sem ela não há o que consultar.
+  const dashboard = useDashboard(
+    filtros.jurisprudencia
+      ? {
+          termo: termoPesquisado,
+          fonte: fonte === TODAS_AS_FONTES ? null : fonte,
+          tribunal: tribunal === TODOS_OS_TRIBUNAIS ? null : tribunal,
+          dataDe,
+          dataAte,
+        }
+      : null,
+  )
+  const indicadores = dashboard.dados?.indicadores
 
   const buscar = useCallback(async () => {
     if (!query.trim()) {
@@ -252,13 +288,13 @@ function App() {
     setErroValidacao(null)
     setErroExportacao(null)
     setExportacaoConcluida(false)
+    setTermoPesquisado(query.trim())
     setCarregando(true)
     setErro(null)
     setPaginaAtual(1)
     setDocumentoSelecionado(null)
     try {
       setDocumentos(await carregarDocumentos(query))
-      setTermoPesquisado(query.trim())
     } catch {
       setErro(ERRO_CARREGAMENTO)
       setDocumentos([])
@@ -327,7 +363,7 @@ function App() {
         return false
       }
 
-      if (tribunal !== 'Todos os tribunais' && doc.tribunal !== tribunal) {
+      if (tribunal !== TODOS_OS_TRIBUNAIS && doc.tribunal !== tribunal) {
         return false
       }
 
@@ -357,8 +393,6 @@ function App() {
     })
   }, [documentos, filtros, fonte, tribunal, dataDe, dataAte, ordenacao])
 
-  const indicadores = useMemo(() => calcularIndicadores(resultados), [resultados])
-
   async function exportarPdf(paginaDe: number, paginaAte: number) {
     if (carregando || exportando || erro || !resultados.length) return
     setErroExportacao(null)
@@ -379,7 +413,7 @@ function App() {
           categorias: (Object.keys(filtros) as DocType[])
             .filter((tipo) => filtros[tipo]).map((tipo) => CATEGORIA_POR_TIPO[tipo]),
           fonte: fonte === TODAS_AS_FONTES ? null : fonte,
-          tribunal: tribunal === 'Todos os tribunais' ? null : tribunal,
+          tribunal: tribunal === TODOS_OS_TRIBUNAIS ? null : tribunal,
           dataDe: dataDe || null,
           dataAte: dataAte || null,
           ordenacao,
@@ -444,7 +478,7 @@ function App() {
   function limparFiltros() {
     setFiltros({ jurisprudencia: true, precedente: true, doutrina: true })
     setFonte(TODAS_AS_FONTES)
-    setTribunal('Todos os tribunais')
+    setTribunal(TODOS_OS_TRIBUNAIS)
     setDataDe('')
     setDataAte('')
     voltarParaPrimeiraPagina()
@@ -569,7 +603,7 @@ function App() {
                   voltarParaPrimeiraPagina()
                 }}
               >
-                <option>Todos os tribunais</option>
+                <option>{TODOS_OS_TRIBUNAIS}</option>
                 {tribunaisDisponiveis.map((sigla) => (
                   <option key={sigla}>{sigla}</option>
                 ))}
@@ -612,33 +646,18 @@ function App() {
           </aside>
 
           <div className="charts-grid">
-            {carregandoMerito ? (
-              <div className="chart-container">
-                <h3>Distribuição do Mérito</h3>
-                <p className="chart-loading">Carregando gráfico...</p>
-              </div>
-            ) : erroMerito ? (
-              <div className="chart-container">
-                <h3>Distribuição do Mérito</h3>
-                <p className="chart-error">{erroMerito}</p>
-              </div>
-            ) : (
-              <BarChartDistribuicao data={dadosMerito} titulo="Distribuição do Mérito" />
-            )}
-
-            {carregandoCamaraTurma ? (
-              <div className="chart-container">
-                <h3>Distribuição por Câmara/Turma</h3>
-                <p className="chart-loading">Carregando gráfico...</p>
-              </div>
-            ) : erroCamaraTurma ? (
-              <div className="chart-container">
-                <h3>Distribuição por Câmara/Turma</h3>
-                <p className="chart-error">{erroCamaraTurma}</p>
-              </div>
-            ) : (
-              <BarChartDistribuicao data={dadosCamaraTurma} titulo="Distribuição por Câmara/Turma" />
-            )}
+            <GraficoDashboard
+              titulo="Resultado dos recursos"
+              dados={dashboard.dados?.distribuicaoMerito}
+              carregando={dashboard.carregando}
+              erro={dashboard.erro}
+            />
+            <GraficoDashboard
+              titulo="Decisões por órgão julgador"
+              dados={dashboard.dados?.distribuicaoCamaraTurma}
+              carregando={dashboard.carregando}
+              erro={dashboard.erro}
+            />
           </div>
         </div>
 
@@ -694,7 +713,7 @@ function App() {
           {erroExportacao && !modalExportacao && <p className="export-message export-error" role="alert">{erroExportacao}</p>}
           {exportacaoConcluida && <p className="export-message" role="status">PDF gerado. O download foi iniciado.</p>}
 
-          {!erro && !carregando && (
+          {!erro && !carregando && indicadores && (
             <section className="indicadores" aria-label="Indicadores da pesquisa">
               <div className="indicador">
                 <span className="indicador-label">ADERÊNCIA</span>
@@ -800,8 +819,16 @@ function App() {
               >
                 ANTERIOR
               </button>
-              {Array.from({ length: totalPaginas }, (_, index) => index + 1).map(
-                (pagina) => (
+              {paginasVisiveis(paginaExibida, totalPaginas).map((pagina, index) =>
+                pagina === RETICENCIAS ? (
+                  <span
+                    className="pagination-ellipsis"
+                    aria-hidden="true"
+                    key={`reticencias-${index}`}
+                  >
+                    {RETICENCIAS}
+                  </span>
+                ) : (
                   <button
                     type="button"
                     className={pagina === paginaExibida ? 'active' : ''}

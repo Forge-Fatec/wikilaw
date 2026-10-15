@@ -31,7 +31,10 @@ async function prepare(page: Page, documents = DOCUMENTS) {
   await page.route('**/api/documentos/**', (route) => route.fulfill({
     json: { itens: route.request().url().includes('/decisoes') ? documents : [], pagina: 0, tamanho: 100, total: documents.length, totalPaginas: 1 },
   }))
-  await page.route('**/api/jurisprudencia/**', (route) => route.fulfill({ json: [] }))
+  await page.route('**/api/dashboard**', (route) => route.fulfill({ json: {
+    indicadores: { totalDecisoes: documents.length, classificadas: 0, favoraveis: 0, aderencia: null },
+    distribuicaoMerito: [], distribuicaoCamaraTurma: [],
+  } }))
   await abrirFrontend(page)
   await expect(page.getByRole('button', { name: /^pesquisar$/i })).toBeEnabled()
 }
