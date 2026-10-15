@@ -187,6 +187,7 @@ nav a.active {
 .charts-grid {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 20px;
 }
 .charts-grid .chart-container {
@@ -717,6 +718,7 @@ select,
   font-size: 18px;
   margin: 0 0 14px;
   color: var(--ink);
+  text-align: center;
 }
 .chart-container .chart-loading,
 .chart-container .chart-error {

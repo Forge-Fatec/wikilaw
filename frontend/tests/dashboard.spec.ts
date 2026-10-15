@@ -121,8 +121,8 @@ test.describe('dashboard integrado à pesquisa ativa', () => {
     )
 
     printStep(cenario, 'Validando os gráficos')
-    await expect(grafico(page, 'Distribuição do Mérito')).toContainText('Desprovido')
-    await expect(grafico(page, 'Distribuição por Câmara/Turma')).toContainText(
+    await expect(grafico(page, 'Resultado dos recursos')).toContainText('Desprovido')
+    await expect(grafico(page, 'Decisões por órgão julgador')).toContainText(
       '1ª Turma Cível',
     )
   })
@@ -190,7 +190,7 @@ test.describe('dashboard integrado à pesquisa ativa', () => {
       'Nenhuma decisão com resultado identificado',
     )
     await expect(valor(page, 'DECISÕES ANALISADAS')).toHaveText('0')
-    await expect(grafico(page, 'Distribuição do Mérito')).toContainText(
+    await expect(grafico(page, 'Resultado dos recursos')).toContainText(
       'Nenhuma decisão na pesquisa atual.',
     )
     expect(consultas.length).toBe(consultasAntes)
@@ -207,7 +207,7 @@ test.describe('dashboard integrado à pesquisa ativa', () => {
     await abrirFrontend(page)
 
     printStep(cenario, 'Validando a mensagem de erro')
-    await expect(grafico(page, 'Distribuição do Mérito')).toContainText(
+    await expect(grafico(page, 'Resultado dos recursos')).toContainText(
       'Não foi possível carregar o dashboard da pesquisa.',
     )
     await expect(page.getByText('2 documentos encontrados')).toBeVisible()
