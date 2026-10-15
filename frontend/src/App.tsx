@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import './index.css'
 import { API_BASE } from './api'
+import { paginasVisiveis, RETICENCIAS } from './paginacao'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
 import {
   useDashboard,
@@ -732,8 +733,16 @@ function App() {
               >
                 ANTERIOR
               </button>
-              {Array.from({ length: totalPaginas }, (_, index) => index + 1).map(
-                (pagina) => (
+              {paginasVisiveis(paginaExibida, totalPaginas).map((pagina, index) =>
+                pagina === RETICENCIAS ? (
+                  <span
+                    className="pagination-ellipsis"
+                    aria-hidden="true"
+                    key={`reticencias-${index}`}
+                  >
+                    {RETICENCIAS}
+                  </span>
+                ) : (
                   <button
                     type="button"
                     className={pagina === paginaExibida ? 'active' : ''}
