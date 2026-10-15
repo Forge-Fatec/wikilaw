@@ -83,19 +83,38 @@ function grafico(page: Page, titulo: string) {
   return page.locator('.chart-container').filter({ hasText: titulo })
 }
 
-// Clica na faixa da categoria (posição do tick no eixo X), na altura do meio
-// do gráfico: o índice segue a ordem dos dados, mesmo de barras com zero.
+// O gráfico de órgão julgador tem barras deitadas: as categorias ficam no eixo Y.
+const EIXO_DAS_CATEGORIAS: Record<string, 'x' | 'y'> = {
+  'Resultado dos recursos': 'x',
+  'Decisões por órgão julgador': 'y',
+}
+
+// Clica na faixa da categoria (posição do tick no eixo das categorias), no
+// meio da área do gráfico: o índice segue a ordem dos dados, mesmo de barras com zero.
 async function clicarNaBarra(page: Page, titulo: string, indice: number) {
   const container = grafico(page, titulo)
-  const tick = await container
-    .locator('.recharts-xAxis .recharts-cartesian-axis-tick-line')
-    .nth(indice)
-    .boundingBox()
-  const area = await container.locator('.recharts-cartesian-grid').boundingBox()
-  if (!tick || !area) throw new Error(`Gráfico "${titulo}" não renderizado`)
-  await page.mouse.move(tick.x + tick.width / 2, area.y + area.height / 2)
-  await page.mouse.down()
-  await page.mouse.up()
+  const eixo = EIXO_DAS_CATEGORIAS[titulo]
+  const superficie = container.locator('svg.recharts-surface')
+  const [svg, tick, area] = await Promise.all([
+    superficie.boundingBox(),
+    container
+      .locator(`.recharts-${eixo}Axis .recharts-cartesian-axis-tick-line`)
+      .nth(indice)
+      .boundingBox(),
+    container.locator('.recharts-cartesian-grid').boundingBox(),
+  ])
+  if (!svg || !tick || !area) throw new Error(`Gráfico "${titulo}" não renderizado`)
+  // Posição relativa ao SVG, que não muda quando o Playwright rola até ele.
+  const [x, y] =
+    eixo === 'x'
+      ? [tick.x + tick.width / 2, area.y + area.height / 2]
+      : [area.x + area.width / 2, tick.y + tick.height / 2]
+  const position = { x: x - svg.x, y: y - svg.y }
+  // O Recharts só sabe a categoria sob o mouse no quadro seguinte ao hover;
+  // o tooltip aparecer é o sinal de que o clique já vai ser reconhecido.
+  await superficie.hover({ position })
+  await expect(container.locator('.recharts-tooltip-wrapper')).toBeVisible()
+  await superficie.click({ position })
 }
 
 function titulosListados(page: Page) {
@@ -175,8 +194,46 @@ test.describe('filtro pela seleção nos gráficos', () => {
     printStep(cenario, 'Selecionando "Desprovido" e limpando os filtros')
     await clicarNaBarra(page, 'Resultado dos recursos', 2)
     await expect(titulosListados(page)).toHaveText(['Documento 2'])
-    await page.getByRole('button', { name: 'LIMPAR FILTROS' }).click()
+    await page.getByRole('button', { name: 'Limpar filtros' }).click()
     await expect(page.locator('.chart-selecao')).toHaveCount(0)
+    await expect(page.getByText('5 documentos encontrados')).toBeVisible()
+  })
+})
+
+test.describe('painel de filtros recolhível', () => {
+  test('começa fechado e resume os filtros ativos em chips', async ({ page }) => {
+    const cenario = 'painel e chips'
+
+    printStep(cenario, 'Configurando mock da API')
+    await mockarApi(page)
+    await abrirFrontend(page)
+    await expect(page.getByText('5 documentos encontrados')).toBeVisible()
+
+    const botao = page.getByRole('button', { name: 'Filtros', exact: false, expanded: false })
+    printStep(cenario, 'Validando o painel fechado')
+    await expect(botao).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.locator('#painel-filtros')).toHaveCount(0)
+
+    printStep(cenario, 'Abrindo o painel e filtrando por tipo')
+    await botao.click()
+    await expect(page.getByLabel('Fonte')).toBeVisible()
+    await page.getByLabel('Doutrina').uncheck()
+    await clicarNaBarra(page, 'Resultado dos recursos', 0)
+
+    printStep(cenario, 'Validando os chips e o contador')
+    const ativos = page.getByRole('list', { name: 'Filtros ativos' })
+    await expect(ativos.getByRole('button')).toHaveText([
+      'Tipo: Jurisprudência, Precedente ×',
+      'Resultado: Provido ×',
+    ])
+    await expect(page.locator('.filters-count')).toHaveText('2')
+
+    printStep(cenario, 'Fechando o painel: os chips continuam')
+    await page.getByRole('button', { name: 'Filtros', expanded: true }).click()
+    await expect(page.locator('#painel-filtros')).toHaveCount(0)
+    await ativos.getByRole('button', { name: 'Remover filtro Resultado: Provido' }).click()
+    await expect(ativos.getByRole('button')).toHaveText(['Tipo: Jurisprudência, Precedente ×'])
+    // O mock não tem doutrina: sem o filtro do gráfico voltam as 4 decisões e o precedente.
     await expect(page.getByText('5 documentos encontrados')).toBeVisible()
   })
 })

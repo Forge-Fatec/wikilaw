@@ -21,6 +21,24 @@ interface SelecaoGraficos {
 
 const SEM_SELECAO: SelecaoGraficos = { resultado: null, orgaoJulgador: null }
 
+const TODOS_OS_TIPOS: Record<DocType, boolean> = {
+  jurisprudencia: true,
+  precedente: true,
+  doutrina: true,
+}
+
+const ROTULO_POR_TIPO: Record<DocType, string> = {
+  jurisprudencia: 'Jurisprudência',
+  precedente: 'Precedente',
+  doutrina: 'Doutrina',
+}
+
+interface FiltroAtivo {
+  chave: string
+  rotulo: string
+  remover: () => void
+}
+
 const CATEGORIA_POR_TIPO: Record<DocType, string> = {
   jurisprudencia: 'decisoes',
   precedente: 'precedentes',
@@ -112,6 +130,12 @@ function formatarData(data: string | null): string {
   })
 }
 
+// "2024-01-31" -> "31/01/2024", sem passar por Date para não sofrer com fuso.
+function formatarDataCurta(data: string): string {
+  const [ano, mes, dia] = data.split('-')
+  return dia && mes && ano ? `${dia}/${mes}/${ano}` : data
+}
+
 // Só links http(s) são aceitos: evita abrir esquemas como javascript: vindos da fonte.
 function urlDeAcesso(url: string | null): string | null {
   if (!url?.trim()) return null
@@ -156,6 +180,7 @@ function GraficoDashboard({
   dados,
   carregando,
   erro,
+  horizontal = false,
   selecionada,
   onSelecionar,
   onLimparSelecao,
@@ -164,6 +189,7 @@ function GraficoDashboard({
   dados: DistribuicaoItem[] | undefined
   carregando: boolean
   erro: string | null
+  horizontal?: boolean
   selecionada: string | null
   onSelecionar: (item: DistribuicaoItem) => void
   onLimparSelecao: () => void
@@ -199,6 +225,7 @@ function GraficoDashboard({
       ) : (
         <BarChartDistribuicao
           data={dados ?? []}
+          horizontal={horizontal}
           selecionada={selecionada}
           onSelecionar={onSelecionar}
         />
@@ -285,11 +312,8 @@ function App() {
   // Termo da última pesquisa enviada; `query` muda a cada tecla digitada.
   const [termoPesquisado, setTermoPesquisado] = useState('')
   const [erroValidacao, setErroValidacao] = useState<string | null>(null)
-  const [filtros, setFiltros] = useState<Record<DocType, boolean>>({
-    jurisprudencia: true,
-    precedente: true,
-    doutrina: true,
-  })
+  const [filtros, setFiltros] = useState<Record<DocType, boolean>>(TODOS_OS_TIPOS)
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false)
   const [tribunal, setTribunal] = useState(TODOS_OS_TRIBUNAIS)
   const [fonte, setFonte] = useState(TODAS_AS_FONTES)
   const [dataDe, setDataDe] = useState('')
@@ -486,13 +510,56 @@ function App() {
   }
 
   function limparFiltros() {
-    setFiltros({ jurisprudencia: true, precedente: true, doutrina: true })
+    setFiltros(TODOS_OS_TIPOS)
     setFonte(TODAS_AS_FONTES)
     setTribunal(TODOS_OS_TRIBUNAIS)
     setDataDe('')
     setDataAte('')
     setSelecao(SEM_SELECAO)
     voltarParaPrimeiraPagina()
+  }
+
+  // Resumo do que está filtrando a lista, visível mesmo com o painel fechado.
+  const filtrosAtivos: FiltroAtivo[] = []
+  const tiposMarcados = (Object.keys(filtros) as DocType[]).filter((tipo) => filtros[tipo])
+  if (tiposMarcados.length < Object.keys(filtros).length) {
+    filtrosAtivos.push({
+      chave: 'tipos',
+      rotulo: tiposMarcados.length
+        ? `Tipo: ${tiposMarcados.map((tipo) => ROTULO_POR_TIPO[tipo]).join(', ')}`
+        : 'Nenhum tipo',
+      remover: () => setFiltros(TODOS_OS_TIPOS),
+    })
+  }
+  if (fonte !== TODAS_AS_FONTES) {
+    filtrosAtivos.push({ chave: 'fonte', rotulo: `Fonte: ${fonte}`, remover: () => setFonte(TODAS_AS_FONTES) })
+  }
+  if (tribunal !== TODOS_OS_TRIBUNAIS) {
+    filtrosAtivos.push({
+      chave: 'tribunal',
+      rotulo: `Tribunal: ${tribunal}`,
+      remover: () => setTribunal(TODOS_OS_TRIBUNAIS),
+    })
+  }
+  if (dataDe) {
+    filtrosAtivos.push({ chave: 'dataDe', rotulo: `De ${formatarDataCurta(dataDe)}`, remover: () => setDataDe('') })
+  }
+  if (dataAte) {
+    filtrosAtivos.push({ chave: 'dataAte', rotulo: `Até ${formatarDataCurta(dataAte)}`, remover: () => setDataAte('') })
+  }
+  if (selecao.resultado) {
+    filtrosAtivos.push({
+      chave: 'resultado',
+      rotulo: `Resultado: ${selecao.resultado}`,
+      remover: () => setSelecao((prev) => ({ ...prev, resultado: null })),
+    })
+  }
+  if (selecao.orgaoJulgador) {
+    filtrosAtivos.push({
+      chave: 'orgaoJulgador',
+      rotulo: `Órgão: ${selecao.orgaoJulgador}`,
+      remover: () => setSelecao((prev) => ({ ...prev, orgaoJulgador: null })),
+    })
   }
 
   return (
@@ -554,139 +621,48 @@ function App() {
       </section>
 
       <div className="layout">
-        <div className="top-row">
-          <aside className="filters">
-            <h3>▤ Filtros</h3>
-
-            <div className="group doc-types">
-              <div className="group-label">TIPO DE DOCUMENTO</div>
-              <div className="check-row">
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    checked={filtros.jurisprudencia}
-                    onChange={() => toggleFiltro('jurisprudencia')}
-                  />
-                  Jurisprudência
-                </label>
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    checked={filtros.precedente}
-                    onChange={() => toggleFiltro('precedente')}
-                  />
-                  Precedente
-                </label>
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    checked={filtros.doutrina}
-                    onChange={() => toggleFiltro('doutrina')}
-                  />
-                  Doutrina
-                </label>
-              </div>
-            </div>
-
-            <div className="group">
-              <div className="group-label">FONTE</div>
-              <select
-                value={fonte}
-                onChange={(e) => {
-                  setFonte(e.target.value)
-                  voltarParaPrimeiraPagina()
-                }}
-              >
-                <option>{TODAS_AS_FONTES}</option>
-                {fontesDisponiveis.map((sigla) => (
-                  <option key={sigla}>{sigla}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="group">
-              <div className="group-label">TRIBUNAL</div>
-              <select
-                value={tribunal}
-                onChange={(e) => {
-                  setTribunal(e.target.value)
-                  voltarParaPrimeiraPagina()
-                }}
-              >
-                <option>{TODOS_OS_TRIBUNAIS}</option>
-                {tribunaisDisponiveis.map((sigla) => (
-                  <option key={sigla}>{sigla}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="group">
-              <div className="group-label">PERÍODO</div>
-              <div className="date-row">
-                <div>
-                  <label>De</label>
-                  <input
-                    className="date-input"
-                    type="date"
-                    value={dataDe}
-                    onChange={(e) => {
-                      setDataDe(e.target.value)
-                      voltarParaPrimeiraPagina()
-                    }}
-                  />
-                </div>
-                <div>
-                  <label>Até</label>
-                  <input
-                    className="date-input"
-                    type="date"
-                    value={dataAte}
-                    onChange={(e) => {
-                      setDataAte(e.target.value)
-                      voltarParaPrimeiraPagina()
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <button className="clear-btn" onClick={limparFiltros}>
-              LIMPAR FILTROS
+        <section className="toolbar" aria-label="Filtros e ordenação">
+          <div className="toolbar-row">
+            <button
+              type="button"
+              className="filters-toggle"
+              aria-expanded={filtrosAbertos}
+              aria-controls="painel-filtros"
+              onClick={() => setFiltrosAbertos((aberto) => !aberto)}
+            >
+              <span aria-hidden="true">▤</span> Filtros
+              {filtrosAtivos.length > 0 && (
+                <span className="filters-count">{filtrosAtivos.length}</span>
+              )}
+              <span className="chevron" aria-hidden="true">▾</span>
             </button>
-          </aside>
 
-          <div className="charts-grid">
-            <GraficoDashboard
-              titulo="Resultado dos recursos"
-              dados={dashboard.dados?.distribuicaoMerito}
-              carregando={dashboard.carregando}
-              erro={dashboard.erro}
-              selecionada={selecao.resultado}
-              onSelecionar={(item) => alternarSelecao('resultado', item)}
-              onLimparSelecao={() => limparSelecao('resultado')}
-            />
-            <GraficoDashboard
-              titulo="Decisões por órgão julgador"
-              dados={dashboard.dados?.distribuicaoCamaraTurma}
-              carregando={dashboard.carregando}
-              erro={dashboard.erro}
-              selecionada={selecao.orgaoJulgador}
-              onSelecionar={(item) => alternarSelecao('orgaoJulgador', item)}
-              onLimparSelecao={() => limparSelecao('orgaoJulgador')}
-            />
-          </div>
-        </div>
+            {filtrosAtivos.length > 0 && (
+              <>
+                <ul className="active-filters" aria-label="Filtros ativos">
+                  {filtrosAtivos.map((filtro) => (
+                    <li key={filtro.chave}>
+                      <button
+                        type="button"
+                        className="chip"
+                        aria-label={`Remover filtro ${filtro.rotulo}`}
+                        onClick={() => {
+                          filtro.remover()
+                          voltarParaPrimeiraPagina()
+                        }}
+                      >
+                        {filtro.rotulo}
+                        <span aria-hidden="true"> ×</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <button type="button" className="clear-link" onClick={limparFiltros}>
+                  Limpar filtros
+                </button>
+              </>
+            )}
 
-        <main>
-          <div className="results-header">
-            <div className="results-summary">
-              <h2>Resultados da pesquisa</h2>
-              <span className="results-count">
-                {carregando
-                  ? 'Buscando...'
-                  : `${resultados.length} documentos encontrados · Página ${paginaExibida} de ${totalPaginas}`}
-              </span>
-            </div>
             <div className="sort-control" role="group" aria-label="Ordenar resultados por data de publicação">
               <span className="sort-label">ORDENAR POR DATA</span>
               <div className="sort-options">
@@ -714,151 +690,275 @@ function App() {
             </div>
           </div>
 
-          {!erro && !carregando && indicadores && (
-            <section className="indicadores" aria-label="Indicadores da pesquisa">
-              <div className="indicador">
-                <span className="indicador-label">ADERÊNCIA</span>
-                <strong className="indicador-valor">
-                  {indicadores.aderencia === null
-                    ? '—'
-                    : `${indicadores.aderencia}%`}
-                </strong>
-                <span className="indicador-detalhe">
-                  {indicadores.classificadas
-                    ? `${indicadores.favoraveis} de ${indicadores.classificadas} decisões favoráveis ao recurso`
-                    : 'Nenhuma decisão com resultado identificado'}
-                </span>
-              </div>
-              <div className="indicador">
-                <span className="indicador-label">DECISÕES ANALISADAS</span>
-                <strong className="indicador-valor">
-                  {indicadores.totalDecisoes}
-                </strong>
-                <span className="indicador-detalhe">
-                  {indicadores.classificadas} com resultado identificado
-                </span>
-              </div>
-            </section>
-          )}
+          {filtrosAbertos && (
+            <div id="painel-filtros" className="filters">
+              <fieldset className="group doc-types">
+                <legend className="group-label">TIPO DE DOCUMENTO</legend>
+                <div className="check-row">
+                  {(Object.keys(ROTULO_POR_TIPO) as DocType[]).map((tipo) => (
+                    <label className="check" key={tipo}>
+                      <input
+                        type="checkbox"
+                        checked={filtros[tipo]}
+                        onChange={() => toggleFiltro(tipo)}
+                      />
+                      {ROTULO_POR_TIPO[tipo]}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
 
-          {erro && <div className="empty">{erro}</div>}
+              <div className="group">
+                <label className="group-label" htmlFor="filtro-fonte">FONTE</label>
+                <select
+                  id="filtro-fonte"
+                  value={fonte}
+                  onChange={(e) => {
+                    setFonte(e.target.value)
+                    voltarParaPrimeiraPagina()
+                  }}
+                >
+                  <option>{TODAS_AS_FONTES}</option>
+                  {fontesDisponiveis.map((sigla) => (
+                    <option key={sigla}>{sigla}</option>
+                  ))}
+                </select>
+              </div>
 
-          {!erro && !carregando && resultados.length === 0 && (
-            <div className="empty">
-              Nenhum documento encontrado com os filtros selecionados.
+              <div className="group">
+                <label className="group-label" htmlFor="filtro-tribunal">TRIBUNAL</label>
+                <select
+                  id="filtro-tribunal"
+                  value={tribunal}
+                  onChange={(e) => {
+                    setTribunal(e.target.value)
+                    voltarParaPrimeiraPagina()
+                  }}
+                >
+                  <option>{TODOS_OS_TRIBUNAIS}</option>
+                  {tribunaisDisponiveis.map((sigla) => (
+                    <option key={sigla}>{sigla}</option>
+                  ))}
+                </select>
+              </div>
+
+              <fieldset className="group">
+                <legend className="group-label">PERÍODO</legend>
+                <div className="date-row">
+                  <div>
+                    <label htmlFor="filtro-data-de">De</label>
+                    <input
+                      id="filtro-data-de"
+                      className="date-input"
+                      type="date"
+                      value={dataDe}
+                      onChange={(e) => {
+                        setDataDe(e.target.value)
+                        voltarParaPrimeiraPagina()
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="filtro-data-ate">Até</label>
+                    <input
+                      id="filtro-data-ate"
+                      className="date-input"
+                      type="date"
+                      value={dataAte}
+                      onChange={(e) => {
+                        setDataAte(e.target.value)
+                        voltarParaPrimeiraPagina()
+                      }}
+                    />
+                  </div>
+                </div>
+              </fieldset>
             </div>
           )}
+        </section>
 
-          {!erro &&
-            resultadosPaginados.map((doc) => {
-              const chave = `${doc.type}-${doc.id}`
-
-              return (
-                <article className="card" key={chave}>
-                  <div className="card-top">
-                    <span
-                      className={
-                        'badge' +
-                        (doc.type === 'precedente' ? ' precedente' : '') +
-                        (doc.type === 'doutrina' ? ' doutrina' : '')
-                      }
-                    >
-                      {doc.badge}
-                    </span>
-                    <span className="proc-num">{doc.fonte}</span>
-                  </div>
-                  <h3>{doc.title}</h3>
-                  {doc.type === 'jurisprudencia' && (
-                    <div className="decision-highlight">
-                      <span className="decision-label">DECISÃO</span>
-                      <strong>
-                        {doc.decisao ?? 'Decisão não informada pela fonte.'}
-                      </strong>
-                    </div>
-                  )}
-                  <div className="document-content">
-                    <h4>Ementa</h4>
-                    <p className="ementa">{doc.text}</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="details-toggle"
-                    aria-haspopup="dialog"
-                    onClick={() => setDocumentoSelecionado(doc)}
-                  >
-                    VER DETALHES
-                  </button>
-                  <div className="card-bottom">
-                    <div className="card-meta">
-                      <span>
-                        ⚖{' '}
-                        {[doc.tribunal, doc.orgaoJulgador]
-                          .filter(Boolean)
-                          .join(' — ') || doc.fonte}
-                      </span>
-                      <span>🗓 {formatarData(dataDoDocumento(doc))}</span>
-                    </div>
-                    <AcessoFonte url={doc.urlOriginal} className="source-link" />
-                  </div>
-                </article>
-              )
-            })}
-
-          {!erro && !carregando && totalPaginas > 1 && (
-            <div
-              className="pagination"
-              role="navigation"
-              aria-label="Páginas de resultados"
-            >
-              <button
-                type="button"
-                disabled={paginaExibida === 1}
-                onClick={() => {
-                  setPaginaAtual((pagina) => Math.max(1, pagina - 1))
-                  setDocumentoSelecionado(null)
-                }}
-              >
-                ANTERIOR
-              </button>
-              {paginasVisiveis(paginaExibida, totalPaginas).map((pagina, index) =>
-                pagina === RETICENCIAS ? (
-                  <span
-                    className="pagination-ellipsis"
-                    aria-hidden="true"
-                    key={`reticencias-${index}`}
-                  >
-                    {RETICENCIAS}
+        <div className="content">
+          {/* Fica ao lado da lista (e acima dela em telas estreitas): clicar
+              numa barra mostra o efeito na lista sem precisar rolar. */}
+          <aside className="panorama" aria-label="Panorama da pesquisa">
+            {!erro && !carregando && indicadores && (
+              <section className="indicadores" aria-label="Indicadores da pesquisa">
+                <div className="indicador">
+                  <span className="indicador-label">ADERÊNCIA</span>
+                  <strong className="indicador-valor">
+                    {indicadores.aderencia === null
+                      ? '—'
+                      : `${indicadores.aderencia}%`}
+                  </strong>
+                  <span className="indicador-detalhe">
+                    {indicadores.classificadas
+                      ? `${indicadores.favoraveis} de ${indicadores.classificadas} decisões favoráveis ao recurso`
+                      : 'Nenhuma decisão com resultado identificado'}
                   </span>
-                ) : (
-                  <button
-                    type="button"
-                    className={pagina === paginaExibida ? 'active' : ''}
-                    aria-current={pagina === paginaExibida ? 'page' : undefined}
-                    key={pagina}
-                    onClick={() => {
-                      setPaginaAtual(pagina)
-                      setDocumentoSelecionado(null)
-                    }}
-                  >
-                    {pagina}
-                  </button>
-                ),
-              )}
-              <button
-                type="button"
-                disabled={paginaExibida === totalPaginas}
-                onClick={() => {
-                  setPaginaAtual((pagina) =>
-                    Math.min(totalPaginas, pagina + 1),
-                  )
-                  setDocumentoSelecionado(null)
-                }}
-              >
-                PRÓXIMA
-              </button>
+                </div>
+                <div className="indicador">
+                  <span className="indicador-label">DECISÕES ANALISADAS</span>
+                  <strong className="indicador-valor">
+                    {indicadores.totalDecisoes}
+                  </strong>
+                  <span className="indicador-detalhe">
+                    {indicadores.classificadas} com resultado identificado
+                  </span>
+                </div>
+              </section>
+            )}
+            <GraficoDashboard
+              titulo="Resultado dos recursos"
+              dados={dashboard.dados?.distribuicaoMerito}
+              carregando={dashboard.carregando}
+              erro={dashboard.erro}
+              selecionada={selecao.resultado}
+              onSelecionar={(item) => alternarSelecao('resultado', item)}
+              onLimparSelecao={() => limparSelecao('resultado')}
+            />
+            <GraficoDashboard
+              titulo="Decisões por órgão julgador"
+              dados={dashboard.dados?.distribuicaoCamaraTurma}
+              carregando={dashboard.carregando}
+              erro={dashboard.erro}
+              horizontal
+              selecionada={selecao.orgaoJulgador}
+              onSelecionar={(item) => alternarSelecao('orgaoJulgador', item)}
+              onLimparSelecao={() => limparSelecao('orgaoJulgador')}
+            />
+          </aside>
+
+          <main className="results">
+            <div className="results-header">
+              <div className="results-summary">
+                <h2>Resultados da pesquisa</h2>
+                <span className="results-count">
+                  {carregando
+                    ? 'Buscando...'
+                    : `${resultados.length} documentos encontrados · Página ${paginaExibida} de ${totalPaginas}`}
+                </span>
+              </div>
             </div>
-          )}
-        </main>
+
+            {erro && <div className="empty">{erro}</div>}
+
+            {!erro && !carregando && resultados.length === 0 && (
+              <div className="empty">
+                Nenhum documento encontrado com os filtros selecionados.
+              </div>
+            )}
+
+            {!erro &&
+              resultadosPaginados.map((doc) => {
+                const chave = `${doc.type}-${doc.id}`
+
+                return (
+                  <article className="card" key={chave}>
+                    <div className="card-top">
+                      <span
+                        className={
+                          'badge' +
+                          (doc.type === 'precedente' ? ' precedente' : '') +
+                          (doc.type === 'doutrina' ? ' doutrina' : '')
+                        }
+                      >
+                        {doc.badge}
+                      </span>
+                      <span className="proc-num">{doc.fonte}</span>
+                    </div>
+                    <h3>{doc.title}</h3>
+                    {doc.type === 'jurisprudencia' && (
+                      <div className="decision-highlight">
+                        <span className="decision-label">DECISÃO</span>
+                        <strong>
+                          {doc.decisao ?? 'Decisão não informada pela fonte.'}
+                        </strong>
+                      </div>
+                    )}
+                    <div className="document-content">
+                      <h4>Ementa</h4>
+                      <p className="ementa">{doc.text}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="details-toggle"
+                      aria-haspopup="dialog"
+                      onClick={() => setDocumentoSelecionado(doc)}
+                    >
+                      VER DETALHES
+                    </button>
+                    <div className="card-bottom">
+                      <div className="card-meta">
+                        <span>
+                          ⚖{' '}
+                          {[doc.tribunal, doc.orgaoJulgador]
+                            .filter(Boolean)
+                            .join(' — ') || doc.fonte}
+                        </span>
+                        <span>🗓 {formatarData(dataDoDocumento(doc))}</span>
+                      </div>
+                      <AcessoFonte url={doc.urlOriginal} className="source-link" />
+                    </div>
+                  </article>
+                )
+              })}
+
+            {!erro && !carregando && totalPaginas > 1 && (
+              <div
+                className="pagination"
+                role="navigation"
+                aria-label="Páginas de resultados"
+              >
+                <button
+                  type="button"
+                  disabled={paginaExibida === 1}
+                  onClick={() => {
+                    setPaginaAtual((pagina) => Math.max(1, pagina - 1))
+                    setDocumentoSelecionado(null)
+                  }}
+                >
+                  ANTERIOR
+                </button>
+                {paginasVisiveis(paginaExibida, totalPaginas).map((pagina, index) =>
+                  pagina === RETICENCIAS ? (
+                    <span
+                      className="pagination-ellipsis"
+                      aria-hidden="true"
+                      key={`reticencias-${index}`}
+                    >
+                      {RETICENCIAS}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className={pagina === paginaExibida ? 'active' : ''}
+                      aria-current={pagina === paginaExibida ? 'page' : undefined}
+                      key={pagina}
+                      onClick={() => {
+                        setPaginaAtual(pagina)
+                        setDocumentoSelecionado(null)
+                      }}
+                    >
+                      {pagina}
+                    </button>
+                  ),
+                )}
+                <button
+                  type="button"
+                  disabled={paginaExibida === totalPaginas}
+                  onClick={() => {
+                    setPaginaAtual((pagina) =>
+                      Math.min(totalPaginas, pagina + 1),
+                    )
+                    setDocumentoSelecionado(null)
+                  }}
+                >
+                  PRÓXIMA
+                </button>
+              </div>
+            )}
+          </main>
+        </div>
       </div>
 
       {documentoSelecionado && (

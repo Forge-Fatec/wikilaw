@@ -169,59 +169,195 @@ nav a.active {
   gap: 24px;
 }
 
-.top-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-.top-row .filters {
-  flex: 1;
-  min-width: 280px;
-}
-.top-row .charts-grid {
-  flex: 1 1 500px;
-  min-width: 280px;
-}
-
-.charts-grid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 20px;
-}
-.charts-grid .chart-container {
-  flex: 1 1 260px;
-  min-width: 240px;
-  max-width: 340px;
-}
-
-.filters {
+.toolbar {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 20px 24px;
+  padding: 14px 20px;
   box-shadow: 0 20px 40px -30px rgba(30, 27, 48, 0.25);
+}
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.filters-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.filters-toggle:hover,
+.filters-toggle[aria-expanded='true'] {
+  border-color: var(--terracotta);
+  background: #fdf1ea;
+}
+.filters-toggle:focus-visible,
+.chip:focus-visible,
+.clear-link:focus-visible {
+  outline: 2px solid var(--terracotta-dark);
+  outline-offset: 2px;
+}
+.filters-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--terracotta);
+  color: #fff;
+  font-size: 11px;
+}
+.filters-toggle .chevron {
+  color: var(--muted);
+  transition: transform 0.2s;
+}
+.filters-toggle[aria-expanded='true'] .chevron {
+  transform: rotate(180deg);
+}
+.active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.chip {
+  padding: 5px 12px;
+  border: 1px solid var(--terracotta);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--terracotta-dark);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chip:hover {
+  background: var(--terracotta);
+  color: #fff;
+}
+.clear-link {
+  border: 0;
+  background: none;
+  padding: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.clear-link:hover {
+  color: var(--terracotta-dark);
+}
+.toolbar .sort-control {
+  margin-left: auto;
+}
+
+.filters {
   display: flex;
   align-items: flex-end;
   flex-wrap: wrap;
   gap: 28px;
+  margin-top: 14px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  animation: painel-abrir 0.18s ease-out;
 }
-.filters h3 {
-  font-size: 13px;
-  margin: 0;
-  flex-basis: 100%;
-  margin-bottom: 4px;
+@keyframes painel-abrir {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .filters,
+  .filters-toggle .chevron {
+    animation: none;
+    transition: none;
+  }
 }
 .group {
-  margin-bottom: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
 }
 .group-label {
+  display: block;
+  padding: 0;
   font-size: 10.5px;
   letter-spacing: 1px;
   color: var(--muted);
   font-weight: 700;
   margin-bottom: 10px;
+}
+
+.content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  grid-template-areas: 'results panorama';
+  align-items: start;
+  gap: 24px;
+}
+.results {
+  grid-area: results;
+  min-width: 0;
+}
+/* Acompanha a rolagem da lista; se não couber na tela, rola por dentro. */
+.panorama {
+  grid-area: panorama;
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.panorama .indicadores {
+  gap: 12px;
+  margin: 0;
+}
+.panorama .indicador {
+  padding: 14px 16px;
+}
+.panorama .indicador-valor {
+  font-size: 28px;
+}
+.panorama .chart-container {
+  padding: 18px 16px 10px;
+}
+.panorama .chart-container h3 {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 1080px) {
+  .content {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'panorama' 'results';
+  }
+  .panorama {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+  .panorama .indicadores {
+    grid-column: 1 / -1;
+  }
 }
 .group.doc-types {
   display: flex;
@@ -737,6 +873,11 @@ select,
 .chart-container .chart-error {
   color: var(--terracotta-dark);
 }
+/* O Recharts deixa o gráfico focável: some o contorno no clique, fica no teclado. */
+.chart-container .recharts-wrapper:focus:not(:focus-visible),
+.chart-container .recharts-surface:focus:not(:focus-visible) {
+  outline: none;
+}
 .chart-container .chart-hint {
   margin: -6px 0 6px;
   text-align: center;
@@ -776,25 +917,36 @@ select,
   .layout {
     margin-top: -16px;
   }
-  .top-row {
-    flex-direction: column;
-  }
-  .top-row .charts-grid {
-    width: 100%;
-  }
-  .charts-grid .chart-container {
-    max-width: 100%;
-    flex-basis: 100%;
+  .toolbar .sort-control {
+    margin-left: 0;
   }
   .filters {
     flex-direction: column;
     align-items: stretch;
+    gap: 20px;
+  }
+  .group.doc-types .check-row {
+    flex-wrap: wrap;
+    gap: 4px 18px;
+  }
+  .filters select,
+  .date-row > div {
+    width: 100%;
+  }
+  .date-row .date-input {
+    width: 100%;
+  }
+  .panorama {
+    grid-template-columns: 1fr;
   }
   .hero h1 {
     font-size: 27px;
   }
-  .indicadores {
-    grid-template-columns: 1fr;
+  .panorama .indicador {
+    padding: 12px 14px;
+  }
+  .panorama .indicador-valor {
+    font-size: 24px;
   }
   .card {
     padding: 22px 20px;
