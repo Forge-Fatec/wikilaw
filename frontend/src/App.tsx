@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import './index.css'
 import { API_BASE } from './api'
 import { paginasVisiveis, RETICENCIAS } from './paginacao'
@@ -314,6 +314,25 @@ function App() {
   const [erroValidacao, setErroValidacao] = useState<string | null>(null)
   const [filtros, setFiltros] = useState<Record<DocType, boolean>>(TODOS_OS_TIPOS)
   const [filtrosAbertos, setFiltrosAbertos] = useState(false)
+  const barraRef = useRef<HTMLElement>(null)
+  const buscaNaBarra = termoPesquisado.trim() !== ''
+
+  // Com a barra fixa no topo, o panorama (também fixo) precisa começar abaixo
+  // dela; a altura muda quando o painel de filtros abre ou os chips quebram linha.
+  useEffect(() => {
+    const barra = barraRef.current
+    if (!buscaNaBarra || !barra) return
+
+    const raiz = document.documentElement
+    const observador = new ResizeObserver(() => {
+      raiz.style.setProperty('--altura-barra', `${barra.offsetHeight}px`)
+    })
+    observador.observe(barra)
+    return () => {
+      observador.disconnect()
+      raiz.style.removeProperty('--altura-barra')
+    }
+  }, [buscaNaBarra])
   const [tribunal, setTribunal] = useState(TODOS_OS_TRIBUNAIS)
   const [fonte, setFonte] = useState(TODAS_AS_FONTES)
   const [dataDe, setDataDe] = useState('')
@@ -562,6 +581,40 @@ function App() {
     })
   }
 
+  const formularioBusca = (
+    <form
+      className="search-form"
+      role="search"
+      onSubmit={(event) => {
+        event.preventDefault()
+        void buscar()
+      }}
+    >
+      <div className="search-box">
+        <input
+          type="text"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            if (erroValidacao) setErroValidacao(null)
+          }}
+          aria-label="Descrição do caso"
+          aria-invalid={Boolean(erroValidacao)}
+          aria-describedby={erroValidacao ? 'search-error' : undefined}
+          placeholder="Ex.: dano moral por negativação indevida do nome do consumidor..."
+        />
+        <button type="submit" disabled={carregando}>
+          {carregando ? 'BUSCANDO...' : 'PESQUISAR'}
+        </button>
+      </div>
+      {erroValidacao && (
+        <p id="search-error" className="search-error" role="alert">
+          {erroValidacao}
+        </p>
+      )}
+    </form>
+  )
+
   return (
     <>
       <header className="header">
@@ -574,55 +627,31 @@ function App() {
         </div>
       </header>
 
-      <section className="hero">
-        <div className="hero-rule" />
-        <h1>
-          Descreva o seu caso.{' '}
-          <em>
-            Nós
-            <br />
-            encontramos o direito.
-          </em>
-        </h1>
-        <p>
-          Pesquisa em linguagem natural entre jurisprudências, precedentes e
-          doutrinas dos principais tribunais do país.
-        </p>
-        <form
-          className="search-form"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void buscar()
-          }}
-        >
-          <div className="search-box">
-            <input
-              type="text"
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value)
-                if (erroValidacao) setErroValidacao(null)
-              }}
-              aria-label="Descrição do caso"
-              aria-invalid={Boolean(erroValidacao)}
-              aria-describedby={erroValidacao ? 'search-error' : undefined}
-              placeholder="Ex.: dano moral por negativação indevida do nome do consumidor..."
-            />
-            <button type="submit" disabled={carregando}>
-              {carregando ? 'BUSCANDO...' : 'PESQUISAR'}
-            </button>
-          </div>
-          {erroValidacao && (
-            <p id="search-error" className="search-error" role="alert">
-              {erroValidacao}
-            </p>
-          )}
-        </form>
-      </section>
+      {/* Depois da primeira pesquisa a busca sai do destaque e passa para a
+          barra fixa, junto dos filtros, para refinar sem voltar ao topo. */}
+      {!buscaNaBarra && (
+        <section className="hero">
+          <div className="hero-rule" />
+          <h1>
+            Descreva o seu caso.{' '}
+            <em>
+              Nós
+              <br />
+              encontramos o direito.
+            </em>
+          </h1>
+          <p>
+            Pesquisa em linguagem natural entre jurisprudências, precedentes e
+            doutrinas dos principais tribunais do país.
+          </p>
+          {formularioBusca}
+        </section>
+      )}
 
-      <div className="layout">
-        <section className="toolbar" aria-label="Filtros e ordenação">
+      <div className={buscaNaBarra ? 'layout busca-na-barra' : 'layout'}>
+        <section className="toolbar" ref={barraRef} aria-label="Busca, filtros e ordenação">
           <div className="toolbar-row">
+            {buscaNaBarra && formularioBusca}
             <button
               type="button"
               className="filters-toggle"

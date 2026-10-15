@@ -263,6 +263,46 @@ nav a.active {
   margin-left: auto;
 }
 
+/* Depois da primeira pesquisa: sem o hero, a busca entra na barra e a barra
+   fica presa no topo ao rolar. */
+.layout.busca-na-barra {
+  margin-top: 24px;
+}
+.layout.busca-na-barra .toolbar {
+  position: sticky;
+  top: 8px;
+  z-index: 20;
+  box-shadow: 0 12px 28px -18px rgba(30, 27, 48, 0.45);
+}
+.toolbar .search-form {
+  flex: 1 1 340px;
+  min-width: 0;
+  max-width: 560px;
+  margin: 0;
+}
+.toolbar .search-box {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: none;
+}
+.toolbar .search-box:focus-within {
+  border-color: var(--terracotta);
+}
+.toolbar .search-box input {
+  min-width: 0;
+  padding: 10px 14px;
+  font-size: 13.5px;
+}
+.toolbar .search-box button {
+  padding: 0 18px;
+  font-size: 12px;
+}
+.toolbar .search-error {
+  color: var(--terracotta-dark);
+  font-size: 12.5px;
+  margin-top: 6px;
+}
+
 .filters {
   display: flex;
   align-items: flex-end;
@@ -317,11 +357,12 @@ nav a.active {
 .panorama {
   grid-area: panorama;
   position: sticky;
-  top: 16px;
+  /* --altura-barra só existe enquanto a barra de busca está fixa no topo. */
+  top: calc(var(--altura-barra, 0px) + 24px);
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-height: calc(100vh - 32px);
+  max-height: calc(100vh - var(--altura-barra, 0px) - 40px);
   overflow-y: auto;
   scrollbar-width: thin;
 }
@@ -919,6 +960,42 @@ select,
   }
   .toolbar .sort-control {
     margin-left: 0;
+  }
+  /* A barra fixa não pode tomar a tela do celular: chips numa linha só, com
+     rolagem lateral, e sem o rótulo da ordenação. */
+  .layout.busca-na-barra .toolbar {
+    top: 0;
+    padding: 10px;
+  }
+  .layout.busca-na-barra .filters-toggle .chevron {
+    display: none;
+  }
+  .layout.busca-na-barra .toolbar-row {
+    gap: 8px;
+  }
+  .layout.busca-na-barra .active-filters {
+    flex: 1 1 0;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .layout.busca-na-barra .chip {
+    white-space: nowrap;
+  }
+  .layout.busca-na-barra .sort-label {
+    display: none;
+  }
+  .layout.busca-na-barra .filters-toggle {
+    padding: 7px 10px;
+  }
+  .layout.busca-na-barra .sort-options button {
+    padding: 6px 7px;
+    font-size: 11.5px;
+  }
+  .toolbar .search-form {
+    flex-basis: 100%;
+    max-width: none;
   }
   .filters {
     flex-direction: column;

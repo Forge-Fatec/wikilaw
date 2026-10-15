@@ -92,6 +92,39 @@ test.describe('busca por conteúdos jurídicos', () => {
     }
   })
 
+  test('após pesquisar, a busca passa para a barra de filtros fixa no topo', async ({
+    page,
+  }) => {
+    const cenario = 'busca na barra'
+
+    printStep(cenario, 'Configurando mock da API')
+    await page.route('**/api/documentos/**', (route) =>
+      route.fulfill({ json: EMPTY_RESPONSE }),
+    )
+    await page.route('**/api/dashboard*', (route) =>
+      route.fulfill({ status: 500 }),
+    )
+
+    printStep(cenario, 'Abrindo o frontend: busca em destaque')
+    await abrirFrontend(page)
+    const barra = page.getByRole('region', { name: 'Busca, filtros e ordenação' })
+    await expect(page.locator('.hero').getByLabel('Descrição do caso')).toBeVisible()
+    await expect(barra.getByLabel('Descrição do caso')).toHaveCount(0)
+
+    printStep(cenario, 'Pesquisando')
+    await page.getByLabel('Descrição do caso').fill('dano moral')
+    await page.getByRole('button', { name: /pesquisar/i }).click()
+
+    printStep(cenario, 'Validando a busca dentro da barra fixa')
+    await expect(page.locator('.hero')).toHaveCount(0)
+    await expect(barra.getByLabel('Descrição do caso')).toHaveValue('dano moral')
+    await expect(barra).toHaveCSS('position', 'sticky')
+
+    printStep(cenario, 'Rolando a página: a barra continua visível')
+    await page.mouse.wheel(0, 2000)
+    await expect(barra).toBeInViewport()
+  })
+
   test('exibe erro e não inicia a busca com a descrição vazia', async ({
     page,
   }) => {
