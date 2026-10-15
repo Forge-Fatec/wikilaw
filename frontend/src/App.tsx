@@ -260,6 +260,7 @@ async function carregarPagina(
   tipo: DocType,
   termo: string,
   pagina: number,
+  signal: AbortSignal,
 ): Promise<ApiResult> {
   const categoria = CATEGORIA_POR_TIPO[tipo]
   const params = new URLSearchParams({
@@ -268,7 +269,7 @@ async function carregarPagina(
   })
   if (termo.trim()) params.set('termo', termo.trim())
 
-  const res = await fetch(`${API_BASE}/api/documentos/${categoria}?${params}`)
+  const res = await fetch(`${API_BASE}/api/documentos/${categoria}?${params}`, { signal })
   if (!res.ok) {
     throw new Error(`Erro ao buscar ${categoria} (status ${res.status})`)
   }
@@ -278,22 +279,28 @@ async function carregarPagina(
 async function carregarCategoria(
   tipo: DocType,
   termo: string,
+  signal: AbortSignal,
 ): Promise<Documento[]> {
-  const primeira = await carregarPagina(tipo, termo, 0)
+  const primeira = await carregarPagina(tipo, termo, 0, signal)
   const documentos = primeira.itens.map((item) => toDocumento(tipo, item))
 
   for (let pagina = 1; pagina < primeira.totalPaginas; pagina += 1) {
-    const data = await carregarPagina(tipo, termo, pagina)
+    const data = await carregarPagina(tipo, termo, pagina, signal)
     documentos.push(...data.itens.map((item) => toDocumento(tipo, item)))
   }
 
   return documentos
 }
 
-async function carregarDocumentos(termo: string): Promise<Documento[]> {
+// O signal interrompe a carga quando outra pesquisa a substitui: sem isso, a
+// carga inicial (dezenas de milhares de documentos) seguiria ocupando a rede.
+async function carregarDocumentos(
+  termo: string,
+  signal: AbortSignal,
+): Promise<Documento[]> {
   const respostas = await Promise.allSettled(
     (Object.keys(CATEGORIA_POR_TIPO) as DocType[]).map((tipo) =>
-      carregarCategoria(tipo, termo),
+      carregarCategoria(tipo, termo, signal),
     ),
   )
 
@@ -315,6 +322,7 @@ function App() {
   const [filtros, setFiltros] = useState<Record<DocType, boolean>>(TODOS_OS_TIPOS)
   const [filtrosAbertos, setFiltrosAbertos] = useState(false)
   const barraRef = useRef<HTMLElement>(null)
+  const cargaRef = useRef<AbortController | null>(null)
   const buscaNaBarra = termoPesquisado.trim() !== ''
 
   // Com a barra fixa no topo, o panorama (também fixo) precisa começar abaixo
@@ -369,6 +377,12 @@ function App() {
       return
     }
 
+    // Pesquisar não espera a carga em andamento (a inicial demora): ela é
+    // cancelada e só o resultado desta pesquisa chega à tela.
+    cargaRef.current?.abort()
+    const carga = new AbortController()
+    cargaRef.current = carga
+
     setErroValidacao(null)
     setTermoPesquisado(query)
     setCarregando(true)
@@ -376,36 +390,38 @@ function App() {
     setPaginaAtual(1)
     setDocumentoSelecionado(null)
     try {
-      setDocumentos(await carregarDocumentos(query))
+      const resultados = await carregarDocumentos(query, carga.signal)
+      if (!carga.signal.aborted) setDocumentos(resultados)
     } catch {
-      setErro(ERRO_CARREGAMENTO)
-      setDocumentos([])
+      if (!carga.signal.aborted) {
+        setErro(ERRO_CARREGAMENTO)
+        setDocumentos([])
+      }
     } finally {
-      setCarregando(false)
+      if (!carga.signal.aborted) setCarregando(false)
     }
   }, [query])
 
   // Carrega os resultados iniciais (sem termo) assim que a página abre.
   useEffect(() => {
-    let ativo = true
+    const carga = new AbortController()
+    cargaRef.current = carga
 
-    carregarDocumentos('')
+    carregarDocumentos('', carga.signal)
       .then((resultados) => {
-        if (ativo) setDocumentos(resultados)
+        if (!carga.signal.aborted) setDocumentos(resultados)
       })
       .catch(() => {
-        if (ativo) {
+        if (!carga.signal.aborted) {
           setErro(ERRO_CARREGAMENTO)
           setDocumentos([])
         }
       })
       .finally(() => {
-        if (ativo) setCarregando(false)
+        if (!carga.signal.aborted) setCarregando(false)
       })
 
-    return () => {
-      ativo = false
-    }
+    return () => carga.abort()
   }, [])
 
   useEffect(() => {
@@ -603,8 +619,9 @@ function App() {
           aria-describedby={erroValidacao ? 'search-error' : undefined}
           placeholder="Ex.: dano moral por negativação indevida do nome do consumidor..."
         />
-        <button type="submit" disabled={carregando}>
-          {carregando ? 'BUSCANDO...' : 'PESQUISAR'}
+        {/* Fica habilitado durante a carga: uma nova pesquisa substitui a anterior. */}
+        <button type="submit" aria-busy={carregando}>
+          PESQUISAR
         </button>
       </div>
       {erroValidacao && (
@@ -649,23 +666,9 @@ function App() {
       )}
 
       <div className={buscaNaBarra ? 'layout busca-na-barra' : 'layout'}>
-        <section className="toolbar" ref={barraRef} aria-label="Busca, filtros e ordenação">
+        <section className="toolbar" ref={barraRef} aria-label="Busca e filtros">
           <div className="toolbar-row">
             {buscaNaBarra && formularioBusca}
-            <button
-              type="button"
-              className="filters-toggle"
-              aria-expanded={filtrosAbertos}
-              aria-controls="painel-filtros"
-              onClick={() => setFiltrosAbertos((aberto) => !aberto)}
-            >
-              <span aria-hidden="true">▤</span> Filtros
-              {filtrosAtivos.length > 0 && (
-                <span className="filters-count">{filtrosAtivos.length}</span>
-              )}
-              <span className="chevron" aria-hidden="true">▾</span>
-            </button>
-
             {filtrosAtivos.length > 0 && (
               <>
                 <ul className="active-filters" aria-label="Filtros ativos">
@@ -692,31 +695,19 @@ function App() {
               </>
             )}
 
-            <div className="sort-control" role="group" aria-label="Ordenar resultados por data de publicação">
-              <span className="sort-label">ORDENAR POR DATA</span>
-              <div className="sort-options">
-                <button
-                  type="button"
-                  aria-pressed={ordenacao === 'mais-recentes'}
-                  onClick={() => {
-                    setOrdenacao('mais-recentes')
-                    voltarParaPrimeiraPagina()
-                  }}
-                >
-                  Mais recentes
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={ordenacao === 'mais-antigos'}
-                  onClick={() => {
-                    setOrdenacao('mais-antigos')
-                    voltarParaPrimeiraPagina()
-                  }}
-                >
-                  Mais antigos
-                </button>
-              </div>
-            </div>
+            <button
+              type="button"
+              className="filters-toggle"
+              aria-expanded={filtrosAbertos}
+              aria-controls="painel-filtros"
+              onClick={() => setFiltrosAbertos((aberto) => !aberto)}
+            >
+              <span aria-hidden="true">▤</span> Filtros
+              {filtrosAtivos.length > 0 && (
+                <span className="filters-count">{filtrosAtivos.length}</span>
+              )}
+              <span className="chevron" aria-hidden="true">▾</span>
+            </button>
           </div>
 
           {filtrosAbertos && (
@@ -866,6 +857,31 @@ function App() {
                     ? 'Buscando...'
                     : `${resultados.length} documentos encontrados · Página ${paginaExibida} de ${totalPaginas}`}
                 </span>
+              </div>
+              <div className="sort-control" role="group" aria-label="Ordenar resultados por data de publicação">
+                <span className="sort-label">ORDENAR POR DATA</span>
+                <div className="sort-options">
+                  <button
+                    type="button"
+                    aria-pressed={ordenacao === 'mais-recentes'}
+                    onClick={() => {
+                      setOrdenacao('mais-recentes')
+                      voltarParaPrimeiraPagina()
+                    }}
+                  >
+                    Mais recentes
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={ordenacao === 'mais-antigos'}
+                    onClick={() => {
+                      setOrdenacao('mais-antigos')
+                      voltarParaPrimeiraPagina()
+                    }}
+                  >
+                    Mais antigos
+                  </button>
+                </div>
               </div>
             </div>
 

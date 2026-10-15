@@ -259,7 +259,8 @@ nav a.active {
 .clear-link:hover {
   color: var(--terracotta-dark);
 }
-.toolbar .sort-control {
+/* Filtros sempre no canto direito da barra. */
+.toolbar .filters-toggle {
   margin-left: auto;
 }
 
@@ -958,17 +959,11 @@ select,
   .layout {
     margin-top: -16px;
   }
-  .toolbar .sort-control {
-    margin-left: 0;
-  }
   /* A barra fixa não pode tomar a tela do celular: chips numa linha só, com
-     rolagem lateral, e sem o rótulo da ordenação. */
+     rolagem lateral. */
   .layout.busca-na-barra .toolbar {
     top: 0;
     padding: 10px;
-  }
-  .layout.busca-na-barra .filters-toggle .chevron {
-    display: none;
   }
   .layout.busca-na-barra .toolbar-row {
     gap: 8px;
@@ -982,16 +977,6 @@ select,
   }
   .layout.busca-na-barra .chip {
     white-space: nowrap;
-  }
-  .layout.busca-na-barra .sort-label {
-    display: none;
-  }
-  .layout.busca-na-barra .filters-toggle {
-    padding: 7px 10px;
-  }
-  .layout.busca-na-barra .sort-options button {
-    padding: 6px 7px;
-    font-size: 11.5px;
   }
   .toolbar .search-form {
     flex-basis: 100%;
