@@ -45,9 +45,15 @@ public class PesquisaPdfRenderer {
                         + " até " + (request.dataAte() == null ? "sem fim definido" : DATE.format(request.dataAte())));
                 page.field("Ordenação", "mais-antigos".equals(request.ordenacao()) ? "Mais antigos primeiro" : "Mais recentes primeiro");
                 page.field("Resultados exportados", String.valueOf(results.size()));
-                page.paragraph("Este relatório contém os resultados filtrados de todas as páginas da pesquisa. A base pode receber novos documentos após a exportação.", 9, MUTED);
+                var range = request.intervaloPaginas();
+                if (range != null) {
+                    page.field("Páginas da pesquisa", range.de() + " a " + range.ate()
+                            + " (" + range.itensPorPagina() + " documentos por página)");
+                    page.field("Total de resultados da pesquisa", String.valueOf(range.totalResultados()));
+                }
+                page.paragraph("Este relatório contém os resultados selecionados da pesquisa. A numeração das páginas deste PDF é independente das páginas da pesquisa. A base pode receber novos documentos após a exportação.", 9, MUTED);
                 page.heading("Resultados encontrados", 16);
-                int index = 0;
+                int index = range == null ? 0 : (range.de() - 1) * range.itensPorPagina();
                 for (var result : results) {
                     page.resultHeading(++index, result.titulo(), result.categoria());
                     page.field("Fonte", result.fonte());

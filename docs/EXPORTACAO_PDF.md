@@ -1,10 +1,12 @@
 # Exportação dos resultados em PDF (SCRUM-185)
 
-Com resultados disponíveis, selecione **Exportar PDF** no cabeçalho da pesquisa. O botão mostra **Gerando PDF...** durante o processamento e o navegador inicia o download quando o arquivo estiver pronto. A exportação fica desabilitada enquanto a busca carrega ou quando não há resultados.
+Com resultados disponíveis, selecione **Exportar PDF** no grupo de ações à direita do cabeçalho, ao lado da ordenação. Um modal permite escolher **Todas as páginas** ou **Selecionar intervalo**, informando a página inicial e a final. A contagem mostra quantos documentos serão exportados, incluindo a última página incompleta. Confirme em **Gerar e baixar PDF** para iniciar o download. A exportação fica desabilitada enquanto a busca carrega ou quando não há resultados.
+
+O intervalo se refere às páginas dos resultados (10 documentos por página), não às páginas físicas do PDF. O modal valida páginas vazias, fracionárias, invertidas e fora dos limites. Permite cancelar com o botão, Escape ou clique no fundo, mantém o foco do teclado dentro do diálogo e o devolve ao botão ao fechar. Durante a geração, impede solicitações duplicadas e exibe o progresso; falhas mantêm o diálogo aberto para nova tentativa.
 
 ## Conteúdo
 
-O relatório A4 inclui data e hora de geração, descrição do caso da última pesquisa executada, categorias, fonte, tribunal, período, ordenação e quantidade de resultados. Exporta **todos os resultados filtrados de todas as páginas**, na ordem exibida, sem repetir a busca. Editar a descrição sem pesquisar novamente não muda o termo do relatório.
+O relatório A4 inclui data e hora de geração, descrição do caso da última pesquisa executada, categorias, fonte, tribunal, período, ordenação, total de resultados da pesquisa, intervalo selecionado e quantidade exportada. Exporta **somente os resultados das páginas escolhidas**, na ordem exibida, sem repetir a busca. A numeração dos documentos conserva a posição na pesquisa. Editar a descrição sem pesquisar novamente não muda o termo do relatório.
 
 Cada resultado contém título, categoria, fonte, tipo, processo ou tema, tribunal, órgão julgador, autores ou relator, datas, resumo ou ementa, decisão ou tese e informações bibliográficas disponíveis. Links HTTP/HTTPS da fonte original são clicáveis. Campos ausentes não são inventados. O relatório não inclui o inteiro teor nem os gráficos do dashboard.
 
@@ -23,15 +25,18 @@ Textos longos continuam em novas páginas, com cabeçalho e numeração. Fontes 
   "dataDe": null,
   "dataAte": null,
   "ordenacao": "mais-recentes",
-  "resultados": [{ "categoria": "decisoes", "id": 123 }]
+  "resultados": [{ "categoria": "decisoes", "id": 123 }],
+  "intervaloPaginas": { "de": 1, "ate": 1, "totalResultados": 1, "itensPorPagina": 10 }
 }
 ```
 
 O navegador envia somente referências dos documentos e metadados da pesquisa. O backend busca o conteúdo canônico no banco em lotes de até 250 IDs e mantém a ordem recebida. IDs de categorias distintas podem coincidir. Documentos removidos/inativos causam `409`, pedindo atualização da pesquisa, em vez de gerar um relatório incompleto.
 
+`intervaloPaginas` é opcional para compatibilidade com clientes anteriores. Quando informado, o servidor valida limites e quantidade esperada de documentos para esse intervalo. Não aceita contagens inconsistentes. A paginação física do PDF continua independente e aparece no rodapé.
+
 Resposta: `200 application/pdf`, `Content-Disposition: attachment; filename="wikilaw-pesquisa-AAAA-MM-DD.pdf"`, `Cache-Control: no-store`. O CORS expõe `Content-Disposition`. O PDF é gerado sob demanda, sem armazenamento permanente. O frontend valida o tipo de arquivo e a assinatura `%PDF-` antes de iniciar o download e libera a URL temporária em seguida.
 
-Listas vazias, duplicatas, categorias inválidas, referências incompatíveis, período invertido e mais de 5.000 resultados recebem `400`. O frontend orienta a refinar filtros acima de 5.000 resultados. Relatórios acima de 1.000 páginas recebem `413`. Esses limites protegem a geração síncrona; nenhum resultado é truncado silenciosamente. A importação pode continuar em paralelo: o relatório usa os IDs presentes na pesquisa ao clicar, não documentos que chegaram depois.
+Listas vazias, duplicatas, categorias inválidas, referências incompatíveis, períodos/intervalos inválidos e mais de 5.000 resultados recebem `400`. Pesquisas maiores podem ser exportadas selecionando intervalos com até 5.000 documentos por arquivo. Relatórios acima de 1.000 páginas físicas recebem `413`. Nenhum resultado é truncado silenciosamente. A importação pode continuar em paralelo: o relatório usa os IDs presentes na pesquisa ao confirmar a exportação, não documentos que chegaram depois.
 
 ## Critérios de aceite e validação
 

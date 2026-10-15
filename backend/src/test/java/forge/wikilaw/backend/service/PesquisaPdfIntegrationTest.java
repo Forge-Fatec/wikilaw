@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import forge.wikilaw.backend.dto.PesquisaPdfRequest;
 import forge.wikilaw.backend.dto.PesquisaPdfRequest.DocumentoReferencia;
+import forge.wikilaw.backend.dto.PesquisaPdfRequest.IntervaloPaginas;
 import forge.wikilaw.backend.entity.*;
 import forge.wikilaw.backend.integration.documents.*;
 import forge.wikilaw.backend.repository.*;
@@ -102,6 +103,42 @@ class PesquisaPdfIntegrationTest {
     }
 
     @Test void emptyResultsAreRejected() throws Exception { export(request(List.of()), 400); }
+
+    @Test
+    void selectedResultPagesAreRecordedAndLastPageIsNotPadded() throws Exception {
+        var first = document(DocumentSource.BDJUR, "pagina-11", "Documento selecionado onze", "Resumo onze.", null);
+        var second = document(DocumentSource.BDJUR, "pagina-12", "Documento selecionado doze", "Resumo doze.", null);
+        var request = withRange(List.of(first, second), new IntervaloPaginas(2, 2, 12, 10));
+        byte[] bytes = export(request, 200);
+        try (var pdf = Loader.loadPDF(bytes)) {
+            String text = new PDFTextStripper().getText(pdf);
+            assertThat(text).contains("Páginas da pesquisa", "2 a 2 (10 documentos por página)", "Total de resultados da pesquisa", "12", "11. Doutrina", "12. Doutrina")
+                    .doesNotContainPattern("(?m)^1\\. Doutrina")
+                    .doesNotContain("de todas as páginas da pesquisa");
+            var directory = Path.of("target", "pdf-preview");
+            Files.createDirectories(directory);
+            Files.write(directory.resolve("wikilaw-pesquisa-intervalo.pdf"), bytes);
+        }
+    }
+
+    @Test
+    void rejectsInvalidPageBoundsAndCounts() throws Exception {
+        var ref = new DocumentoReferencia("doutrina", 1L);
+        export(withRange(List.of(ref), new IntervaloPaginas(2, 1, 12, 10)), 400);
+        export(withRange(List.of(ref), new IntervaloPaginas(1, 3, 12, 10)), 400);
+        export(withRange(List.of(ref), new IntervaloPaginas(2, 2, 12, 10)), 400);
+        export(withRange(List.of(ref), new IntervaloPaginas(0, 1, 1, 10)), 400);
+        export(withRange(List.of(ref), new IntervaloPaginas(1, 1, 0, 10)), 400);
+        export(withRange(List.of(ref), new IntervaloPaginas(1, 1, 1, 0)), 400);
+        export(withRange(List.of(ref), new IntervaloPaginas(null, 1, 1, 10)), 400);
+        export(withRange(List.of(ref), new IntervaloPaginas(1, 1, null, 10)), 400);
+    }
+
+    private PesquisaPdfRequest withRange(List<DocumentoReferencia> references, IntervaloPaginas range) {
+        var original = request(references);
+        return new PesquisaPdfRequest(original.termo(), original.categorias(), original.fonte(), original.tribunal(),
+                original.dataDe(), original.dataAte(), original.ordenacao(), references, range);
+    }
     @Test void duplicateReferencesAreRejected() throws Exception {
         var ref = document(DocumentSource.BDJUR, "dup", "Artigo", "Resumo", null);
         export(request(List.of(ref, ref)), 400);

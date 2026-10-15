@@ -23,6 +23,15 @@ public class PesquisaPdfService {
 
     @Transactional(readOnly = true)
     public byte[] generate(PesquisaPdfRequest request) {
+        var range = request.intervaloPaginas();
+        if (range != null) {
+            long totalPages = (range.totalResultados().longValue() + range.itensPorPagina() - 1) / range.itensPorPagina();
+            long selectedCount = Math.min(range.ate().longValue() * range.itensPorPagina(), range.totalResultados())
+                    - (range.de().longValue() - 1) * range.itensPorPagina();
+            if (range.de() > range.ate() || range.ate() > totalPages || selectedCount != request.resultados().size()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Intervalo de páginas incompatível com os resultados");
+            }
+        }
         if (request.dataDe() != null && request.dataAte() != null && request.dataDe().isAfter(request.dataAte())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Período inválido");
         }

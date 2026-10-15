@@ -14,7 +14,20 @@ public record PesquisaPdfRequest(
         LocalDate dataDe,
         LocalDate dataAte,
         @NotNull @Pattern(regexp = "mais-recentes|mais-antigos") String ordenacao,
-        @NotEmpty @Size(max = 5000) List<@NotNull @Valid DocumentoReferencia> resultados) {
+        @NotEmpty @Size(max = 5000) List<@NotNull @Valid DocumentoReferencia> resultados,
+        @Valid IntervaloPaginas intervaloPaginas) {
+
+    /** Compatibility with exports created before page selection was introduced. */
+    public PesquisaPdfRequest(String termo, List<String> categorias, String fonte, String tribunal,
+            LocalDate dataDe, LocalDate dataAte, String ordenacao, List<DocumentoReferencia> resultados) {
+        this(termo, categorias, fonte, tribunal, dataDe, dataAte, ordenacao, resultados, null);
+    }
+
+    public record IntervaloPaginas(
+            @NotNull @Min(1) Integer de,
+            @NotNull @Min(1) Integer ate,
+            @NotNull @Min(1) Integer totalResultados,
+            @NotNull @Min(1) @Max(100) Integer itensPorPagina) {}
 
     public record DocumentoReferencia(
             @NotNull @Pattern(regexp = "decisoes|precedentes|doutrina") String categoria,

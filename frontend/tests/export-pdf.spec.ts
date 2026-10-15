@@ -38,6 +38,15 @@ async function prepare(page: Page, documents = DOCUMENTS) {
 
 const PDF_HEADERS = { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="wikilaw-pesquisa-teste.pdf"', 'Access-Control-Expose-Headers': 'Content-Disposition' }
 
+async function openExport(page: Page) {
+  await page.getByRole('button', { name: 'Exportar PDF', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Exportar resultados em PDF' })).toBeVisible()
+}
+
+async function confirmExport(page: Page) {
+  await page.getByRole('dialog').getByRole('button', { name: 'Gerar e baixar PDF' }).click()
+}
+
 test('downloads a PDF for every filtered result, including other UI pages', async ({ page }, testInfo) => {
   let payload: { resultados: { id: number }[], termo: string } | undefined
   await page.route('**/api/pesquisas/exportacoes/pdf', (route) => {
@@ -52,7 +61,8 @@ test('downloads a PDF for every filtered result, including other UI pages', asyn
   // Editing the input without submitting a new search must not relabel old results.
   await page.getByRole('textbox', { name: 'Descrição do caso' }).fill('outro caso ainda não pesquisado')
   const downloadPromise = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Exportar PDF' }).click()
+  await openExport(page)
+  await confirmExport(page)
   const download = await downloadPromise
   expect(download.suggestedFilename()).toBe('wikilaw-pesquisa-teste.pdf')
   const path = testInfo.outputPath('pesquisa.pdf')
@@ -79,7 +89,8 @@ test('exports the applied category, source, tribunal, period and order', async (
   await page.locator('.date-input').nth(1).fill('2025-01-06')
   await page.getByRole('button', { name: 'Mais antigos', exact: true }).click()
   const download = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Exportar PDF' }).click()
+  await openExport(page)
+  await confirmExport(page)
   await download
   expect(payload).toMatchObject({ termo: '', categorias: ['decisoes'], fonte: 'TJDFT', tribunal: 'TJDFT', dataDe: '2025-01-03', dataAte: '2025-01-06', ordenacao: 'mais-antigos', resultados: [
     { categoria: 'decisoes', id: 3 }, { categoria: 'decisoes', id: 4 }, { categoria: 'decisoes', id: 5 }, { categoria: 'decisoes', id: 6 },
@@ -101,7 +112,8 @@ test('shows generation progress and prevents duplicate requests', async ({ page 
     await route.fulfill({ headers: PDF_HEADERS, body: PDF })
   })
   await prepare(page)
-  await page.getByRole('button', { name: 'Exportar PDF' }).click()
+  await openExport(page)
+  await confirmExport(page)
   await expect(page.getByRole('button', { name: 'Gerando PDF...' })).toBeDisabled()
   await expect.poll(() => requests).toBe(1)
   const download = page.waitForEvent('download')
@@ -116,10 +128,11 @@ test('handles generation failure and allows retry', async ({ page }) => {
     ? route.fulfill({ status: 500, json: { error: 'Error' } })
     : route.fulfill({ headers: PDF_HEADERS, body: PDF }))
   await prepare(page)
-  await page.getByRole('button', { name: 'Exportar PDF' }).click()
+  await openExport(page)
+  await confirmExport(page)
   await expect(page.getByRole('alert')).toHaveText('Não foi possível gerar o PDF. Tente novamente.')
   const download = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Exportar PDF' }).click()
+  await confirmExport(page)
   await download
   await expect(page.getByRole('alert')).toHaveCount(0)
 })
@@ -129,7 +142,8 @@ test('does not download a successful response that is not a PDF', async ({ page 
   page.on('download', () => downloads++)
   await page.route('**/api/pesquisas/exportacoes/pdf', (route) => route.fulfill({ json: { error: 'unexpected JSON' } }))
   await prepare(page)
-  await page.getByRole('button', { name: 'Exportar PDF' }).click()
+  await openExport(page)
+  await confirmExport(page)
   await expect(page.getByRole('alert')).toHaveText('O arquivo recebido não é um PDF válido. Tente novamente.')
   expect(downloads).toBe(0)
 })
@@ -137,6 +151,97 @@ test('does not download a successful response that is not a PDF', async ({ page 
 test('asks to refresh when a result has been removed', async ({ page }) => {
   await page.route('**/api/pesquisas/exportacoes/pdf', (route) => route.fulfill({ status: 409, json: {} }))
   await prepare(page)
-  await page.getByRole('button', { name: 'Exportar PDF' }).click()
+  await openExport(page)
+  await confirmExport(page)
   await expect(page.getByRole('alert')).toHaveText('Um resultado não está mais disponível. Atualize a pesquisa e tente novamente.')
+})
+
+test('opens the dialog without starting an export and restores focus when cancelled', async ({ page }) => {
+  let requests = 0
+  await page.route('**/api/pesquisas/exportacoes/pdf', (route) => { requests++; return route.fulfill({ headers: PDF_HEADERS, body: PDF }) })
+  await prepare(page)
+  await openExport(page)
+  await expect(page.getByLabel('Todas as páginas', { exact: false })).toBeFocused()
+  await page.getByRole('button', { name: 'Cancelar', exact: true }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Exportar PDF', exact: true })).toBeFocused()
+  await openExport(page)
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  expect(requests).toBe(0)
+})
+
+test('exports only the chosen result pages, including a partial last page', async ({ page }, testInfo) => {
+  let payload: Record<string, unknown> | undefined
+  await page.route('**/api/pesquisas/exportacoes/pdf', (route) => {
+    payload = route.request().postDataJSON()
+    return route.fulfill({ headers: PDF_HEADERS, body: PDF })
+  })
+  await prepare(page)
+  await openExport(page)
+  await page.getByLabel('Selecionar intervalo', { exact: true }).check()
+  await page.getByLabel('Da página', { exact: true }).fill('2')
+  await page.getByLabel('Até a página', { exact: true }).fill('2')
+  await expect(page.getByText('2 documentos serão incluídos no PDF.', { exact: true })).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('export-dialog.png') })
+  const download = page.waitForEvent('download')
+  await confirmExport(page)
+  await download
+  expect(payload).toMatchObject({
+    intervaloPaginas: { de: 2, ate: 2, totalResultados: 12, itensPorPagina: 10 },
+    resultados: [{ categoria: 'decisoes', id: 2 }, { categoria: 'decisoes', id: 1 }],
+  })
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('rejects inverted, empty, fractional and out-of-bounds intervals before any request', async ({ page }) => {
+  let requests = 0
+  await page.route('**/api/pesquisas/exportacoes/pdf', (route) => { requests++; return route.fulfill({ headers: PDF_HEADERS, body: PDF }) })
+  await prepare(page)
+  await openExport(page)
+  await page.getByLabel('Selecionar intervalo', { exact: true }).check()
+  for (const [from, to] of [['2', '1'], ['0', '1'], ['', '2'], ['1.5', '2'], ['1', '3']]) {
+    await page.getByLabel('Da página', { exact: true }).fill(from)
+    await page.getByLabel('Até a página', { exact: true }).fill(to)
+    await expect(page.getByRole('alert')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Gerar e baixar PDF' })).toBeDisabled()
+  }
+  expect(requests).toBe(0)
+})
+
+test('allows selecting a smaller interval when the full search exceeds the PDF limit', async ({ page }) => {
+  let selected: { resultados: { id: number }[] } | undefined
+  await page.route('**/api/pesquisas/exportacoes/pdf', (route) => {
+    selected = route.request().postDataJSON()
+    return route.fulfill({ headers: PDF_HEADERS, body: PDF })
+  })
+  const documents = Array.from({ length: 5001 }, (_, index) => ({ ...DOCUMENTS[0], id: index + 1 }))
+  await prepare(page, documents)
+  await openExport(page)
+  await expect(page.getByRole('button', { name: 'Gerar e baixar PDF' })).toBeDisabled()
+  await expect(page.getByRole('alert')).toHaveText('Selecione um intervalo com até 5.000 documentos por PDF.')
+  await page.getByLabel('Selecionar intervalo', { exact: true }).check()
+  await page.getByLabel('Da página', { exact: true }).fill('501')
+  await page.getByLabel('Até a página', { exact: true }).fill('501')
+  await expect(page.getByText('1 documento será incluído no PDF.', { exact: true })).toBeVisible()
+  const download = page.waitForEvent('download')
+  await confirmExport(page)
+  await download
+  expect(selected?.resultados).toEqual([{ categoria: 'decisoes', id: 5001 }])
+})
+
+test('keeps keyboard focus inside the dialog and fits a narrow screen', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await prepare(page)
+  await openExport(page)
+  await page.getByRole('button', { name: 'Gerar e baixar PDF' }).focus()
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('button', { name: 'Fechar exportação' })).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(page.getByRole('button', { name: 'Gerar e baixar PDF' })).toBeFocused()
+  const box = await page.getByRole('dialog').boundingBox()
+  expect(box).not.toBeNull()
+  expect(box!.x).toBeGreaterThanOrEqual(0)
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390)
+  await page.screenshot({ path: testInfo.outputPath('export-dialog-mobile.png') })
 })
