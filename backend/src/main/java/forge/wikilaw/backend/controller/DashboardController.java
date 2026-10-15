@@ -1,18 +1,21 @@
 package forge.wikilaw.backend.controller;
 
+import forge.wikilaw.backend.dto.DashboardFiltro;
 import forge.wikilaw.backend.dto.DashboardResponse;
+import forge.wikilaw.backend.dto.DashboardResponse.DistribuicaoItem;
+import forge.wikilaw.backend.dto.DashboardResponse.Indicadores;
 import forge.wikilaw.backend.service.DashboardService;
-import jakarta.validation.constraints.Size;
-import java.time.LocalDate;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.validation.annotation.Validated;
+import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Recebe os mesmos filtros da pesquisa para que o dashboard reflita o recorte ativo. */
-@Validated
+/**
+ * Todos os endpoints recebem os filtros da pesquisa (termo, fonte, tribunal,
+ * dataDe, dataAte). O resumo devolve tudo numa chamada; os demais servem a
+ * quem precisa de uma agregação só.
+ */
 @RestController
 @RequestMapping("/api/dashboard")
 public class DashboardController {
@@ -24,12 +27,32 @@ public class DashboardController {
     }
 
     @GetMapping
-    public DashboardResponse resumir(
-            @RequestParam(required = false) @Size(max = 300) String termo,
-            @RequestParam(required = false) @Size(max = 30) String fonte,
-            @RequestParam(required = false) @Size(max = 20) String tribunal,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataDe,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataAte) {
-        return service.resumir(termo, fonte, tribunal, dataDe, dataAte);
+    public DashboardResponse resumir(@Valid DashboardFiltro filtro) {
+        return service.resumir(filtro);
+    }
+
+    @GetMapping("/indicadores")
+    public Indicadores indicadores(@Valid DashboardFiltro filtro) {
+        return service.indicadores(filtro);
+    }
+
+    @GetMapping("/distribuicao-merito")
+    public List<DistribuicaoItem> distribuicaoMerito(@Valid DashboardFiltro filtro) {
+        return service.distribuicaoMerito(filtro);
+    }
+
+    @GetMapping("/distribuicao-camara-turma")
+    public List<DistribuicaoItem> distribuicaoCamaraTurma(@Valid DashboardFiltro filtro) {
+        return service.distribuicaoCamaraTurma(filtro);
+    }
+
+    @GetMapping("/distribuicao-tribunal")
+    public List<DistribuicaoItem> distribuicaoTribunal(@Valid DashboardFiltro filtro) {
+        return service.distribuicaoTribunal(filtro);
+    }
+
+    @GetMapping("/evolucao-anual")
+    public List<DistribuicaoItem> evolucaoAnual(@Valid DashboardFiltro filtro) {
+        return service.evolucaoAnual(filtro);
     }
 }

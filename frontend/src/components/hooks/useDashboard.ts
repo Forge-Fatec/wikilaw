@@ -16,6 +16,8 @@ export interface Dashboard {
   }
   distribuicaoMerito: DistribuicaoItem[]
   distribuicaoCamaraTurma: DistribuicaoItem[]
+  distribuicaoTribunal: DistribuicaoItem[]
+  evolucaoAnual: DistribuicaoItem[]
 }
 
 export interface RecorteDashboard {
@@ -30,6 +32,8 @@ export const DASHBOARD_VAZIO: Dashboard = {
   indicadores: { totalDecisoes: 0, classificadas: 0, favoraveis: 0, aderencia: null },
   distribuicaoMerito: [],
   distribuicaoCamaraTurma: [],
+  distribuicaoTribunal: [],
+  evolucaoAnual: [],
 }
 
 const ERRO_DASHBOARD = 'Não foi possível carregar o dashboard da pesquisa.'
