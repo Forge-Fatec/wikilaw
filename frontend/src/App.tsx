@@ -189,7 +189,7 @@ function GraficoDashboard({
   carregando,
   erro,
   horizontal = false,
-  selecionada,
+  selecionada = null,
   onSelecionar,
   onLimparSelecao,
 }: {
@@ -198,9 +198,10 @@ function GraficoDashboard({
   carregando: boolean
   erro: string | null
   horizontal?: boolean
-  selecionada: string | null
-  onSelecionar: (item: DistribuicaoItem) => void
-  onLimparSelecao: () => void
+  // Sem onSelecionar o gráfico é só de leitura: não filtra a lista.
+  selecionada?: string | null
+  onSelecionar?: (item: DistribuicaoItem) => void
+  onLimparSelecao?: () => void
 }) {
   const vazio = !dados?.some((item) => item.quantidade > 0)
   const exibeGrafico = !carregando && !erro && !vazio
@@ -220,7 +221,7 @@ function GraficoDashboard({
           <span aria-hidden="true"> ×</span>
         </button>
       ) : (
-        exibeGrafico && (
+        exibeGrafico && onSelecionar && (
           <p className="chart-hint">Clique em uma barra para filtrar os resultados.</p>
         )
       )}
@@ -973,6 +974,12 @@ function App() {
               selecionada={selecao.orgaoJulgador}
               onSelecionar={(item) => alternarSelecao('orgaoJulgador', item)}
               onLimparSelecao={() => limparSelecao('orgaoJulgador')}
+            />
+            <GraficoDashboard
+              titulo="Evolução Temporal da Tese"
+              dados={dashboard.dados?.evolucaoAnual}
+              carregando={dashboard.carregando}
+              erro={dashboard.erro}
             />
           </aside>
 
