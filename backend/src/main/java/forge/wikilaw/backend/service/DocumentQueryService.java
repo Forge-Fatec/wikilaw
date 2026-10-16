@@ -229,4 +229,20 @@ public class DocumentQueryService {
         String periodico,String doi,String issn,String idioma,String palavrasChave,
         java.time.LocalDate dataJulgamento,java.time.LocalDate dataPublicacao,String dataOriginal,String urlOriginal,Long idRegistroBruto) {}
     public record Result(List<Summary> itens,int pagina,int tamanho,long total,int totalPaginas) {}
+
+    /** Fetch canonical export data in batches, without re-running a changing search. */
+    public List<Summary> summariesByIds(String category,List<Long> ids) {
+        Map<Long,String> sourceNames=new HashMap<>();
+        sources.findAll().forEach(f -> sourceNames.put(f.getId(),f.getSigla()));
+        Map<Long,String> tribunalNames=new HashMap<>();
+        tribunals.findAll().forEach(t -> tribunalNames.put(t.getId(),t.getSigla()));
+        List<? extends DocumentoBase> documents=switch(category) {
+            case "decisoes" -> decisions.findAllById(ids);
+            case "precedentes" -> precedents.findAllById(ids);
+            case "doutrina" -> doctrine.findAllById(ids);
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Categoria inválida");
+        };
+        return documents.stream().filter(DocumentoBase::isAtivo)
+                .map(d -> toSummary(d,category,sourceNames,tribunalNames)).toList();
+    }
 }
