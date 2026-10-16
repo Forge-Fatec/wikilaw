@@ -583,23 +583,23 @@ function App() {
 
           <div className="charts-grid">
             <GraficoDashboard
-              titulo="Distribuição do Mérito"
+              titulo="Resultado dos recursos"
               dados={dashboard?.distribuicaoMerito}
               carregando={carregandoDashboard}
-              erro={erroDashboard}
-            />
+             erro={erroDashboard}
+/>
             <GraficoDashboard
-              titulo="Distribuição por Câmara/Turma"
+              titulo="Decisões por órgão julgador"
               dados={dashboard?.distribuicaoCamaraTurma}
               carregando={carregandoDashboard}
               erro={erroDashboard}
-            />
+/>
             <GraficoDashboard
               titulo="Evolução Temporal da Tese"
               dados={dashboard?.evolucaoAnual}
               carregando={carregandoDashboard}
               erro={erroDashboard}
-            />
+/>
           </div>
         </div>
 
