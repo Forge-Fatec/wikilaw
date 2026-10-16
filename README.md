@@ -317,6 +317,10 @@ As migrations acrescentam `decisao_judicial`, `precedente`, `precedente_processo
 
 ETL/Data Warehouse, OpenSearch, pgvector e IA permanecem fora desta entrega.
 
+## Exportação em PDF
+
+Com resultados disponíveis, selecione **Exportar PDF** ao lado da ordenação. No modal, escolha todas as páginas ou um intervalo da pesquisa e confirme em **Gerar e baixar PDF**. O relatório preserva descrição, filtros e ordem dos documentos selecionados. A geração usa `POST /api/pesquisas/exportacoes/pdf` e o conteúdo dos documentos no banco. Consulte [o guia de exportação](docs/EXPORTACAO_PDF.md) para contrato, limites e testes.
+
 ## Team
 
 | Member                | Role          |

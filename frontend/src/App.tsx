@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import './index.css'
 import { API_BASE } from './api'
 import { paginasVisiveis, RETICENCIAS } from './paginacao'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
+import { ExportPdfDialog } from './components/ExportPdfDialog'
 import {
   useDashboard,
   type DistribuicaoItem,
@@ -237,8 +238,13 @@ async function carregarDocumentos(termo: string): Promise<Documento[]> {
 
 function App() {
   const [query, setQuery] = useState('')
-  // Termo da última pesquisa enviada; `query` muda a cada tecla digitada.
+  // The dashboard and PDF describe the last submitted search, not the current input.
   const [termoPesquisado, setTermoPesquisado] = useState('')
+  const [exportando, setExportando] = useState(false)
+  const [modalExportacao, setModalExportacao] = useState(false)
+  const botaoExportar = useRef<HTMLButtonElement>(null)
+  const [erroExportacao, setErroExportacao] = useState<string | null>(null)
+  const [exportacaoConcluida, setExportacaoConcluida] = useState(false)
   const [erroValidacao, setErroValidacao] = useState<string | null>(null)
   const [filtros, setFiltros] = useState<Record<DocType, boolean>>({
     jurisprudencia: true,
@@ -280,7 +286,9 @@ function App() {
     }
 
     setErroValidacao(null)
-    setTermoPesquisado(query)
+    setErroExportacao(null)
+    setExportacaoConcluida(false)
+    setTermoPesquisado(query.trim())
     setCarregando(true)
     setErro(null)
     setPaginaAtual(1)
@@ -385,6 +393,66 @@ function App() {
     })
   }, [documentos, filtros, fonte, tribunal, dataDe, dataAte, ordenacao])
 
+  async function exportarPdf(paginaDe: number, paginaAte: number) {
+    if (carregando || exportando || erro || !resultados.length) return
+    setErroExportacao(null)
+    setExportacaoConcluida(false)
+    const selecionados = resultados.slice((paginaDe - 1) * ITENS_POR_PAGINA, paginaAte * ITENS_POR_PAGINA)
+    if (!Number.isInteger(paginaDe) || !Number.isInteger(paginaAte) || paginaDe < 1 || paginaDe > paginaAte || paginaAte > totalPaginas || !selecionados.length) return
+    if (selecionados.length > 5000) {
+      setErroExportacao('Selecione um intervalo com até 5.000 documentos por PDF.')
+      return
+    }
+    setExportando(true)
+    try {
+      const response = await fetch(`${API_BASE}/api/pesquisas/exportacoes/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          termo: termoPesquisado,
+          categorias: (Object.keys(filtros) as DocType[])
+            .filter((tipo) => filtros[tipo]).map((tipo) => CATEGORIA_POR_TIPO[tipo]),
+          fonte: fonte === TODAS_AS_FONTES ? null : fonte,
+          tribunal: tribunal === TODOS_OS_TRIBUNAIS ? null : tribunal,
+          dataDe: dataDe || null,
+          dataAte: dataAte || null,
+          ordenacao,
+          intervaloPaginas: { de: paginaDe, ate: paginaAte, totalResultados: resultados.length, itensPorPagina: ITENS_POR_PAGINA },
+          resultados: selecionados.map((documento) => ({
+            categoria: CATEGORIA_POR_TIPO[documento.type], id: documento.id,
+          })),
+        }),
+      })
+      if (!response.ok) {
+        if (response.status === 409) throw new Error('Um resultado não está mais disponível. Atualize a pesquisa e tente novamente.')
+        if (response.status === 413) throw new Error('O relatório é muito grande. Refine os filtros e tente novamente.')
+        if (response.status === 400) throw new Error('Confira os filtros e o período da pesquisa antes de exportar.')
+        throw new Error('Não foi possível gerar o PDF. Tente novamente.')
+      }
+      const pdf = await response.blob()
+      const signature = await pdf.slice(0, 5).text()
+      if (!response.headers.get('Content-Type')?.includes('application/pdf') || signature !== '%PDF-') {
+        throw new Error('O arquivo recebido não é um PDF válido. Tente novamente.')
+      }
+      const filename = response.headers.get('Content-Disposition')?.match(/filename="?(wikilaw-[\w.-]+\.pdf)"?/i)?.[1]
+        ?? `wikilaw-pesquisa-${new Date().toISOString().slice(0, 10)}.pdf`
+      const url = URL.createObjectURL(pdf)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      setModalExportacao(false)
+      setExportacaoConcluida(true)
+    } catch (error) {
+      setErroExportacao(error instanceof Error ? error.message : 'Não foi possível baixar o PDF. Tente novamente.')
+    } finally {
+      setExportando(false)
+    }
+  }
+
   const totalPaginas = Math.max(
     1,
     Math.ceil(resultados.length / ITENS_POR_PAGINA),
@@ -398,6 +466,8 @@ function App() {
   function voltarParaPrimeiraPagina() {
     setPaginaAtual(1)
     setDocumentoSelecionado(null)
+    setErroExportacao(null)
+    setExportacaoConcluida(false)
   }
 
   function toggleFiltro(type: DocType) {
@@ -450,6 +520,7 @@ function App() {
           <div className="search-box">
             <input
               type="text"
+              maxLength={300}
               value={query}
               onChange={(event) => {
                 setQuery(event.target.value)
@@ -600,32 +671,47 @@ function App() {
                   : `${resultados.length} documentos encontrados · Página ${paginaExibida} de ${totalPaginas}`}
               </span>
             </div>
-            <div className="sort-control" role="group" aria-label="Ordenar resultados por data de publicação">
-              <span className="sort-label">ORDENAR POR DATA</span>
-              <div className="sort-options">
-                <button
-                  type="button"
-                  aria-pressed={ordenacao === 'mais-recentes'}
-                  onClick={() => {
-                    setOrdenacao('mais-recentes')
-                    voltarParaPrimeiraPagina()
-                  }}
-                >
-                  Mais recentes
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={ordenacao === 'mais-antigos'}
-                  onClick={() => {
-                    setOrdenacao('mais-antigos')
-                    voltarParaPrimeiraPagina()
-                  }}
-                >
-                  Mais antigos
-                </button>
+            <div className="results-actions" role="group" aria-label="Ações dos resultados">
+              <div className="sort-control" role="group" aria-label="Ordenar resultados por data de publicação">
+                <span className="sort-label">ORDENAR POR DATA</span>
+                <div className="sort-options">
+                  <button
+                    type="button"
+                    aria-pressed={ordenacao === 'mais-recentes'}
+                    onClick={() => {
+                      setOrdenacao('mais-recentes')
+                      voltarParaPrimeiraPagina()
+                    }}
+                  >
+                    Mais recentes
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={ordenacao === 'mais-antigos'}
+                    onClick={() => {
+                      setOrdenacao('mais-antigos')
+                      voltarParaPrimeiraPagina()
+                    }}
+                  >
+                    Mais antigos
+                  </button>
+                </div>
               </div>
+              <button
+                type="button"
+                className="export-pdf-btn"
+                ref={botaoExportar}
+                disabled={carregando || exportando || Boolean(erro) || resultados.length === 0}
+                onClick={() => { setErroExportacao(null); setExportacaoConcluida(false); setModalExportacao(true) }}
+                aria-haspopup="dialog"
+              >
+                Exportar PDF
+              </button>
             </div>
           </div>
+
+          {erroExportacao && !modalExportacao && <p className="export-message export-error" role="alert">{erroExportacao}</p>}
+          {exportacaoConcluida && <p className="export-message" role="status">PDF gerado. O download foi iniciado.</p>}
 
           {!erro && !carregando && indicadores && (
             <section className="indicadores" aria-label="Indicadores da pesquisa">
@@ -773,6 +859,18 @@ function App() {
           )}
         </main>
       </div>
+
+      {modalExportacao && (
+        <ExportPdfDialog
+          totalResults={resultados.length}
+          pageSize={ITENS_POR_PAGINA}
+          pending={exportando}
+          error={erroExportacao}
+          returnFocusTo={botaoExportar}
+          onClose={() => setModalExportacao(false)}
+          onExport={(de, ate) => void exportarPdf(de, ate)}
+        />
+      )}
 
       {documentoSelecionado && (
         <div
