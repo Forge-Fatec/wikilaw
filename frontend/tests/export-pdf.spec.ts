@@ -84,6 +84,8 @@ test('exports the applied category, source, tribunal, period and order', async (
     return route.fulfill({ headers: PDF_HEADERS, body: PDF })
   })
   await prepare(page)
+  // O painel de filtros começa fechado.
+  await page.getByRole('button', { name: 'Filtros', expanded: false }).click()
   await page.getByLabel('Precedente', { exact: true }).uncheck()
   await page.getByLabel('Doutrina', { exact: true }).uncheck()
   await page.locator('select').nth(0).selectOption('TJDFT')

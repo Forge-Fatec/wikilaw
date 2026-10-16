@@ -15,6 +15,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -49,38 +50,79 @@ public class DashboardService {
         this.entityManager = entityManager;
     }
 
+    // Cada gráfico ignora a própria seleção: continua com todas as barras (a
+    // escolhida fica em destaque na tela) e só a seleção do outro o recorta.
     public DashboardResponse resumir(DashboardFiltro filtro) {
         var decisoes = carregar(filtro);
+        var selecao = Selecao.de(filtro);
+        var selecionadas = selecao.aplicar(decisoes);
         return new DashboardResponse(
-                indicadores(decisoes),
-                distribuicaoMerito(decisoes),
-                distribuicaoCamaraTurma(decisoes),
-                distribuicaoTribunal(decisoes),
-                evolucaoAnual(decisoes));
+                indicadores(selecionadas),
+                distribuicaoMerito(selecao.semResultado().aplicar(decisoes)),
+                distribuicaoCamaraTurma(selecao.semOrgaoJulgador().aplicar(decisoes)),
+                distribuicaoTribunal(selecionadas),
+                evolucaoAnual(selecionadas));
     }
 
     public Indicadores indicadores(DashboardFiltro filtro) {
-        return indicadores(carregar(filtro));
+        return indicadores(Selecao.de(filtro).aplicar(carregar(filtro)));
     }
 
     public List<DistribuicaoItem> distribuicaoMerito(DashboardFiltro filtro) {
-        return distribuicaoMerito(carregar(filtro));
+        return distribuicaoMerito(Selecao.de(filtro).semResultado().aplicar(carregar(filtro)));
     }
 
     public List<DistribuicaoItem> distribuicaoCamaraTurma(DashboardFiltro filtro) {
-        return distribuicaoCamaraTurma(carregar(filtro));
+        return distribuicaoCamaraTurma(Selecao.de(filtro).semOrgaoJulgador().aplicar(carregar(filtro)));
     }
 
     public List<DistribuicaoItem> distribuicaoTribunal(DashboardFiltro filtro) {
-        return distribuicaoTribunal(carregar(filtro));
+        return distribuicaoTribunal(Selecao.de(filtro).aplicar(carregar(filtro)));
     }
 
     public List<DistribuicaoItem> evolucaoAnual(DashboardFiltro filtro) {
-        return evolucaoAnual(carregar(filtro));
+        return evolucaoAnual(Selecao.de(filtro).aplicar(carregar(filtro)));
     }
 
     /** Só as colunas agregadas: carregar a entidade traria ementa e inteiro teor. */
     private record Decisao(String orgaoJulgador, String decisao, Long idTribunal, LocalDate dataJulgamento) {
+    }
+
+    /**
+     * Categorias selecionadas nos gráficos, pelo rótulo da barra; null quando
+     * o gráfico não tem seleção. Rótulo desconhecido não casa com nenhuma decisão.
+     */
+    private record Selecao(String resultado, String orgaoJulgador) {
+
+        static Selecao de(DashboardFiltro filtro) {
+            return new Selecao(textoOuNulo(filtro.resultado()), textoOuNulo(filtro.orgaoJulgador()));
+        }
+
+        Selecao semResultado() {
+            return new Selecao(null, orgaoJulgador);
+        }
+
+        Selecao semOrgaoJulgador() {
+            return new Selecao(resultado, null);
+        }
+
+        List<Decisao> aplicar(List<Decisao> decisoes) {
+            if (resultado == null && orgaoJulgador == null) {
+                return decisoes;
+            }
+            var resultadoSelecionado = resultado == null ? null : ResultadoDecisao.doRotulo(resultado);
+            var orgaoSelecionado = orgaoJulgador == null ? null : nomeOuNaoInformado(orgaoJulgador);
+            return decisoes.stream()
+                    .filter(decisao -> resultadoSelecionado == null
+                            || resultadoSelecionado.equals(Optional.of(ResultadoDecisao.classificar(decisao.decisao()))))
+                    .filter(decisao -> orgaoSelecionado == null
+                            || orgaoSelecionado.equals(nomeOuNaoInformado(decisao.orgaoJulgador())))
+                    .toList();
+        }
+
+        private static String textoOuNulo(String valor) {
+            return valor == null || valor.isBlank() ? null : valor;
+        }
     }
 
     private List<Decisao> carregar(DashboardFiltro filtro) {
@@ -165,7 +207,7 @@ public class DashboardService {
         return evolucao;
     }
 
-    private String nomeOuNaoInformado(String nome) {
+    private static String nomeOuNaoInformado(String nome) {
         if (nome == null || nome.isBlank()) {
             return NAO_INFORMADO;
         }

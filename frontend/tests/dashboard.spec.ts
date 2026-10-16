@@ -96,6 +96,11 @@ function valor(page: Page, rotulo: string) {
   return indicador(page, rotulo).locator('.indicador-valor')
 }
 
+// O painel de filtros começa fechado.
+async function abrirFiltros(page: Page) {
+  await page.getByRole('button', { name: 'Filtros', expanded: false }).click()
+}
+
 function grafico(page: Page, titulo: string) {
   return page.locator('.chart-container').filter({ hasText: titulo })
 }
@@ -156,6 +161,7 @@ test.describe('dashboard integrado à pesquisa ativa', () => {
     await expect(valor(page, 'ADERÊNCIA')).toHaveText('50%')
 
     printStep(cenario, 'Filtrando por TJRJ')
+    await abrirFiltros(page)
     await page.locator('.filters select').nth(1).selectOption('TJRJ')
     await expect(valor(page, 'ADERÊNCIA')).toHaveText('0%')
     await expect(valor(page, 'DECISÕES ANALISADAS')).toHaveText('2')
@@ -182,6 +188,7 @@ test.describe('dashboard integrado à pesquisa ativa', () => {
     const consultasAntes = consultas.length
 
     printStep(cenario, 'Removendo jurisprudência dos filtros')
+    await abrirFiltros(page)
     await page.getByLabel('Jurisprudência').uncheck()
 
     printStep(cenario, 'Validando o dashboard vazio')

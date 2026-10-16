@@ -2,6 +2,9 @@ package forge.wikilaw.backend.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
@@ -32,5 +35,13 @@ class ResultadoDecisaoTest {
     @NullAndEmptySource
     void decisaoSemTextoEhIndefinida(String decisao) {
         assertEquals(ResultadoDecisao.INDEFINIDO, ResultadoDecisao.classificar(decisao));
+    }
+
+    @Test
+    void encontraOResultadoPeloRotuloDoGrafico() {
+        assertEquals(Optional.of(ResultadoDecisao.PARCIAL), ResultadoDecisao.doRotulo("Parcialmente provido"));
+        assertEquals(Optional.of(ResultadoDecisao.PROVIDO), ResultadoDecisao.doRotulo(" provido "));
+        assertEquals(Optional.empty(), ResultadoDecisao.doRotulo("Outros"));
+        assertEquals(Optional.empty(), ResultadoDecisao.doRotulo(null));
     }
 }

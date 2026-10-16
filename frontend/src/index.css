@@ -169,59 +169,263 @@ nav a.active {
   gap: 24px;
 }
 
-.top-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-.top-row .filters {
-  flex: 1;
-  min-width: 280px;
-}
-.top-row .charts-grid {
-  flex: 1 1 500px;
-  min-width: 280px;
-}
-
-.charts-grid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 20px;
-}
-.charts-grid .chart-container {
-  flex: 1 1 260px;
-  min-width: 240px;
-  max-width: 340px;
-}
-
-.filters {
+.toolbar {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 20px 24px;
+  padding: 14px 20px;
   box-shadow: 0 20px 40px -30px rgba(30, 27, 48, 0.25);
+}
+/* Altura mínima igual à da busca encaixada: quando ela entra, a barra não cresce. */
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 42px;
+}
+.filters-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.filters-toggle:hover,
+.filters-toggle[aria-expanded='true'] {
+  border-color: var(--terracotta);
+  background: #fdf1ea;
+}
+.filters-toggle:focus-visible,
+.chip:focus-visible,
+.clear-link:focus-visible {
+  outline: 2px solid var(--terracotta-dark);
+  outline-offset: 2px;
+}
+.filters-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--terracotta);
+  color: #fff;
+  font-size: 11px;
+}
+.filters-toggle .chevron {
+  color: var(--muted);
+  transition: transform 0.2s;
+}
+.filters-toggle[aria-expanded='true'] .chevron {
+  transform: rotate(180deg);
+}
+.active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.chip {
+  padding: 5px 12px;
+  border: 1px solid var(--terracotta);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--terracotta-dark);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chip:hover {
+  background: var(--terracotta);
+  color: #fff;
+}
+.clear-link {
+  border: 0;
+  background: none;
+  padding: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.clear-link:hover {
+  color: var(--terracotta-dark);
+}
+/* Filtros sempre no canto direito da barra. */
+.toolbar .filters-toggle {
+  margin-left: auto;
+}
+
+/* Faixa presa no topo ao rolar. Ocupa a largura toda do layout e, presa,
+   ganha o fundo da página: o conteúdo que passa por baixo não aparece em
+   volta nem acima da barra. */
+.barra-fixa {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin: 0 -32px;
+  padding: 8px 32px;
+  transition: background-color 0.15s;
+}
+.barra-fixa[data-presa] {
+  background: var(--cream);
+}
+.barra-fixa[data-presa] .toolbar {
+  box-shadow: 0 12px 28px -18px rgba(30, 27, 48, 0.45);
+}
+
+/* --encaixe vai de 0 (busca no hero) a 1 (busca na barra) conforme a rolagem.
+   A busca do hero desce e some; a da barra cresce da esquerda e aparece. */
+.busca-destaque {
+  opacity: calc(1 - var(--encaixe, 0));
+  transform: translateY(calc(var(--encaixe, 0) * 28px))
+    scale(calc(1 - var(--encaixe, 0) * 0.06));
+}
+.busca-encaixe {
+  flex: 1 1 340px;
+  min-width: 0;
+  max-width: calc(var(--encaixe, 0) * 560px);
+  opacity: var(--encaixe, 0);
+  transform: translateY(calc((1 - var(--encaixe, 0)) * -8px));
+}
+/* Durante a transição corta o que ainda não cabe; encaixada, a mensagem de
+   validação pode aparecer abaixo do campo. */
+.busca-encaixe[data-fase='transicao'] {
+  overflow: hidden;
+}
+.toolbar .search-form {
+  min-width: 0;
+  margin: 0;
+}
+.toolbar .search-box {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: none;
+}
+.toolbar .search-box:focus-within {
+  border-color: var(--terracotta);
+}
+.toolbar .search-box input {
+  min-width: 0;
+  padding: 10px 14px;
+  font-size: 13.5px;
+}
+.toolbar .search-box button {
+  padding: 0 18px;
+  font-size: 12px;
+}
+.toolbar .search-error {
+  color: var(--terracotta-dark);
+  font-size: 12.5px;
+  margin-top: 6px;
+}
+
+.filters {
   display: flex;
   align-items: flex-end;
   flex-wrap: wrap;
   gap: 28px;
+  margin-top: 14px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  animation: painel-abrir 0.18s ease-out;
 }
-.filters h3 {
-  font-size: 13px;
-  margin: 0;
-  flex-basis: 100%;
-  margin-bottom: 4px;
+@keyframes painel-abrir {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .filters,
+  .filters-toggle .chevron {
+    animation: none;
+    transition: none;
+  }
 }
 .group {
-  margin-bottom: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
 }
 .group-label {
+  display: block;
+  padding: 0;
   font-size: 10.5px;
   letter-spacing: 1px;
   color: var(--muted);
   font-weight: 700;
   margin-bottom: 10px;
+}
+
+.content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  grid-template-areas: 'results panorama';
+  align-items: start;
+  gap: 24px;
+}
+.results {
+  grid-area: results;
+  min-width: 0;
+}
+/* Acompanha a rolagem da lista; se não couber na tela, rola por dentro. */
+.panorama {
+  grid-area: panorama;
+  position: sticky;
+  /* --altura-barra só existe enquanto a barra de busca está fixa no topo. */
+  top: calc(var(--altura-barra, 0px) + 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: calc(100vh - var(--altura-barra, 0px) - 40px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.panorama .indicadores {
+  gap: 12px;
+  margin: 0;
+}
+.panorama .indicador {
+  padding: 14px 16px;
+}
+.panorama .indicador-valor {
+  font-size: 28px;
+}
+.panorama .chart-container {
+  padding: 18px 16px 10px;
+}
+.panorama .chart-container h3 {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 1080px) {
+  .content {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'panorama' 'results';
+  }
+  .panorama {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+  .panorama .indicadores {
+    grid-column: 1 / -1;
+  }
 }
 .group.doc-types {
   display: flex;
@@ -798,6 +1002,37 @@ select,
 .chart-container .chart-error {
   color: var(--terracotta-dark);
 }
+/* O Recharts deixa o gráfico focável: some o contorno no clique, fica no teclado. */
+.chart-container .recharts-wrapper:focus:not(:focus-visible),
+.chart-container .recharts-surface:focus:not(:focus-visible) {
+  outline: none;
+}
+.chart-container .chart-hint {
+  margin: -6px 0 6px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+.chart-container .chart-selecao {
+  display: block;
+  margin: -6px auto 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--terracotta);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--terracotta-dark);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chart-container .chart-selecao:hover {
+  background: var(--terracotta);
+  color: #fff;
+}
+.chart-container .chart-selecao:focus-visible {
+  outline: 2px solid var(--terracotta-dark);
+  outline-offset: 2px;
+}
 
 @media (max-width: 760px) {
   .header {
@@ -811,25 +1046,73 @@ select,
   .layout {
     margin-top: -16px;
   }
-  .top-row {
-    flex-direction: column;
+  /* A barra fixa não pode tomar a tela do celular: chips numa linha só, com
+     rolagem lateral. */
+  .barra-fixa .toolbar {
+    padding: 10px;
   }
-  .top-row .charts-grid {
-    width: 100%;
+  .barra-fixa .toolbar-row {
+    gap: 8px;
   }
-  .charts-grid .chart-container {
-    max-width: 100%;
-    flex-basis: 100%;
+  .barra-fixa .active-filters {
+    flex: 1 1 0;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .barra-fixa .chip {
+    white-space: nowrap;
+  }
+  /* No celular a busca entra na mesma linha do botão Filtros, que fica só com
+     o ícone (o nome continua para leitores de tela): assim a barra não muda de
+     altura e o conteúdo não pula enquanto a página rola. */
+  .busca-encaixe {
+    flex: 1 1 0;
+    max-width: calc(var(--encaixe, 0) * 100%);
+  }
+  .busca-encaixe ~ .filters-toggle {
+    padding: 9px 11px;
+  }
+  .busca-encaixe ~ .filters-toggle .rotulo-filtros,
+  .busca-encaixe ~ .filters-toggle .chevron {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .toolbar .search-box button {
+    padding: 0 12px;
   }
   .filters {
     flex-direction: column;
     align-items: stretch;
+    gap: 20px;
+  }
+  .group.doc-types .check-row {
+    flex-wrap: wrap;
+    gap: 4px 18px;
+  }
+  .filters select,
+  .date-row > div {
+    width: 100%;
+  }
+  .date-row .date-input {
+    width: 100%;
+  }
+  .panorama {
+    grid-template-columns: 1fr;
   }
   .hero h1 {
     font-size: 27px;
   }
-  .indicadores {
-    grid-template-columns: 1fr;
+  .panorama .indicador {
+    padding: 12px 14px;
+  }
+  .panorama .indicador-valor {
+    font-size: 24px;
   }
   .card {
     padding: 22px 20px;
