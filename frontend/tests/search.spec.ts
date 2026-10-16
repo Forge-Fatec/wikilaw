@@ -68,7 +68,7 @@ test.describe('busca por conteúdos jurídicos', () => {
 
     printStep(cenario, 'Abrindo o frontend')
     await abrirFrontend(page)
-    await expect(page.getByRole('button', { name: /pesquisar/i })).toBeEnabled()
+    await expect(page.locator('.results-count')).not.toHaveText('Buscando...')
     const totalAposCarregamentoInicial = requisicoes.length
 
     printStep(cenario, 'Preenchendo a descrição do caso')
@@ -92,6 +92,90 @@ test.describe('busca por conteúdos jurídicos', () => {
     }
   })
 
+  test('ao rolar, a busca se encaixa na barra fixa e volta ao hero ao subir', async ({
+    page,
+  }) => {
+    const cenario = 'encaixe pela rolagem'
+    // Lista longa o bastante para a página rolar.
+    const itens = Array.from({ length: 10 }, (_, index) => ({
+      id: index + 1,
+      fonte: 'Fonte de teste',
+      categoria: 'decisoes',
+      titulo: `Documento ${index + 1}`,
+      tipoDocumento: null,
+      numeroProcessoOuTema: null,
+      autoresOuRelator: null,
+      resumoOuEmenta: 'Ementa de teste. '.repeat(20),
+      decisao: null,
+      tribunal: null,
+      orgaoJulgador: null,
+      dataJulgamento: null,
+      dataPublicacao: '2024-01-15',
+      dataOriginal: null,
+      urlOriginal: null,
+      idRegistroBruto: null,
+    }))
+
+    printStep(cenario, 'Configurando mock da API')
+    await page.route('**/api/documentos/**', (route) =>
+      route.fulfill({
+        json: route.request().url().includes('/decisoes')
+          ? { ...EMPTY_RESPONSE, itens, total: itens.length, totalPaginas: 1 }
+          : EMPTY_RESPONSE,
+      }),
+    )
+    await page.route('**/api/dashboard*', (route) =>
+      route.fulfill({ status: 500 }),
+    )
+
+    printStep(cenario, 'Abrindo o frontend e pesquisando: busca segue no hero')
+    await abrirFrontend(page)
+    const barra = page.getByRole('region', { name: 'Busca e filtros' })
+    const buscaDoHero = page.locator('.hero').getByLabel('Descrição do caso')
+    await buscaDoHero.fill('dano moral')
+    await buscaDoHero.press('Enter')
+    await expect(page.getByText('10 documentos encontrados')).toBeVisible()
+    await expect(buscaDoHero).toBeInViewport()
+    await expect(barra.getByLabel('Descrição do caso')).toHaveCount(0)
+
+    printStep(cenario, 'Rolando para baixo: a busca entra na barra presa no topo')
+    await page.mouse.wheel(0, 1500)
+    await expect(barra.getByLabel('Descrição do caso')).toHaveValue('dano moral')
+    await expect(barra.getByLabel('Descrição do caso')).toBeInViewport()
+    await expect(page.locator('.barra-fixa')).toHaveAttribute('data-presa', '')
+    await expect.poll(() => barra.evaluate((el) => el.getBoundingClientRect().top)).toBe(8)
+
+    printStep(cenario, 'Rolando para cima: a busca volta ao hero')
+    await page.mouse.wheel(0, -3000)
+    await expect(barra.getByLabel('Descrição do caso')).toHaveCount(0)
+    await expect(buscaDoHero).toBeInViewport()
+    await expect(page.locator('.barra-fixa')).not.toHaveAttribute('data-presa', '')
+  })
+
+  test('pesquisa mesmo com a carga inicial ainda em andamento', async ({ page }) => {
+    const cenario = 'busca durante a carga'
+
+    printStep(cenario, 'Configurando mock: carga inicial que não termina')
+    await page.route('**/api/documentos/**', async (route) => {
+      if (new URL(route.request().url()).searchParams.has('termo')) {
+        await route.fulfill({ json: EMPTY_RESPONSE })
+      }
+      // Sem termo (carga inicial): a requisição fica pendente.
+    })
+    await page.route('**/api/dashboard*', (route) =>
+      route.fulfill({ status: 500 }),
+    )
+
+    printStep(cenario, 'Pesquisando antes da carga inicial terminar')
+    await abrirFrontend(page)
+    await expect(page.locator('.results-count')).toHaveText('Buscando...')
+    await page.getByLabel('Descrição do caso').fill('dano moral')
+    await page.getByLabel('Descrição do caso').press('Enter')
+
+    printStep(cenario, 'Validando que a pesquisa foi feita')
+    await expect(page.getByText('0 documentos encontrados')).toBeVisible()
+  })
+
   test('exibe erro e não inicia a busca com a descrição vazia', async ({
     page,
   }) => {
@@ -106,7 +190,7 @@ test.describe('busca por conteúdos jurídicos', () => {
 
     printStep(cenario, 'Abrindo o frontend')
     await abrirFrontend(page)
-    await expect(page.getByRole('button', { name: /pesquisar/i })).toBeEnabled()
+    await expect(page.locator('.results-count')).not.toHaveText('Buscando...')
     const totalAposCarregamentoInicial = requisicoes.length
 
     printStep(cenario, 'Enviando a busca sem descrição')

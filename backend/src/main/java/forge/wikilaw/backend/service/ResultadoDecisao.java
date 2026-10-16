@@ -1,7 +1,9 @@
 package forge.wikilaw.backend.service;
 
 import java.text.Normalizer;
+import java.util.Arrays;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
@@ -35,6 +37,16 @@ public enum ResultadoDecisao {
 
     public boolean favoravel() {
         return this == PROVIDO || this == PARCIAL;
+    }
+
+    /** Resultado cujo rótulo (o mesmo exibido no gráfico) é o informado. */
+    public static Optional<ResultadoDecisao> doRotulo(String rotulo) {
+        if (rotulo == null) {
+            return Optional.empty();
+        }
+        return Arrays.stream(values())
+                .filter(resultado -> resultado.rotulo.equalsIgnoreCase(rotulo.trim()))
+                .findFirst();
     }
 
     public static ResultadoDecisao classificar(String decisao) {

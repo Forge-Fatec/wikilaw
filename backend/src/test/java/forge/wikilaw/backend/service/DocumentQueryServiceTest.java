@@ -100,6 +100,7 @@ class DocumentQueryServiceTest {
         mockMvc.perform(get("/api/documentos/precedentes").param("tamanho", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.itens[0].situacao").value("Transito em julgado"))
+                .andExpect(jsonPath("$.itens[0].resultado").doesNotExist())
                 .andExpect(jsonPath("$.itens[0].numeroProcessoOuTema").value("1234"))
                 .andExpect(jsonPath("$.itens[0].periodico").doesNotExist());
     }
@@ -126,6 +127,7 @@ class DocumentQueryServiceTest {
         mockMvc.perform(get("/api/documentos/decisoes").param("tamanho", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.itens[0].possuiInteiroTeor").value(true))
+                .andExpect(jsonPath("$.itens[0].resultado").value("Provido"))
                 // O inteiro teor em si não vai na listagem, só no detalhe.
                 .andExpect(jsonPath("$.itens[0].inteiroTeor").doesNotExist());
     }
