@@ -10,6 +10,26 @@ busca.
 Só jurisprudência entra nas agregações: em precedentes o campo `decisao` traz a
 tese firmada, não o resultado do recurso; doutrina não tem decisão.
 
+## Critérios de aceitação — SCRUM-193
+
+- **CA01 — Indicadores principais:** DADO que a pesquisa possui decisões, QUANDO o
+  usuário visualizar o dashboard, ENTÃO verá a aderência (%) e o total de
+  decisões analisadas no recorte atual.
+- **CA02 — Distribuição do mérito:** DADO que há decisões com resultado
+  classificado, QUANDO o usuário visualizar o dashboard, ENTÃO verá um gráfico
+  de barras com a quantidade por resultado do recurso: provido, parcialmente
+  provido, desprovido e não identificado, conforme os dados disponíveis.
+- **CA03 — Distribuição por Câmaras/Turmas:** DADO que há decisões com órgão
+  julgador informado, QUANDO o usuário visualizar o dashboard, ENTÃO verá um
+  gráfico de barras com a quantidade por Câmara ou Turma.
+- **CA04 — Distribuição temporal:** DADO que há decisões julgadas em diferentes
+  anos, QUANDO o usuário visualizar o dashboard, ENTÃO verá um gráfico de barras
+  com a quantidade de decisões por ano de julgamento. Decisões sem data aparecem
+  na categoria `Sem data` quando existirem.
+- **CA05 — Pesquisa ativa:** DADO que o usuário pesquisou um termo ou aplicou
+  filtros, QUANDO visualizar o dashboard, ENTÃO os indicadores e gráficos
+  refletirão o recorte ativo da pesquisa.
+
 ## Endpoints
 
 | Endpoint | Retorno |

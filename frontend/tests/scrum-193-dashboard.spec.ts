@@ -113,14 +113,14 @@ test.describe('SCRUM-193 — dashboard da pesquisa', () => {
     })
   })
 
-  test('CA02 — apresenta distribuição do mérito em rosca ou pizza', async ({ page }, testInfo) => {
+  test('CA02 — apresenta distribuição do mérito em barras', async ({ page }, testInfo) => {
     await etapa('Abrir pesquisa com mérito classificado', async () => { await prepararApi(page) })
-    await etapa('Validar categorias e formato do gráfico', async () => {
+    await etapa('Validar categorias e barras do gráfico', async () => {
       const merito = grafico(page, 'Resultado dos recursos')
       await expect(merito).toContainText('Provido')
       await expect(merito).toContainText('Desprovido')
+      await expect(merito.locator('.recharts-bar-rectangle')).toHaveCount(2)
       await screenshot(merito, testInfo, 'CA02-distribuicao-merito')
-      await expect(merito.locator('.recharts-pie-sector').first()).toBeVisible()
     })
   })
 
@@ -135,14 +135,14 @@ test.describe('SCRUM-193 — dashboard da pesquisa', () => {
     })
   })
 
-  test('CA04 — apresenta evolução temporal em linha', async ({ page }, testInfo) => {
+  test('CA04 — apresenta volume anual de decisões em barras', async ({ page }, testInfo) => {
     await etapa('Abrir pesquisa com resultados de períodos distintos', async () => { await prepararApi(page) })
-    await etapa('Validar períodos e linha temporal', async () => {
+    await etapa('Validar anos e barras do gráfico', async () => {
       const evolucao = grafico(page, 'Evolução Temporal da Tese')
       await expect(evolucao).toContainText('2024')
       await expect(evolucao).toContainText('2025')
+      await expect(evolucao.locator('.recharts-bar-rectangle')).toHaveCount(2)
       await screenshot(evolucao, testInfo, 'CA04-evolucao-temporal')
-      await expect(evolucao.locator('.recharts-line-curve')).toBeVisible()
     })
   })
 
