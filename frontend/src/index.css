@@ -411,6 +411,32 @@ nav a.active {
   margin-bottom: 10px;
 }
 
+.panorama-tribunal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.panorama-tribunal-cabecalho h2 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 22px;
+  margin: 4px 0 2px;
+  color: var(--navy);
+}
+.panorama-tribunal-cabecalho p {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.panorama-tribunal-rotulo {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
 @media (max-width: 1080px) {
   .content {
     grid-template-columns: 1fr;
@@ -423,7 +449,8 @@ nav a.active {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   }
-  .panorama .indicadores {
+    .panorama .indicadores,
+  .panorama-tribunal {
     grid-column: 1 / -1;
   }
 }

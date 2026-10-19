@@ -4,6 +4,7 @@ import { API_BASE } from './api'
 import { paginasVisiveis, RETICENCIAS } from './paginacao'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
 import { ExportPdfDialog } from './components/ExportPdfDialog'
+import { PanoramaTribunal } from './components/PanoramaTribunal'
 import {
   useDashboard,
   NAO_INFORMADO,
@@ -981,6 +982,16 @@ function App() {
               carregando={dashboard.carregando}
               erro={dashboard.erro}
             />
+            <GraficoDashboard
+              titulo="Evolução Temporal da Tese"
+              dados={dashboard.dados?.evolucaoAnual}
+              carregando={dashboard.carregando}
+              erro={dashboard.erro}
+            />
+            <PanoramaTribunal
+              tribunal={tribunal === TODOS_OS_TRIBUNAIS ? null : tribunal}
+            />
+          
           </aside>
 
           <main className="results">
