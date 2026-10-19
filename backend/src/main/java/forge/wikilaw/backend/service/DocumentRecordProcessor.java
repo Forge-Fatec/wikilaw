@@ -3,6 +3,7 @@ package forge.wikilaw.backend.service;
 import forge.wikilaw.backend.entity.*;
 import forge.wikilaw.backend.repository.*;
 import forge.wikilaw.backend.integration.documents.*;
+import forge.wikilaw.backend.service.semantic.SemanticContentService;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import org.springframework.stereotype.Service;
@@ -16,12 +17,14 @@ public class DocumentRecordProcessor {
     private final TribunalRepository tribunals;
     private final ProcessoRepository processes;
     private final PrecedenteProcessoRepository links;
+    private final SemanticContentService semanticContent;
 
     public DocumentRecordProcessor(DecisaoJudicialRepository decisions,PrecedenteRepository precedents,
             DocumentoDoutrinarioRepository doctrine,TribunalRepository tribunals,ProcessoRepository processes,
-            PrecedenteProcessoRepository links) {
+            PrecedenteProcessoRepository links,SemanticContentService semanticContent) {
         this.decisions=decisions; this.precedents=precedents; this.doctrine=doctrine;
         this.tribunals=tribunals; this.processes=processes; this.links=links;
+        this.semanticContent=semanticContent;
     }
     @Transactional
     public Long process(DocumentSource source,Long sourceId,Long rawId,NormalizedDocument n) {
@@ -43,7 +46,9 @@ public class DocumentRecordProcessor {
                 });
                 d.setIdProcesso(p.getId());
             } else d.setIdProcesso(null);
-            return decisions.saveAndFlush(d).getId();
+            d=decisions.saveAndFlush(d);
+            semanticContent.prepare(d);
+            return d.getId();
         }
         if (source==DocumentSource.STJ_PRECEDENTES || source==DocumentSource.PANGEA) {
             var p=precedents.findByIdFonteAndIdentificadorExterno(sourceId,n.identificador()).orElseGet(Precedente::new);
@@ -71,13 +76,16 @@ public class DocumentRecordProcessor {
                 }
             }
             links.flush();
+            semanticContent.prepare(p);
             return p.getId();
         }
         var d=doctrine.findByIdFonteAndIdentificadorExterno(sourceId,n.identificador()).orElseGet(DocumentoDoutrinario::new);
         common(d,sourceId,rawId,n);
         d.setTipoDocumento(n.tipo()); d.setResumo(n.resumo()); d.setAutores(n.autores()); d.setDoi(n.doi());
         d.setIdioma(n.idioma()); d.setPeriodico(n.periodico()); d.setIssn(n.issn()); d.setPalavrasChave(n.palavrasChave());
-        return doctrine.saveAndFlush(d).getId();
+        d=doctrine.saveAndFlush(d);
+        semanticContent.prepare(d);
+        return d.getId();
     }
     private void common(DocumentoBase d,Long fonte,Long bruto,NormalizedDocument n) {
         d.setAtivo(true);
@@ -98,6 +106,7 @@ public class DocumentRecordProcessor {
         if (d!=null) {
             d.setAtivo(false);
             d.setAtualizadoEm(OffsetDateTime.now(ZoneOffset.UTC));
+            semanticContent.deactivate(d);
         }
     }
 }
