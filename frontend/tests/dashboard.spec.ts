@@ -219,4 +219,33 @@ test.describe('dashboard integrado à pesquisa ativa', () => {
     )
     await expect(page.getByText('2 documentos encontrados')).toBeVisible()
   })
+
+    test('exibe o panorama geral do tribunal selecionado, sem o termo', async ({ page }) => {
+    const cenario = 'panorama do tribunal'
+
+    printStep(cenario, 'Configurando mock da API')
+    const consultas = await mockarApi(page)
+
+    printStep(cenario, 'Abrindo o frontend sem tribunal selecionado')
+    await abrirFrontend(page)
+    const panorama = page.getByRole('region', { name: 'Panorama geral do tribunal' })
+    await expect(panorama).toContainText('Selecione um tribunal nos filtros')
+
+    printStep(cenario, 'Pesquisando e filtrando por TJSP')
+    await page.getByLabel('Descrição do caso').fill('dano moral')
+    await page.getByRole('button', { name: 'PESQUISAR' }).click()
+    await abrirFiltros(page)
+    await page.locator('.filters select').nth(1).selectOption('TJSP')
+
+    printStep(cenario, 'Validando o panorama exibido')
+    await expect(panorama.getByRole('heading', { name: 'TJSP' })).toBeVisible()
+    const indicadoresTribunal = panorama.getByRole('region', { name: 'Indicadores do tribunal' })
+    await expect(
+      indicadoresTribunal.locator('.indicador').filter({ hasText: 'ADERÊNCIA' }).locator('.indicador-valor'),
+    ).toHaveText('100%')
+    await expect(panorama).toContainText('Desprovido')
+
+    printStep(cenario, 'Validando que o panorama não envia o termo')
+    expect(consultas.some((c) => c.toString() === 'tribunal=TJSP')).toBe(true)
+  })
 })
