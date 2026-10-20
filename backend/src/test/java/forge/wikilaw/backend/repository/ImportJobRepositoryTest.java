@@ -85,6 +85,17 @@ class ImportJobRepositoryTest {
                 .isEqualTo(pendente.getId());
     }
 
+    @Test
+    void locksAvailableJobById() {
+        ImportJob job = repository.saveAndFlush(job("TJSP", Status.PENDENTE, 1));
+
+        assertThat(repository.lockAvailable(job.getId()))
+                .get()
+                .extracting(ImportJob::getEscopo)
+                .isEqualTo("TJSP");
+        assertThat(repository.lockAvailable(-1L)).isEmpty();
+    }
+
     private ImportJob job(String escopo, Status status, int minutos) {
         ImportJob job = new ImportJob();
         job.setFonte("DATAJUD");
