@@ -7,10 +7,12 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 import forge.wikilaw.backend.config.JurisprudenciaBootstrapProperties;
 import forge.wikilaw.backend.integration.datajud.DataJudProperties;
+import forge.wikilaw.backend.integration.embedding.EmbeddingProperties;
 
 @SpringBootApplication
 @EnableScheduling
-@EnableConfigurationProperties({DataJudProperties.class, JurisprudenciaBootstrapProperties.class})
+@EnableConfigurationProperties({DataJudProperties.class, JurisprudenciaBootstrapProperties.class,
+		EmbeddingProperties.class})
 public class BackendApplication {
 
 	public static void main(String[] args) {
