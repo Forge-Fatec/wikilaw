@@ -31,6 +31,21 @@ class TrechoSemanticoRepositoryTest {
                 .containsExactly(0, 1, 2);
     }
 
+    @Test
+    void deletesOnlyTrechosOfGivenDocumento() {
+        repository.save(trecho(DOCUMENTO, 0));
+        repository.save(trecho(DOCUMENTO, 1));
+        repository.save(trecho(OUTRO_DOCUMENTO, 0));
+        repository.flush();
+
+        repository.deleteByIdDocumentoSemantico(DOCUMENTO);
+        repository.flush();
+
+        assertThat(repository.findAll())
+                .extracting(TrechoSemantico::getIdDocumentoSemantico)
+                .containsExactly(OUTRO_DOCUMENTO);
+    }
+
     private TrechoSemantico trecho(long idDocumento, int ordem) {
         TrechoSemantico trecho = new TrechoSemantico();
         trecho.setIdDocumentoSemantico(idDocumento);
