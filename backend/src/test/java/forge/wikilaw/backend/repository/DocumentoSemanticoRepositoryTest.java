@@ -61,6 +61,26 @@ class DocumentoSemanticoRepositoryTest {
         assertThat(repository.findByIdDocumentoDoutrinario(99L)).isEmpty();
     }
 
+    @Test
+    void findsDecisoesPendentesForVersao() {
+        Long semSemantico = persist(new DecisaoJudicial(), "D1", true);
+        Long pronta = persist(new DecisaoJudicial(), "D2", true);
+        Long comErro = persist(new DecisaoJudicial(), "D3", true);
+        Long versaoAntiga = persist(new DecisaoJudicial(), "D4", true);
+        Long emAndamento = persist(new DecisaoJudicial(), "D5", true);
+        persist(new DecisaoJudicial(), "D6", false);
+        repository.save(semantico(Categoria.JURISPRUDENCIA, pronta, VERSAO, Status.PRONTO));
+        repository.save(semantico(Categoria.JURISPRUDENCIA, comErro, VERSAO, Status.ERRO));
+        repository.save(semantico(Categoria.JURISPRUDENCIA, versaoAntiga, "v1", Status.PRONTO));
+        repository.save(semantico(Categoria.JURISPRUDENCIA, emAndamento, VERSAO, Status.PROCESSANDO));
+        repository.flush();
+
+        assertThat(repository.findDecisoesPendentes(VERSAO, 10))
+                .containsExactly(semSemantico, versaoAntiga, emAndamento);
+        assertThat(repository.findDecisoesPendentes(VERSAO, 2))
+                .containsExactly(semSemantico, versaoAntiga);
+    }
+
     private Long persist(DocumentoBase documento, String identificador, boolean ativo) {
         documento.setIdFonte(1L);
         documento.setIdRegistroBruto(1L);
