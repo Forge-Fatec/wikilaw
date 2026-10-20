@@ -101,6 +101,26 @@ class DocumentoSemanticoRepositoryTest {
                 .containsExactly(semSemantico, versaoAntiga);
     }
 
+    @Test
+    void findsDoutrinasPendentesForVersao() {
+        Long semSemantico = persist(new DocumentoDoutrinario(), "A1", true);
+        Long pronta = persist(new DocumentoDoutrinario(), "A2", true);
+        Long comErro = persist(new DocumentoDoutrinario(), "A3", true);
+        Long versaoAntiga = persist(new DocumentoDoutrinario(), "A4", true);
+        Long emAndamento = persist(new DocumentoDoutrinario(), "A5", true);
+        persist(new DocumentoDoutrinario(), "A6", false);
+        repository.save(semantico(Categoria.DOUTRINA, pronta, VERSAO, Status.PRONTO));
+        repository.save(semantico(Categoria.DOUTRINA, comErro, VERSAO, Status.ERRO));
+        repository.save(semantico(Categoria.DOUTRINA, versaoAntiga, "v1", Status.PRONTO));
+        repository.save(semantico(Categoria.DOUTRINA, emAndamento, VERSAO, Status.PROCESSANDO));
+        repository.flush();
+
+        assertThat(repository.findDoutrinasPendentes(VERSAO, 10))
+                .containsExactly(semSemantico, versaoAntiga, emAndamento);
+        assertThat(repository.findDoutrinasPendentes(VERSAO, 2))
+                .containsExactly(semSemantico, versaoAntiga);
+    }
+
     private Long persist(DocumentoBase documento, String identificador, boolean ativo) {
         documento.setIdFonte(1L);
         documento.setIdRegistroBruto(1L);
