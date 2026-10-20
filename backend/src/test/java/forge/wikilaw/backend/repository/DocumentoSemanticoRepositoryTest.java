@@ -50,6 +50,17 @@ class DocumentoSemanticoRepositoryTest {
         assertThat(repository.findByIdPrecedente(99L)).isEmpty();
     }
 
+    @Test
+    void findsDocumentoSemanticoByIdDocumentoDoutrinario() {
+        DocumentoSemantico semantico = repository.saveAndFlush(semantico(Categoria.DOUTRINA, 10L, VERSAO, Status.PRONTO));
+
+        assertThat(repository.findByIdDocumentoDoutrinario(10L))
+                .get()
+                .extracting(DocumentoSemantico::getId)
+                .isEqualTo(semantico.getId());
+        assertThat(repository.findByIdDocumentoDoutrinario(99L)).isEmpty();
+    }
+
     private Long persist(DocumentoBase documento, String identificador, boolean ativo) {
         documento.setIdFonte(1L);
         documento.setIdRegistroBruto(1L);
