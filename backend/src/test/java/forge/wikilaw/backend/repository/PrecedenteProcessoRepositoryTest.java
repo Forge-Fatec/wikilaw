@@ -31,6 +31,21 @@ class PrecedenteProcessoRepositoryTest {
                 .containsExactly("RE 100", "RE 200", "RE 300");
     }
 
+    @Test
+    void deletesOnlyProcessosOfGivenPrecedente() {
+        repository.save(vinculo(PRECEDENTE, "RE 100"));
+        repository.save(vinculo(PRECEDENTE, "RE 200"));
+        repository.save(vinculo(OUTRO_PRECEDENTE, "RE 050"));
+        repository.flush();
+
+        repository.deleteByIdPrecedente(PRECEDENTE);
+        repository.flush();
+
+        assertThat(repository.findAll())
+                .extracting(PrecedenteProcesso::getIdPrecedente)
+                .containsExactly(OUTRO_PRECEDENTE);
+    }
+
     private PrecedenteProcesso vinculo(long idPrecedente, String numeroRegistro) {
         PrecedenteProcesso vinculo = new PrecedenteProcesso();
         vinculo.setIdPrecedente(idPrecedente);
