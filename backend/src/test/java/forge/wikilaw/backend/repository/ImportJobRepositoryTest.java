@@ -72,6 +72,19 @@ class ImportJobRepositoryTest {
         assertThat(repository.findFirstByEscopoAndStatusIn("TJMG", ativos)).isEmpty();
     }
 
+    @Test
+    void locksOldestActiveJob() {
+        ImportJob concluido = job("TJSP", Status.CONCLUIDA, 1);
+        ImportJob pendente = job("TJRJ", Status.PENDENTE, 2);
+        ImportJob emExecucao = job("TJMG", Status.EM_EXECUCAO, 3);
+        repository.saveAllAndFlush(List.of(concluido, pendente, emExecucao));
+
+        assertThat(repository.lockNext())
+                .get()
+                .extracting(ImportJob::getId)
+                .isEqualTo(pendente.getId());
+    }
+
     private ImportJob job(String escopo, Status status, int minutos) {
         ImportJob job = new ImportJob();
         job.setFonte("DATAJUD");
