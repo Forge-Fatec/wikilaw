@@ -39,6 +39,24 @@ class ImportJobRepositoryTest {
                 .isEqualTo(recente.getId());
     }
 
+    @Test
+    void findsLatestCompletedBootstrapJobByEscopo() {
+        ImportJob antigo = job("TJSP", Status.CONCLUIDA, 1);
+        antigo.setBootstrapCompleto(true);
+        ImportJob recente = job("TJSP", Status.CONCLUIDA, 2);
+        recente.setBootstrapCompleto(true);
+        ImportJob incompleto = job("TJSP", Status.CONCLUIDA, 3);
+        ImportJob outroEscopo = job("TJRJ", Status.CONCLUIDA, 4);
+        outroEscopo.setBootstrapCompleto(true);
+        repository.saveAllAndFlush(List.of(antigo, recente, incompleto, outroEscopo));
+
+        assertThat(repository.findTopByEscopoAndBootstrapCompletoTrueOrderByCriadoEmDesc("TJSP"))
+                .get()
+                .extracting(ImportJob::getId)
+                .isEqualTo(recente.getId());
+        assertThat(repository.findTopByEscopoAndBootstrapCompletoTrueOrderByCriadoEmDesc("TJMG")).isEmpty();
+    }
+
     private ImportJob job(String escopo, Status status, int minutos) {
         ImportJob job = new ImportJob();
         job.setFonte("DATAJUD");
