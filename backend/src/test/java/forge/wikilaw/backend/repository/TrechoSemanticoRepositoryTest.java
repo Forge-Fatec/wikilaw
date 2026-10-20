@@ -46,6 +46,17 @@ class TrechoSemanticoRepositoryTest {
                 .containsExactly(OUTRO_DOCUMENTO);
     }
 
+    @Test
+    void countsTrechosOfGivenDocumento() {
+        repository.save(trecho(DOCUMENTO, 0));
+        repository.save(trecho(DOCUMENTO, 1));
+        repository.save(trecho(OUTRO_DOCUMENTO, 0));
+        repository.flush();
+
+        assertThat(repository.countByIdDocumentoSemantico(DOCUMENTO)).isEqualTo(2);
+        assertThat(repository.countByIdDocumentoSemantico(99L)).isZero();
+    }
+
     private TrechoSemantico trecho(long idDocumento, int ordem) {
         TrechoSemantico trecho = new TrechoSemantico();
         trecho.setIdDocumentoSemantico(idDocumento);
