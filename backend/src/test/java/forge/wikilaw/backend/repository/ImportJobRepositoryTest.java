@@ -96,6 +96,17 @@ class ImportJobRepositoryTest {
         assertThat(repository.lockAvailable(-1L)).isEmpty();
     }
 
+    @Test
+    void locksJobByIdWithPessimisticWrite() {
+        ImportJob job = repository.saveAndFlush(job("TJSP", Status.EM_EXECUCAO, 1));
+
+        assertThat(repository.lockById(job.getId()))
+                .get()
+                .extracting(ImportJob::getStatus)
+                .isEqualTo(Status.EM_EXECUCAO);
+        assertThat(repository.lockById(-1L)).isEmpty();
+    }
+
     private ImportJob job(String escopo, Status status, int minutos) {
         ImportJob job = new ImportJob();
         job.setFonte("DATAJUD");
