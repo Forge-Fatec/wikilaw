@@ -30,6 +30,17 @@ class PrecedenteRepositoryTest {
         assertThat(repository.findByIdFonteAndIdentificadorExterno(FONTE_STJ, "TEMA-1000")).isEmpty();
     }
 
+    @Test
+    void countsOnlyActivePrecedentesOfGivenFonte() {
+        repository.save(precedente(FONTE_STF, "TEMA-1000", true));
+        repository.save(precedente(FONTE_STF, "TEMA-1001", true));
+        repository.save(precedente(FONTE_STF, "TEMA-1002", false));
+        repository.save(precedente(FONTE_STJ, "TEMA-2000", true));
+        repository.flush();
+
+        assertThat(repository.countByIdFonteAndAtivoTrue(FONTE_STF)).isEqualTo(2);
+    }
+
     private Precedente precedente(long fonte, String identificador, boolean ativo) {
         Precedente precedente = new Precedente();
         precedente.setIdFonte(fonte);
