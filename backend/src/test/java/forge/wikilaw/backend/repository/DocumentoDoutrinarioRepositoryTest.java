@@ -30,6 +30,17 @@ class DocumentoDoutrinarioRepositoryTest {
         assertThat(repository.findByIdFonteAndIdentificadorExterno(FONTE_PANGEA, "ART-1000")).isEmpty();
     }
 
+    @Test
+    void countsOnlyActiveDocumentosOfGivenFonte() {
+        repository.save(documento(FONTE_SCIELO, "ART-1000", true));
+        repository.save(documento(FONTE_SCIELO, "ART-1001", true));
+        repository.save(documento(FONTE_SCIELO, "ART-1002", false));
+        repository.save(documento(FONTE_PANGEA, "ART-2000", true));
+        repository.flush();
+
+        assertThat(repository.countByIdFonteAndAtivoTrue(FONTE_SCIELO)).isEqualTo(2);
+    }
+
     private DocumentoDoutrinario documento(long fonte, String identificador, boolean ativo) {
         DocumentoDoutrinario documento = new DocumentoDoutrinario();
         documento.setIdFonte(fonte);
