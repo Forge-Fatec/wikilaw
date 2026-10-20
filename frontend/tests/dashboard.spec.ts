@@ -226,8 +226,9 @@ test.describe('dashboard integrado à pesquisa ativa', () => {
     printStep(cenario, 'Configurando mock da API')
     const consultas = await mockarApi(page)
 
-    printStep(cenario, 'Abrindo o frontend sem tribunal selecionado')
+    printStep(cenario, 'Abrindo o frontend e alternando para o panorama')
     await abrirFrontend(page)
+    await page.getByRole('button', { name: 'Panorama do tribunal' }).click()
     const panorama = page.getByRole('region', { name: 'Panorama geral do tribunal' })
     await expect(panorama).toContainText('Selecione um tribunal nos filtros')
 

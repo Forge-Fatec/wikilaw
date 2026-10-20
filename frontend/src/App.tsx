@@ -14,6 +14,7 @@ import {
 
 type DocType = 'jurisprudencia' | 'precedente' | 'doutrina'
 type Ordenacao = 'mais-recentes' | 'mais-antigos'
+type EscopoPainel = 'pesquisa' | 'panorama'
 
 // Categoria escolhida em cada gráfico do dashboard; null = sem filtro.
 interface SelecaoGraficos {
@@ -400,6 +401,7 @@ function App() {
   const [dataAte, setDataAte] = useState('')
   const [ordenacao, setOrdenacao] = useState<Ordenacao>('mais-recentes')
   const [selecao, setSelecao] = useState<SelecaoGraficos>(SEM_SELECAO)
+  const [escopo, setEscopo] = useState<EscopoPainel>('pesquisa')
 
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [carregando, setCarregando] = useState(true)
@@ -930,68 +932,82 @@ function App() {
         <div className="content">
           {/* Fica ao lado da lista (e acima dela em telas estreitas): clicar
               numa barra mostra o efeito na lista sem precisar rolar. */}
-          <aside className="panorama" aria-label="Panorama da pesquisa">
-            {!erro && !carregando && indicadores && (
-              <section className="indicadores" aria-label="Indicadores da pesquisa">
-                <div className="indicador">
-                  <span className="indicador-label">ADERÊNCIA</span>
-                  <strong className="indicador-valor">
-                    {indicadores.aderencia === null
-                      ? '—'
-                      : `${indicadores.aderencia}%`}
-                  </strong>
-                  <span className="indicador-detalhe">
-                    {indicadores.classificadas
-                      ? `${indicadores.favoraveis} de ${indicadores.classificadas} decisões favoráveis ao recurso`
-                      : 'Nenhuma decisão com resultado identificado'}
-                  </span>
-                </div>
-                <div className="indicador">
-                  <span className="indicador-label">DECISÕES ANALISADAS</span>
-                  <strong className="indicador-valor">
-                    {indicadores.totalDecisoes}
-                  </strong>
-                  <span className="indicador-detalhe">
-                    {indicadores.classificadas} com resultado identificado
-                  </span>
-                </div>
-              </section>
+                    <aside className="panorama" aria-label="Panorama da pesquisa">
+            <div className="sort-options escopo-painel" role="group" aria-label="O que o painel mostra">
+              <button
+                type="button"
+                aria-pressed={escopo === 'pesquisa'}
+                onClick={() => setEscopo('pesquisa')}
+              >
+                Pesquisa
+              </button>
+              <button
+                type="button"
+                aria-pressed={escopo === 'panorama'}
+                onClick={() => setEscopo('panorama')}
+              >
+                Panorama do tribunal
+              </button>
+            </div>
+            {escopo === 'pesquisa' ? (
+              <>
+                {!erro && !carregando && indicadores && (
+                  <section className="indicadores" aria-label="Indicadores da pesquisa">
+                    <div className="indicador">
+                      <span className="indicador-label">ADERÊNCIA</span>
+                      <strong className="indicador-valor">
+                        {indicadores.aderencia === null
+                          ? '—'
+                          : `${indicadores.aderencia}%`}
+                      </strong>
+                      <span className="indicador-detalhe">
+                        {indicadores.classificadas
+                          ? `${indicadores.favoraveis} de ${indicadores.classificadas} decisões favoráveis ao recurso`
+                          : 'Nenhuma decisão com resultado identificado'}
+                      </span>
+                    </div>
+                    <div className="indicador">
+                      <span className="indicador-label">DECISÕES ANALISADAS</span>
+                      <strong className="indicador-valor">
+                        {indicadores.totalDecisoes}
+                      </strong>
+                      <span className="indicador-detalhe">
+                        {indicadores.classificadas} com resultado identificado
+                      </span>
+                    </div>
+                  </section>
+                )}
+                <GraficoDashboard
+                  titulo="Resultado dos recursos"
+                  dados={dashboard.dados?.distribuicaoMerito}
+                  carregando={dashboard.carregando}
+                  erro={dashboard.erro}
+                  selecionada={selecao.resultado}
+                  onSelecionar={(item) => alternarSelecao('resultado', item)}
+                  onLimparSelecao={() => limparSelecao('resultado')}
+                />
+                <GraficoDashboard
+                  titulo="Decisões por órgão julgador"
+                  dados={dashboard.dados?.distribuicaoCamaraTurma}
+                  carregando={dashboard.carregando}
+                  erro={dashboard.erro}
+                  horizontal
+                  selecionada={selecao.orgaoJulgador}
+                  onSelecionar={(item) => alternarSelecao('orgaoJulgador', item)}
+                  onLimparSelecao={() => limparSelecao('orgaoJulgador')}
+                />
+                <GraficoDashboard
+                  titulo="Evolução Temporal da Tese"
+                  dados={dashboard.dados?.evolucaoAnual}
+                  carregando={dashboard.carregando}
+                  erro={dashboard.erro}
+                />
+              </>
+            ) : (
+              <PanoramaTribunal
+                tribunal={tribunal === TODOS_OS_TRIBUNAIS ? null : tribunal}
+              />
             )}
-            <GraficoDashboard
-              titulo="Resultado dos recursos"
-              dados={dashboard.dados?.distribuicaoMerito}
-              carregando={dashboard.carregando}
-              erro={dashboard.erro}
-              selecionada={selecao.resultado}
-              onSelecionar={(item) => alternarSelecao('resultado', item)}
-              onLimparSelecao={() => limparSelecao('resultado')}
-            />
-            <GraficoDashboard
-              titulo="Decisões por órgão julgador"
-              dados={dashboard.dados?.distribuicaoCamaraTurma}
-              carregando={dashboard.carregando}
-              erro={dashboard.erro}
-              horizontal
-              selecionada={selecao.orgaoJulgador}
-              onSelecionar={(item) => alternarSelecao('orgaoJulgador', item)}
-              onLimparSelecao={() => limparSelecao('orgaoJulgador')}
-            />
-            <GraficoDashboard
-              titulo="Evolução Temporal da Tese"
-              dados={dashboard.dados?.evolucaoAnual}
-              carregando={dashboard.carregando}
-              erro={dashboard.erro}
-            />
-            <GraficoDashboard
-              titulo="Evolução Temporal da Tese"
-              dados={dashboard.dados?.evolucaoAnual}
-              carregando={dashboard.carregando}
-              erro={dashboard.erro}
-            />
-            <PanoramaTribunal
-              tribunal={tribunal === TODOS_OS_TRIBUNAIS ? null : tribunal}
-            />
-          
           </aside>
 
           <main className="results">
