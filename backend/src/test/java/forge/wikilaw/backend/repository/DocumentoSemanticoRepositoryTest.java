@@ -81,6 +81,26 @@ class DocumentoSemanticoRepositoryTest {
                 .containsExactly(semSemantico, versaoAntiga);
     }
 
+    @Test
+    void findsPrecedentesPendentesForVersao() {
+        Long semSemantico = persist(new Precedente(), "P1", true);
+        Long pronto = persist(new Precedente(), "P2", true);
+        Long comErro = persist(new Precedente(), "P3", true);
+        Long versaoAntiga = persist(new Precedente(), "P4", true);
+        Long emAndamento = persist(new Precedente(), "P5", true);
+        persist(new Precedente(), "P6", false);
+        repository.save(semantico(Categoria.PRECEDENTE, pronto, VERSAO, Status.PRONTO));
+        repository.save(semantico(Categoria.PRECEDENTE, comErro, VERSAO, Status.ERRO));
+        repository.save(semantico(Categoria.PRECEDENTE, versaoAntiga, "v1", Status.PRONTO));
+        repository.save(semantico(Categoria.PRECEDENTE, emAndamento, VERSAO, Status.PROCESSANDO));
+        repository.flush();
+
+        assertThat(repository.findPrecedentesPendentes(VERSAO, 10))
+                .containsExactly(semSemantico, versaoAntiga, emAndamento);
+        assertThat(repository.findPrecedentesPendentes(VERSAO, 2))
+                .containsExactly(semSemantico, versaoAntiga);
+    }
+
     private Long persist(DocumentoBase documento, String identificador, boolean ativo) {
         documento.setIdFonte(1L);
         documento.setIdRegistroBruto(1L);
