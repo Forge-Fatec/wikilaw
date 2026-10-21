@@ -38,6 +38,8 @@ public class PesquisaPdfRenderer {
                 page.paragraph("Gerado em " + generatedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm xxx")), 9, MUTED);
                 page.heading("Dados da pesquisa", 14);
                 page.field("Descrição do caso", blank(request.termo()) ? "Pesquisa inicial, sem termo informado" : request.termo());
+                page.field("Documento de contexto", request.documentoContexto());
+                page.field("Termos da pesquisa com contexto", request.consultaContextual());
                 page.field("Tipos de documento", String.join(", ", request.categorias().stream().map(PesquisaPdfRenderer::categoryName).toList()));
                 page.field("Fonte", blank(request.fonte()) ? "Todas as fontes" : request.fonte());
                 page.field("Tribunal", blank(request.tribunal()) ? "Todos os tribunais" : request.tribunal());

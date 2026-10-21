@@ -5,6 +5,9 @@ import { paginasVisiveis, RETICENCIAS } from './paginacao'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
 import { ExportPdfDialog } from './components/ExportPdfDialog'
 import { PanoramaTribunal } from './components/PanoramaTribunal'
+import { CaseDocumentUpload } from './components/CaseDocumentUpload'
+import { useCaseDocument } from './components/hooks/useCaseDocument'
+import { prepareSearchContext } from './caseDocument'
 import {
   useDashboard,
   NAO_INFORMADO,
@@ -329,6 +332,9 @@ function App() {
   const [query, setQuery] = useState('')
   // The dashboard and PDF describe the last submitted search, not the current input.
   const [termoPesquisado, setTermoPesquisado] = useState('')
+  const [consultaPesquisada, setConsultaPesquisada] = useState('')
+  const [documentoUsado, setDocumentoUsado] = useState<string | null>(null)
+  const contexto = useCaseDocument()
   const [exportando, setExportando] = useState(false)
   const [modalExportacao, setModalExportacao] = useState(false)
   const botaoExportar = useRef<HTMLButtonElement>(null)
@@ -349,9 +355,13 @@ function App() {
   useEffect(() => {
     const raiz = document.documentElement
     let quadro = 0
+    let ponteiroPressionado = false
 
     const atualizar = () => {
       quadro = 0
+      // Docking changes the toolbar height. Keep click targets still between
+      // pointerdown and click, including when WebKit scrolls them into view.
+      if (ponteiroPressionado) return
       const busca = buscaDestaqueRef.current
       const faixa = faixaRef.current
       if (!busca || !faixa) return
@@ -367,12 +377,20 @@ function App() {
     const agendar = () => {
       if (!quadro) quadro = requestAnimationFrame(atualizar)
     }
+    const pressionar = () => { ponteiroPressionado = true }
+    const soltar = () => { ponteiroPressionado = false; agendar() }
 
     agendar()
+    document.addEventListener('pointerdown', pressionar, true)
+    document.addEventListener('pointerup', soltar, true)
+    document.addEventListener('pointercancel', soltar, true)
     window.addEventListener('scroll', agendar, { passive: true })
     window.addEventListener('resize', agendar)
     return () => {
       cancelAnimationFrame(quadro)
+      document.removeEventListener('pointerdown', pressionar, true)
+      document.removeEventListener('pointerup', soltar, true)
+      document.removeEventListener('pointercancel', soltar, true)
       window.removeEventListener('scroll', agendar)
       window.removeEventListener('resize', agendar)
       raiz.style.removeProperty('--encaixe')
@@ -415,7 +433,7 @@ function App() {
   const dashboard = useDashboard(
     filtros.jurisprudencia
       ? {
-          termo: termoPesquisado,
+          termo: consultaPesquisada,
           fonte: fonte === TODAS_AS_FONTES ? null : fonte,
           tribunal: tribunal === TODOS_OS_TRIBUNAIS ? null : tribunal,
           dataDe,
@@ -427,8 +445,9 @@ function App() {
   const indicadores = dashboard.dados?.indicadores
 
   const buscar = useCallback(async () => {
-    if (!query.trim()) {
-      setErroValidacao('Informe a descrição do caso para realizar a pesquisa.')
+    if (contexto.processando) return
+    if (!query.trim() && !contexto.documento?.texto.trim()) {
+      setErroValidacao('Informe a descrição do caso ou anexe um documento para realizar a pesquisa.')
       return
     }
 
@@ -441,23 +460,31 @@ function App() {
     setErroValidacao(null)
     setErroExportacao(null)
     setExportacaoConcluida(false)
-    setTermoPesquisado(query.trim())
     setCarregando(true)
     setErro(null)
     setPaginaAtual(1)
     setDocumentoSelecionado(null)
     try {
-      const resultados = await carregarDocumentos(query, carga.signal)
+      const consulta = contexto.documento
+        ? await prepareSearchContext(query.trim(), contexto.documento.texto, carga.signal)
+        : query.trim()
+      if (carga.signal.aborted) return
+      setTermoPesquisado(query.trim())
+      setConsultaPesquisada(consulta)
+      setDocumentoUsado(contexto.documento?.nome ?? null)
+      const resultados = await carregarDocumentos(consulta, carga.signal)
       if (!carga.signal.aborted) setDocumentos(resultados)
-    } catch {
+    } catch (error) {
       if (!carga.signal.aborted) {
-        setErro(ERRO_CARREGAMENTO)
+        setErro(contexto.documento && error instanceof Error
+          ? error instanceof TypeError ? 'Não foi possível preparar a pesquisa com o documento. Verifique a conexão e tente novamente.' : error.message
+          : ERRO_CARREGAMENTO)
         setDocumentos([])
       }
     } finally {
       if (!carga.signal.aborted) setCarregando(false)
     }
-  }, [query])
+  }, [query, contexto.documento, contexto.processando])
 
   // Carrega os resultados iniciais (sem termo) assim que a página abre.
   useEffect(() => {
@@ -578,6 +605,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           termo: termoPesquisado,
+          ...(documentoUsado ? { documentoContexto: documentoUsado, consultaContextual: consultaPesquisada } : {}),
           categorias: (Object.keys(filtros) as DocType[])
             .filter((tipo) => filtros[tipo]).map((tipo) => CATEGORIA_POR_TIPO[tipo]),
           fonte: fonte === TODAS_AS_FONTES ? null : fonte,
@@ -737,20 +765,21 @@ function App() {
             if (erroValidacao) setErroValidacao(null)
           }}
           aria-label="Descrição do caso"
-          aria-invalid={Boolean(erroValidacao)}
-          aria-describedby={erroValidacao ? `search-error-${origem}` : undefined}
+          aria-invalid={Boolean(erroValidacao && !contexto.documento?.texto.trim())}
+          aria-describedby={erroValidacao && !contexto.documento?.texto.trim() ? `search-error-${origem}` : undefined}
           placeholder="Ex.: dano moral por negativação indevida do nome do consumidor..."
         />
         {/* Fica habilitado durante a carga: uma nova pesquisa substitui a anterior. */}
-        <button type="submit" aria-busy={carregando}>
+        <button type="submit" aria-busy={carregando} disabled={contexto.processando}>
           PESQUISAR
         </button>
       </div>
-      {erroValidacao && (
+      {erroValidacao && !contexto.documento?.texto.trim() && (
         <p id={`search-error-${origem}`} className="search-error" role="alert">
           {erroValidacao}
         </p>
       )}
+      <CaseDocumentUpload context={contexto} />
     </form>
   )
 
@@ -1064,6 +1093,7 @@ function App() {
 
             {erro && <div className="empty">{erro}</div>}
 
+            {documentoUsado && !carregando && !erro && <p className="case-document-applied">Contexto utilizado: <strong>{documentoUsado}</strong></p>}
             {!erro && !carregando && resultados.length === 0 && (
               <div className="empty">
                 Nenhum documento encontrado com os filtros selecionados.

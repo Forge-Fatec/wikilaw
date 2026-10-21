@@ -282,8 +282,9 @@ por agregação em `/api/dashboard/*`; veja [o dashboard da pesquisa](docs/DASHB
 
 A busca principal usa os endpoints `GET /api/documentos/decisoes`,
 `GET /api/documentos/precedentes` e `GET /api/documentos/doutrina`.
-Jurisprudência (`decisoes`) já utiliza a busca especializada por palavras-chave;
-precedentes e doutrina ainda devem ser migrados para o mesmo padrão estrutural.
+Jurisprudência (`decisoes`) e precedentes utilizam serviços especializados por
+palavras-chave. Doutrina compartilha a tokenização, mas ainda mantém sua
+especificação de consulta em `DocumentQueryService`.
 
 O componente compartilhado
 `forge.wikilaw.backend.service.search.SearchTermProcessor` define o contrato de
@@ -320,6 +321,10 @@ ETL/Data Warehouse, OpenSearch, pgvector e IA permanecem fora desta entrega.
 ## Exportação em PDF
 
 Com resultados disponíveis, selecione **Exportar PDF** ao lado da ordenação. No modal, escolha todas as páginas ou um intervalo da pesquisa e confirme em **Gerar e baixar PDF**. O relatório preserva descrição, filtros e ordem dos documentos selecionados. A geração usa `POST /api/pesquisas/exportacoes/pdf` e o conteúdo dos documentos no banco. Consulte [o guia de exportação](docs/EXPORTACAO_PDF.md) para contrato, limites e testes.
+
+## Documento como contexto da pesquisa
+
+Use **Anexar documento** junto ao campo de busca para enviar PDF ou DOCX de até 10 MB. O texto extraído pode ser conferido e editado antes da pesquisa, inclusive sem uma descrição digitada. O documento é usado como contexto temporário e não é adicionado ao acervo público. Nesta versão, o contexto complementa a busca textual por palavras-chave; a busca vetorial ainda não está implementada. Consulte [o guia de upload](docs/UPLOAD_DOCUMENTOS.md) para limites, contratos e testes.
 
 ## Team
 

@@ -63,9 +63,8 @@ consulta interna, evitando diferenças na seleção das decisões.
 
 ### Precedentes
 
-`GET /api/documentos/precedentes` ainda utiliza a busca textual genérica.
-
-Ela procura a frase completa, sem diferenciar maiúsculas de minúsculas, em:
+`GET /api/documentos/precedentes` utiliza `PrecedenteQueryService` e a tokenização
+compartilhada de `SearchTermProcessor`, sem diferenciar maiúsculas de minúsculas, em:
 
 - título;
 - questão jurídica;
@@ -74,13 +73,15 @@ Ela procura a frase completa, sem diferenciar maiúsculas de minúsculas, em:
 
 Também considera somente documentos ativos e permite filtrar por `fonte`.
 
-Exemplo: o termo `dano moral consumidor` somente encontra um precedente se essa
-sequência completa estiver contida em pelo menos um dos campos pesquisados.
+Exemplo: o termo `dano moral consumidor` encontra precedentes com qualquer uma
+dessas palavras em pelo menos um dos campos pesquisados.
 
 ### Doutrina
 
-`GET /api/documentos/doutrina` também utiliza a busca textual genérica pela frase
-completa.
+`GET /api/documentos/doutrina` usa a tokenização e o escape compartilhados de
+`SearchTermProcessor`, retornando documentos que contenham qualquer palavra
+relevante. Isso permite usar os termos extraídos do [documento do caso](UPLOAD_DOCUMENTOS.md)
+como contexto adicional, sem exigir uma frase literal completa.
 
 Campos pesquisados:
 
@@ -93,8 +94,8 @@ A consulta considera somente documentos ativos e permite filtrar por `fonte`.
 
 ## Limitações atuais
 
-- Precedentes e doutrina não possuem a mesma tokenização usada para
-  jurisprudência.
+- Doutrina ainda utiliza a especificação de consulta em `DocumentQueryService`,
+  embora já compartilhe a tokenização com as outras categorias.
 - A combinação de resultados não possui ranking global de relevância.
 - A busca não implementa stemming, tolerância a erros de digitação, remoção de
   acentos ou busca semântica.

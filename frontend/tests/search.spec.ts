@@ -198,7 +198,7 @@ test.describe('busca por conteúdos jurídicos', () => {
 
     printStep(cenario, 'Validando a mensagem de erro')
     await expect(page.getByRole('alert')).toHaveText(
-      'Informe a descrição do caso para realizar a pesquisa.',
+      'Informe a descrição do caso ou anexe um documento para realizar a pesquisa.',
     )
 
     printStep(cenario, 'Validando que nenhuma busca foi iniciada')

@@ -4,6 +4,7 @@ import forge.wikilaw.backend.dto.DocumentoDetalheResponse;
 import forge.wikilaw.backend.dto.PrecedenteProcessoResponse;
 import forge.wikilaw.backend.entity.*;
 import forge.wikilaw.backend.repository.*;
+import forge.wikilaw.backend.service.search.SearchTermProcessor;
 import java.time.LocalDate;
 import java.util.*;
 import org.springframework.data.domain.*;
@@ -24,13 +25,15 @@ public class DocumentQueryService {
     private final PrecedenteProcessoRepository links;
     private final JurisprudenciaQueryService jurisprudence;
     private final PrecedenteQueryService precedentSearch;
+    private final SearchTermProcessor searchTerms;
     public DocumentQueryService(DecisaoJudicialRepository decisions,PrecedenteRepository precedents,
             DocumentoDoutrinarioRepository doctrine,FonteDadosRepository sources,TribunalRepository tribunals,
             PrecedenteProcessoRepository links,JurisprudenciaQueryService jurisprudence,
-            PrecedenteQueryService precedentSearch) {
+            PrecedenteQueryService precedentSearch,SearchTermProcessor searchTerms) {
         this.decisions=decisions;this.precedents=precedents;this.doctrine=doctrine;this.sources=sources;
         this.tribunals=tribunals;this.links=links;this.jurisprudence=jurisprudence;
         this.precedentSearch=precedentSearch;
+        this.searchTerms=searchTerms;
     }
     public Result list(String category,String source,String term,int page,int size) {
         return list(category,source,term,null,null,null,page,size);
@@ -208,10 +211,12 @@ public class DocumentQueryService {
             restrictions.add(cb.isTrue(root.get("ativo")));
             if (source!=null) restrictions.add(cb.equal(root.get("idFonte"),source));
             if (term!=null && !term.isBlank()) {
-                String pattern="%"+term.toLowerCase(Locale.ROOT).replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%";
                 var alternatives=new ArrayList<jakarta.persistence.criteria.Predicate>();
-                alternatives.add(cb.like(cb.lower(root.get("titulo")),pattern,'\\'));
-                for(String field:fields) alternatives.add(cb.like(cb.lower(root.get(field)),pattern,'\\'));
+                for (String token : searchTerms.tokenize(term)) {
+                    String pattern=searchTerms.containsPattern(token);
+                    alternatives.add(cb.like(cb.lower(root.get("titulo")),pattern,'\\'));
+                    for(String field:fields) alternatives.add(cb.like(cb.lower(root.get(field)),pattern,'\\'));
+                }
                 restrictions.add(cb.or(alternatives.toArray(jakarta.persistence.criteria.Predicate[]::new)));
             }
             return cb.and(restrictions.toArray(jakarta.persistence.criteria.Predicate[]::new));
