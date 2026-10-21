@@ -53,7 +53,17 @@ public class DashboardService {
     // Cada gráfico ignora a própria seleção: continua com todas as barras (a
     // escolhida fica em destaque na tela) e só a seleção do outro o recorta.
     public DashboardResponse resumir(DashboardFiltro filtro) {
-        var decisoes = carregar(filtro);
+        return resumir(carregar(filtro), filtro);
+    }
+
+    public DashboardResponse resumirIds(List<Long> ids, String resultado, String orgaoJulgador) {
+        Specification<DecisaoJudicial> recorte = (root, query, cb) -> cb.and(
+                cb.isTrue(root.get("ativo")), root.get("id").in(ids));
+        return resumir(ids.isEmpty() ? List.of() : consultar(recorte),
+                new DashboardFiltro(null,null,null,null,null,resultado,orgaoJulgador));
+    }
+
+    private DashboardResponse resumir(List<Decisao> decisoes, DashboardFiltro filtro) {
         var selecao = Selecao.de(filtro);
         var selecionadas = selecao.aplicar(decisoes);
         return new DashboardResponse(

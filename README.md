@@ -316,7 +316,7 @@ implementação.
 
 As migrations acrescentam `decisao_judicial`, `precedente`, `precedente_processo`, `documento_doutrinario` e a visão de leitura `vw_documentos_pesquisa`. Os endpoints administrativos são para desenvolvimento local; as portas do Compose ficam publicadas apenas em `127.0.0.1`.
 
-ETL/Data Warehouse, OpenSearch, pgvector e IA permanecem fora desta entrega.
+ETL/Data Warehouse, OpenSearch e geração de respostas por IA permanecem fora desta entrega.
 
 ## Exportação em PDF
 
@@ -324,7 +324,7 @@ Com resultados disponíveis, selecione **Exportar PDF** ao lado da ordenação. 
 
 ## Documento como contexto da pesquisa
 
-Use **Anexar documento** junto ao campo de busca para enviar PDF ou DOCX de até 10 MB. O texto extraído pode ser conferido e editado antes da pesquisa, inclusive sem uma descrição digitada. O documento é usado como contexto temporário e não é adicionado ao acervo público. Nesta versão, o contexto complementa a busca textual por palavras-chave; a busca vetorial ainda não está implementada. Consulte [o guia de upload](docs/UPLOAD_DOCUMENTOS.md) para limites, contratos e testes.
+Use **Anexar documento** junto ao campo de busca para enviar PDF ou DOCX de até 10 MB. O texto extraído pode ser conferido e editado antes da pesquisa, inclusive sem uma descrição digitada. O documento é usado como contexto temporário e não é adicionado ao acervo público. O Compose habilita a busca **Similaridade**, com modelo local em CPU e vetores no PostgreSQL/pgvector. A opção **Palavras-chave** mantém a busca textual. Consulte [o guia de upload](docs/UPLOAD_DOCUMENTOS.md) e [o guia da busca vetorial](docs/BUSCA_VETORIAL.md).
 
 ## Team
 

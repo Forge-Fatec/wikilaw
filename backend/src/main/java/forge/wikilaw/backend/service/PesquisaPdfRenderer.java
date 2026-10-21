@@ -37,15 +37,19 @@ public class PesquisaPdfRenderer {
                 page.heading("Relatório de pesquisa", 22);
                 page.paragraph("Gerado em " + generatedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm xxx")), 9, MUTED);
                 page.heading("Dados da pesquisa", 14);
-                page.field("Descrição do caso", blank(request.termo()) ? "Pesquisa inicial, sem termo informado" : request.termo());
+                page.field("Descrição do caso", blank(request.termo())
+                        ? blank(request.documentoContexto()) ? "Pesquisa inicial, sem termo informado" : "Pesquisa baseada no documento anexado"
+                        : request.termo());
                 page.field("Documento de contexto", request.documentoContexto());
+                page.field("Tipo de pesquisa", "similaridade".equals(request.modoPesquisa()) ? "Similaridade vetorial e palavras-chave" : "Palavras-chave");
                 page.field("Termos da pesquisa com contexto", request.consultaContextual());
                 page.field("Tipos de documento", String.join(", ", request.categorias().stream().map(PesquisaPdfRenderer::categoryName).toList()));
                 page.field("Fonte", blank(request.fonte()) ? "Todas as fontes" : request.fonte());
                 page.field("Tribunal", blank(request.tribunal()) ? "Todos os tribunais" : request.tribunal());
                 page.field("Período", (request.dataDe() == null ? "Sem início definido" : DATE.format(request.dataDe()))
                         + " até " + (request.dataAte() == null ? "sem fim definido" : DATE.format(request.dataAte())));
-                page.field("Ordenação", "mais-antigos".equals(request.ordenacao()) ? "Mais antigos primeiro" : "Mais recentes primeiro");
+                page.field("Ordenação", "relevancia".equals(request.ordenacao()) ? "Mais semelhantes primeiro"
+                        : "mais-antigos".equals(request.ordenacao()) ? "Mais antigos primeiro" : "Mais recentes primeiro");
                 page.field("Resultados exportados", String.valueOf(results.size()));
                 var range = request.intervaloPaginas();
                 if (range != null) {

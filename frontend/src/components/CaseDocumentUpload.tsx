@@ -1,7 +1,9 @@
 import { useId, useRef } from 'react'
 import type { useCaseDocument } from './hooks/useCaseDocument'
 
-export function CaseDocumentUpload({ context }: { context: ReturnType<typeof useCaseDocument> }) {
+export function CaseDocumentUpload({ context, compact = false, onInspect }: {
+  context: ReturnType<typeof useCaseDocument>; compact?: boolean; onInspect?: () => void
+}) {
   const input = useRef<HTMLInputElement>(null)
   const id = useId()
   const { documento, processando, erro, enviar, remover, cancelar, editar } = context
@@ -15,19 +17,25 @@ export function CaseDocumentUpload({ context }: { context: ReturnType<typeof use
             event.target.value = ''
             if (file) void enviar(file)
           }} />
-        <button type="button" className="attach-document-btn" onClick={() => input.current?.click()}>
+        <button type="button" className="attach-document-btn" title={documento?.nome} onClick={() => input.current?.click()}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
             <path d="m8 13 7-7a3 3 0 0 1 4 4L9 20a5 5 0 0 1-7-7L13 2" />
           </svg>
-          {documento ? 'Substituir documento' : 'Anexar documento'}
+          <span>{documento ? compact ? documento.nome : 'Substituir documento' : 'Anexar documento'}</span>
         </button>
         <span className="case-document-help">PDF ou DOCX · até 10 MB</span>
+        {compact && documento && <>
+          <button type="button" className="document-icon-btn" onClick={onInspect} aria-label="Revisar texto do documento" title="Revisar texto">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+          </button>
+          <button type="button" className="document-icon-btn" onClick={remover} aria-label="Remover documento do caso" title="Remover documento">×</button>
+        </>}
       </div>
       {processando && <div className="case-document-progress" role="status">
         Lendo documento… <button type="button" onClick={cancelar}>Cancelar envio</button>
       </div>}
       {erro && <p className="case-document-error" role="alert">{erro}</p>}
-      {documento && <div className="case-document-card">
+      {documento && !compact && <div className="case-document-card">
         <div className="case-document-heading">
           <div>
             <strong>{documento.nome}</strong>

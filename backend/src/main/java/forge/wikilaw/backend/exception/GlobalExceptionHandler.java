@@ -14,6 +14,12 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    ResponseEntity<ApiErrorResponse> handleStatus(org.springframework.web.server.ResponseStatusException exception) {
+        return response(HttpStatus.valueOf(exception.getStatusCode().value()),
+                exception.getReason() == null ? "Não foi possível concluir a solicitação" : exception.getReason(), List.of());
+    }
+
     @ExceptionHandler(DocumentUploadException.class)
     ResponseEntity<ApiErrorResponse> handleDocumentUpload(DocumentUploadException exception) {
         return response(exception.status(), exception.getMessage(), List.of(exception.getMessage()));

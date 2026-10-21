@@ -29,6 +29,7 @@ export interface RecorteDashboard {
   // Categorias selecionadas nos gráficos (rótulo da barra).
   resultado: string | null
   orgaoJulgador: string | null
+  idsDecisoes?: number[]
 }
 
 // Mesmos rótulos que o back usa nas distribuições (DashboardService).
@@ -67,6 +68,10 @@ interface Resposta {
 // desmarcada), então não há o que consultar.
 export function useDashboard(recorte: RecorteDashboard | null) {
   const url = recorte ? urlDoRecorte(recorte) : null
+  const body = recorte?.idsDecisoes !== undefined ? JSON.stringify({
+    idsDecisoes: recorte.idsDecisoes, resultado: recorte.resultado, orgaoJulgador: recorte.orgaoJulgador,
+  }) : null
+  const key = url && `${url}:${body ?? ''}`
   const [resposta, setResposta] = useState<Resposta | null>(null)
 
   useEffect(() => {
@@ -74,27 +79,29 @@ export function useDashboard(recorte: RecorteDashboard | null) {
 
     // Descarta respostas de um recorte que já mudou (filtro trocado no meio da consulta).
     let ativo = true
-    fetch(url)
+    fetch(body ? `${API_BASE}/api/dashboard/resultados` : url, body ? {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body,
+    } : undefined)
       .then((res) => {
         if (!res.ok) throw new Error(`Erro ao carregar o dashboard (status ${res.status})`)
         return res.json() as Promise<Dashboard>
       })
       .then((dados) => {
-        if (ativo) setResposta({ url, dados, erro: null })
+        if (ativo) setResposta({ url: key!, dados, erro: null })
       })
       .catch(() => {
-        if (ativo) setResposta({ url, dados: null, erro: ERRO_DASHBOARD })
+        if (ativo) setResposta({ url: key!, dados: null, erro: ERRO_DASHBOARD })
       })
 
     return () => {
       ativo = false
     }
-  }, [url])
+  }, [url, body, key])
 
   if (!url) return { dados: DASHBOARD_VAZIO, carregando: false, erro: null }
 
   // Enquanto a resposta do recorte atual não chega, não reaproveita a anterior.
-  const atual = resposta?.url === url ? resposta : null
+  const atual = resposta?.url === key ? resposta : null
   return {
     dados: atual?.dados ?? null,
     carregando: atual === null,

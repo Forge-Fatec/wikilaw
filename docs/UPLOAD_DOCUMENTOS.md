@@ -14,11 +14,11 @@ Os controles aparecem junto à busca no hero e acompanham a busca quando ela se 
 
 ## Uso do contexto e busca atual
 
-A `develop` prepara conteúdos do acervo para embeddings, mas ainda não executa busca vetorial. Esta task entrega a entrada do documento e conecta seu contexto à busca **textual** existente; não calcula similaridade semântica nem gera embeddings.
+O upload pode alimentar a busca **por similaridade**, quando o serviço local está habilitado no servidor, ou a busca **textual**. O Compose habilita a busca vetorial por padrão. Consulte [o guia da busca vetorial](BUSCA_VETORIAL.md) para modelo, indexação, execução no servidor e limites dos candidatos. Os parágrafos abaixo descrevem o modo **Palavras-chave**.
 
 Ao pesquisar com um anexo, o frontend envia descrição e texto para preparar uma consulta. O backend normaliza o texto, descarta conectivos, identifica palavras recorrentes e combina termos da descrição com até 18 termos do documento, dentro do limite atual de 300 caracteres de consulta. A seleção considera o texto completo, inclusive trechos depois dos primeiros 300 caracteres. Os termos são usados em jurisprudência, precedentes, doutrina e no recorte do dashboard. A descrição original é preservada para exibição e exportação; o PDF registra o nome do documento usado e os termos da consulta contextual. Nenhum conteúdo integral do anexo é incorporado automaticamente ao PDF.
 
-O endpoint de extração devolve o texto completo normalizado para que a busca por similaridade futura possa receber o mesmo contexto, sem depender dos termos da adaptação textual.
+O endpoint de extração devolve o texto completo normalizado para que a busca por similaridade receba o mesmo contexto, sem depender dos termos da adaptação textual.
 
 ## API
 

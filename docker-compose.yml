@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:0.8.7-pg16
     container_name: wikilaw-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-wikilaw}
@@ -26,6 +26,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-wikilaw}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-wikilaw}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
+      WIKILAW_VECTOR_ENABLED: ${WIKILAW_VECTOR_ENABLED:-true}
+      WIKILAW_EMBEDDING_URL: http://embeddings:8000
       DATAJUD_API_KEY: ${DATAJUD_API_KEY:-}
       DATAJUD_BASE_URL: ${DATAJUD_BASE_URL:-https://api-publica.datajud.cnj.jus.br}
       WIKILAW_IMPORT_WORKER_ENABLED: ${WIKILAW_IMPORT_WORKER_ENABLED:-true}
@@ -39,13 +41,25 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      embeddings:
+        condition: service_started
+
+  embeddings:
+    build:
+      context: ./embeddings
+    container_name: wikilaw-embeddings
+    environment:
+      EMBEDDING_THREADS: ${WIKILAW_EMBEDDING_THREADS:-2}
+    volumes:
+      - embedding_models:/models
+    restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
     container_name: wikilaw-frontend
     ports:
-      - "127.0.0.1:3000:80"
+      - "${WIKILAW_BIND_ADDRESS:-127.0.0.1}:3000:80"
     depends_on:
       - backend
 
@@ -110,6 +124,7 @@ services:
       - sonar:sonar
 
 volumes:
+  embedding_models:
   postgres_data:
   sonarqube_db_data:
   sonarqube_data:

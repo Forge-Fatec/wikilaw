@@ -8,6 +8,7 @@ import { PanoramaTribunal } from './components/PanoramaTribunal'
 import { CaseDocumentUpload } from './components/CaseDocumentUpload'
 import { useCaseDocument } from './components/hooks/useCaseDocument'
 import { prepareSearchContext } from './caseDocument'
+import { buscarSimilares, type SimilaridadeStatus } from './similaridade'
 import {
   useDashboard,
   NAO_INFORMADO,
@@ -16,7 +17,7 @@ import {
 } from './components/hooks/useDashboard'
 
 type DocType = 'jurisprudencia' | 'precedente' | 'doutrina'
-type Ordenacao = 'mais-recentes' | 'mais-antigos'
+type Ordenacao = 'mais-recentes' | 'mais-antigos' | 'relevancia'
 type EscopoPainel = 'pesquisa' | 'panorama'
 
 // Categoria escolhida em cada gráfico do dashboard; null = sem filtro.
@@ -104,6 +105,7 @@ interface ApiResult {
 }
 
 interface Documento {
+  trechoSimilar?: string
   id: number
   type: DocType
   badge: string
@@ -130,6 +132,13 @@ function orgaoDoGrafico(orgaoJulgador: string | null): string {
 
 function dataDoDocumento(documento: Documento): string | null {
   return documento.dataPublicacao ?? documento.dataJulgamento
+}
+
+function noRecorteBase(doc: Documento, filtros: Record<DocType, boolean>, fonte: string, tribunal: string, dataDe: string, dataAte: string) {
+  if (!filtros[doc.type] || (fonte !== TODAS_AS_FONTES && doc.fonte !== fonte)
+      || (tribunal !== TODOS_OS_TRIBUNAIS && doc.tribunal !== tribunal)) return false
+  const date = dataDoDocumento(doc)
+  return !date || ((!dataDe || date >= dataDe) && (!dataAte || date <= dataAte))
 }
 
 function formatarData(data: string | null): string {
@@ -335,6 +344,11 @@ function App() {
   const [consultaPesquisada, setConsultaPesquisada] = useState('')
   const [documentoUsado, setDocumentoUsado] = useState<string | null>(null)
   const contexto = useCaseDocument()
+  const [similaridadeStatus, setSimilaridadeStatus] = useState<SimilaridadeStatus | null>(null)
+  const [buscaSimilar, setBuscaSimilar] = useState(false)
+  const [resultadoSimilar, setResultadoSimilar] = useState(false)
+  const [notaSimilar, setNotaSimilar] = useState<string | null>(null)
+  const [pesquisou, setPesquisou] = useState(false)
   const [exportando, setExportando] = useState(false)
   const [modalExportacao, setModalExportacao] = useState(false)
   const botaoExportar = useRef<HTMLButtonElement>(null)
@@ -431,7 +445,7 @@ function App() {
   // O dashboard é calculado no back com o mesmo recorte da lista. Só
   // jurisprudência entra na conta, então sem ela não há o que consultar.
   const dashboard = useDashboard(
-    filtros.jurisprudencia
+    filtros.jurisprudencia && similaridadeStatus !== null && (!similaridadeStatus.habilitada || resultadoSimilar)
       ? {
           termo: consultaPesquisada,
           fonte: fonte === TODAS_AS_FONTES ? null : fonte,
@@ -439,6 +453,9 @@ function App() {
           dataDe,
           dataAte,
           ...selecao,
+          ...(resultadoSimilar ? { idsDecisoes: documentos
+            .filter(doc => doc.type === 'jurisprudencia' && noRecorteBase(doc, filtros, fonte, tribunal, dataDe, dataAte))
+            .map(doc => doc.id) } : {}),
         }
       : null,
   )
@@ -458,6 +475,7 @@ function App() {
     cargaRef.current = carga
 
     setErroValidacao(null)
+    setPesquisou(true)
     setErroExportacao(null)
     setExportacaoConcluida(false)
     setCarregando(true)
@@ -465,6 +483,19 @@ function App() {
     setPaginaAtual(1)
     setDocumentoSelecionado(null)
     try {
+      if (buscaSimilar) {
+        const response = await buscarSimilares<ApiSummary>(query.trim(), contexto.documento?.texto, carga.signal)
+        if (carga.signal.aborted) return
+        const tipos: Record<string, DocType> = { decisoes: 'jurisprudencia', precedentes: 'precedente', doutrina: 'doutrina' }
+        setDocumentos(response.itens.map(item => ({ ...toDocumento(tipos[item.documento.categoria], item.documento), trechoSimilar: item.trecho })))
+        setTermoPesquisado(query.trim())
+        setConsultaPesquisada('')
+        setDocumentoUsado(contexto.documento?.nome ?? null)
+        setResultadoSimilar(true)
+        setOrdenacao('relevancia')
+        setNotaSimilar(`Até ${response.limite} documentos mais semelhantes. Os filtros se aplicam a esse conjunto.${response.pendentes > 0 ? ' O acervo continua sendo preparado; novos resultados podem aparecer nas próximas pesquisas.' : ''}`)
+        return
+      }
       const consulta = contexto.documento
         ? await prepareSearchContext(query.trim(), contexto.documento.texto, carga.signal)
         : query.trim()
@@ -472,11 +503,14 @@ function App() {
       setTermoPesquisado(query.trim())
       setConsultaPesquisada(consulta)
       setDocumentoUsado(contexto.documento?.nome ?? null)
+      setResultadoSimilar(false)
+      setNotaSimilar(null)
+      setOrdenacao(current => current === 'relevancia' ? 'mais-recentes' : current)
       const resultados = await carregarDocumentos(consulta, carga.signal)
       if (!carga.signal.aborted) setDocumentos(resultados)
     } catch (error) {
       if (!carga.signal.aborted) {
-        setErro(contexto.documento && error instanceof Error
+        setErro((contexto.documento || buscaSimilar) && error instanceof Error
           ? error instanceof TypeError ? 'Não foi possível preparar a pesquisa com o documento. Verifique a conexão e tente novamente.' : error.message
           : ERRO_CARREGAMENTO)
         setDocumentos([])
@@ -484,16 +518,31 @@ function App() {
     } finally {
       if (!carga.signal.aborted) setCarregando(false)
     }
-  }, [query, contexto.documento, contexto.processando])
+  }, [query, contexto.documento, contexto.processando, buscaSimilar])
 
   // Carrega os resultados iniciais (sem termo) assim que a página abre.
   useEffect(() => {
     const carga = new AbortController()
+    const configuracao = new AbortController()
     cargaRef.current = carga
 
-    carregarDocumentos('', carga.signal)
+    const iniciar = async () => {
+      let status: SimilaridadeStatus = { habilitada: false, indexados: 0, pendentes: 0 }
+      try {
+        const response = await fetch(`${API_BASE}/api/pesquisas/similaridade/status`, { signal: configuracao.signal })
+        if (response.ok) status = await response.json() as SimilaridadeStatus
+      } catch { /* Older servers still support the textual search. */ }
+      if (configuracao.signal.aborted) return
+      setSimilaridadeStatus(status)
+      setBuscaSimilar(status.habilitada)
+      if (carga.signal.aborted) return
+      // Similarity searches retrieve a bounded candidate set after submission;
+      // opening the site must not download the complete imported corpus.
+      return status.habilitada ? [] : carregarDocumentos('', carga.signal)
+    }
+    iniciar()
       .then((resultados) => {
-        if (!carga.signal.aborted) setDocumentos(resultados)
+        if (!carga.signal.aborted && resultados) setDocumentos(resultados)
       })
       .catch(() => {
         if (!carga.signal.aborted) {
@@ -505,7 +554,7 @@ function App() {
         if (!carga.signal.aborted) setCarregando(false)
       })
 
-    return () => carga.abort()
+    return () => { configuracao.abort(); carga.abort() }
   }, [])
 
   useEffect(() => {
@@ -539,15 +588,7 @@ function App() {
 
   const resultados = useMemo(() => {
     const filtrados = documentos.filter((doc) => {
-      if (!filtros[doc.type]) return false
-
-      if (fonte !== TODAS_AS_FONTES && doc.fonte !== fonte) {
-        return false
-      }
-
-      if (tribunal !== TODOS_OS_TRIBUNAIS && doc.tribunal !== tribunal) {
-        return false
-      }
+      if (!noRecorteBase(doc, filtros, fonte, tribunal, dataDe, dataAte)) return false
 
       // Resultado e órgão julgador só existem em decisões: com uma barra
       // selecionada, precedentes e doutrina saem da lista.
@@ -562,16 +603,10 @@ function App() {
         }
       }
 
-      const dataReferencia = dataDoDocumento(doc)
-      if ((dataDe || dataAte) && dataReferencia) {
-        const docDate = new Date(dataReferencia)
-        if (dataDe && docDate < new Date(dataDe)) return false
-        if (dataAte && docDate > new Date(dataAte)) return false
-      }
-
       return true
     })
 
+    if (ordenacao === 'relevancia') return filtrados
     return filtrados.sort((a, b) => {
       const dataAValor = dataDoDocumento(a)
       const dataBValor = dataDoDocumento(b)
@@ -605,6 +640,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           termo: termoPesquisado,
+          modoPesquisa: resultadoSimilar ? 'similaridade' : 'textual',
           ...(documentoUsado ? { documentoContexto: documentoUsado, consultaContextual: consultaPesquisada } : {}),
           categorias: (Object.keys(filtros) as DocType[])
             .filter((tipo) => filtros[tipo]).map((tipo) => CATEGORIA_POR_TIPO[tipo]),
@@ -779,7 +815,15 @@ function App() {
           {erroValidacao}
         </p>
       )}
-      <CaseDocumentUpload context={contexto} />
+      <CaseDocumentUpload context={contexto} compact={origem === 'barra'} onInspect={() => {
+        const preview = buscaDestaqueRef.current?.querySelector<HTMLDetailsElement>('.case-document-preview')
+        if (preview) preview.open = true
+        window.scrollTo({ top: 0 })
+      }} />
+      {similaridadeStatus?.habilitada && <div className="search-mode" role="group" aria-label="Tipo de pesquisa">
+        <label><input type="radio" name={`search-mode-${origem}`} checked={buscaSimilar} onChange={() => setBuscaSimilar(true)} /> Similaridade</label>
+        <label><input type="radio" name={`search-mode-${origem}`} checked={!buscaSimilar} onChange={() => setBuscaSimilar(false)} /> Palavras-chave</label>
+      </div>}
     </form>
   )
 
@@ -820,7 +864,7 @@ function App() {
         </div>
       </section>
 
-      <div className="layout">
+      <div className="layout" data-similarity-enabled={similaridadeStatus?.habilitada ? 'true' : undefined}>
         <div className="barra-fixa" ref={faixaRef}>
           <section className="toolbar" aria-label="Busca e filtros">
             <div className="toolbar-row">
@@ -1050,9 +1094,11 @@ function App() {
                 </span>
               </div>
               <div className="results-actions" role="group" aria-label="Ações dos resultados">
-                <div className="sort-control" role="group" aria-label="Ordenar resultados por data de publicação">
-                  <span className="sort-label">ORDENAR POR DATA</span>
+                <div className="sort-control" role="group" aria-label={resultadoSimilar ? 'Ordenar resultados' : 'Ordenar resultados por data de publicação'}>
+                  <span className="sort-label">{resultadoSimilar ? 'ORDENAR RESULTADOS' : 'ORDENAR POR DATA'}</span>
                   <div className="sort-options">
+                    {resultadoSimilar && <button type="button" aria-pressed={ordenacao === 'relevancia'}
+                      onClick={() => { setOrdenacao('relevancia'); voltarParaPrimeiraPagina() }}>Mais semelhantes</button>}
                     <button
                       type="button"
                       aria-pressed={ordenacao === 'mais-recentes'}
@@ -1092,11 +1138,14 @@ function App() {
             {exportacaoConcluida && <p className="export-message" role="status">PDF gerado. O download foi iniciado.</p>}
 
             {erro && <div className="empty">{erro}</div>}
+            {notaSimilar && !erro && !carregando && <p className="similarity-notice" role="status">{notaSimilar}</p>}
 
             {documentoUsado && !carregando && !erro && <p className="case-document-applied">Contexto utilizado: <strong>{documentoUsado}</strong></p>}
             {!erro && !carregando && resultados.length === 0 && (
               <div className="empty">
-                Nenhum documento encontrado com os filtros selecionados.
+                {similaridadeStatus?.habilitada && !pesquisou
+                  ? 'Descreva seu caso ou anexe um documento para encontrar conteúdos semelhantes.'
+                  : 'Nenhum documento encontrado com os filtros selecionados.'}
               </div>
             )}
 
@@ -1118,7 +1167,8 @@ function App() {
                       </span>
                       <span className="proc-num">{doc.fonte}</span>
                     </div>
-                    <h3>{doc.title}</h3>
+                  <h3>{doc.title}</h3>
+                  {doc.trechoSimilar && <details className="similarity-excerpt"><summary>Ver trecho relacionado</summary><p>{doc.trechoSimilar}</p></details>}
                     {doc.type === 'jurisprudencia' && (
                       <div className="decision-highlight">
                         <span className="decision-label">DECISÃO</span>
