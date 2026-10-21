@@ -949,6 +949,18 @@ function App() {
                 Panorama do tribunal
               </button>
             </div>
+                        <p className="escopo-atual" aria-live="polite">
+              <span className="escopo-atual-rotulo">ESCOPO</span>
+              <strong>
+                {escopo === 'pesquisa'
+                  ? termoPesquisado
+                    ? `Pesquisa: “${termoPesquisado}”`
+                    : 'Pesquisa: todos os documentos'
+                  : tribunal !== TODOS_OS_TRIBUNAIS
+                    ? `Panorama geral do ${tribunal}`
+                    : 'Panorama geral: nenhum tribunal selecionado'}
+              </strong>
+            </p>
             {escopo === 'pesquisa' ? (
               <>
                 {!erro && !carregando && indicadores && (
