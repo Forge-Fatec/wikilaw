@@ -30,4 +30,9 @@ class ProcessoRepositoryTest {
         assertThatThrownBy(() -> repository.saveAndFlush(duplicate))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
+
+    @Test
+    void returnsEmptyWhenNumeroCnjDoesNotExist() {
+        assertThat(repository.findByNumeroCnj("00000000000000000000")).isEmpty();
+    }
 }

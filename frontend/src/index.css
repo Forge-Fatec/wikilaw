@@ -415,9 +415,29 @@ nav a.active {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding-top: 20px;
-  border-top: 1px solid var(--line);
 }
+.escopo-painel {
+  display: flex;
+}
+.escopo-painel button {
+  flex: 1;
+}
+
+.escopo-atual {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink);
+}
+.escopo-atual-rotulo {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
 .panorama-tribunal-cabecalho h2 {
   font-family: var(--serif);
   font-weight: 400;
@@ -451,6 +471,12 @@ nav a.active {
   }
     .panorama .indicadores,
   .panorama-tribunal {
+    grid-column: 1 / -1;
+  }
+    .escopo-painel {
+    grid-column: 1 / -1;
+  }
+    .escopo-atual {
     grid-column: 1 / -1;
   }
 }
