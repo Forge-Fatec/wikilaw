@@ -115,23 +115,21 @@ The project's source code is publicly available, allowing developers, students, 
 | 6 | As a user, I want to receive an AI-assisted analysis of the case presented so that I can better understand the legal information related to my situation. | High | 13 |
 | 7 | As a user, I want AI to consider the results obtained by the search when analyzing my case so that the analysis is connected to the information found by the system. | High | 8 |
 | 8 | As a user, I want to understand which information and sources were used as the basis for the AI-generated analysis so that I can evaluate its conclusions. | High | 5 |
-| 9 | As a user, I want the implemented import routine to retrieve data from integrated legal sources and store it in our database so that searches and analyses can use locally available information. | High | — |
-| 10 | As a user, I want to view the source of each result so that I know where the information presented by the system was obtained. | Medium | 5 |
-| 11 | As a user, I want to access the original source of a result so that I can directly verify the content presented by the system. | Medium | 3 |
-| 12 | As a user, I want to identify the court or authority responsible for the content found so that I can understand its origin. | Medium | 3 |
-| 13 | As a user, I want to compare data related to my case with the court's overall landscape so that I can understand how my search results are positioned in relation to the broader set of decisions. | Medium | 3 |
-| 14 | As a user, I want AI to interpret the context of my case so that it can find legally similar content even when it does not use exactly the same terms as my search. | Medium | 8 |
-| 15 | As a user, I want to view results ordered by similarity, along with a percentage and an explanation of their similarity, so that I can understand which content is most closely related to my case. | Medium | 5 |
-| 16 | As a user, I want to interact with the generated analysis so that I can obtain clarification and explore specific aspects of my case. | Medium | 5 |
-| 17 | As a user, I want to keep track of relevant information related to my case so that I can identify possible changes or new elements that may impact its analysis. | Medium | 5 |
-| 18 | As a user, I want clearer navigation, consistent visual elements, and a responsive interface so that I can use the platform comfortably on different screen sizes. | Medium | — |
-| 19 | As a user, I want to view results from the most recent to the oldest so that I can prioritize more current legal content. | Low | 3 |
-| 20 | As a user, I want to view the case number related to the result, when available, so that I can identify it. | Low | 2 |
-| 21 | As a user, I want to view a summary of the result so that I can understand its content before accessing the full source. | Low | 3 |
-| 22 | As a user, I want to filter results by period, court, case law, precedent, or legal doctrine so that I can consult content published or decided within a specific time period. | Low | 3 |
-| 23 | As a user, I want to upload documents related to my case in PDF or DOCX format so that I can provide additional information that can be used to search for similar content. | Low | 5 |
-| 24 | As a user, I want to view the main facts and legal arguments identified by AI in the uploaded documents so that I can verify the information that will be used in the similarity search. | Low | 3 |
-| 25 | As a user, I want to export my search results and information as a PDF so that I can consult or share them later. | Low | 3 |
+| 9 | As a user, I want to view the source of each result so that I know where the information presented by the system was obtained. | Medium | 5 |
+| 10 | As a user, I want to access the original source of a result so that I can directly verify the content presented by the system. | Medium | 3 |
+| 11 | As a user, I want to identify the court or authority responsible for the content found so that I can understand its origin. | Medium | 3 |
+| 12 | As a user, I want to compare data related to my case with the court's overall landscape so that I can understand how my search results are positioned in relation to the broader set of decisions. | Medium | 3 |
+| 13 | As a user, I want AI to interpret the context of my case so that it can find legally similar content even when it does not use exactly the same terms as my search. | Medium | 8 |
+| 14 | As a user, I want to view results ordered by similarity, along with a percentage and an explanation of their similarity, so that I can understand which content is most closely related to my case. | Medium | 5 |
+| 15 | As a user, I want to interact with the generated analysis so that I can obtain clarification and explore specific aspects of my case. | Medium | 5 |
+| 16 | As a user, I want to keep track of relevant information related to my case so that I can identify possible changes or new elements that may impact its analysis. | Medium | 5 |
+| 17 | As a user, I want to view results from the most recent to the oldest so that I can prioritize more current legal content. | Low | 3 |
+| 18 | As a user, I want to view the case number related to the result, when available, so that I can identify it. | Low | 2 |
+| 19 | As a user, I want to view a summary of the result so that I can understand its content before accessing the full source. | Low | 3 |
+| 20 | As a user, I want to filter results by period, court, case law, precedent, or legal doctrine so that I can consult content published or decided within a specific time period. | Low | 3 |
+| 21 | As a user, I want to upload documents related to my case in PDF or DOCX format so that I can provide additional information that can be used to search for similar content. | Low | 5 |
+| 22 | As a user, I want to view the main facts and legal arguments identified by AI in the uploaded documents so that I can verify the information that will be used in the similarity search. | Low | 3 |
+| 23 | As a user, I want to export my search results and information as a PDF so that I can consult or share them later. | Low | 3 |
 ---
 # Sprint Backlog
 
@@ -141,9 +139,11 @@ The project's source code is publicly available, allowing developers, students, 
 |----|------------|----------|--------------|
 | 11 | As a user, I want to view a dashboard with indicators and charts related to my researched case so that I can understand the results in a consolidated way. | High | 5 |
 | 12 | As a user, I want to interact with dashboard elements to dynamically filter the displayed indicators and results. | High | 3 |
+| 20 | As a user, I want the implemented import routine to retrieve data from integrated legal sources and store it in our database so that searches and analyses can use locally available information. | High | — |
 | 13 | As a user, I want to compare my case data with the court's overall statistics so that I can understand how my research results relate to the broader set of decisions. | Medium | 3 |
 | 14 | As a user, I want AI to interpret the context of my case to find legally similar content, even when different terms are used in the documents. | Medium | 8 |
 | 15 | As a user, I want to view results ranked by similarity, including a similarity percentage and an explanation, so that I can understand which content is most relevant to my case. | Medium | 5 |
+| 21 | As a user, I want clearer navigation, consistent visual elements, and a responsive interface so that I can use the platform comfortably on different screen sizes. | Medium | — |
 | 17 | As a user, I want to view the main facts and legal arguments identified by AI in the submitted documents so that I can verify the information used for similarity searches. | Low | 3 |
 | 18 | As a user, I want to export my research results and information as a PDF so that I can review or share them later. | Low | 3 |
 | 19 | As a user, I want to log into the system with a role-based access profile (Administrator or Regular User), allowing administrators to create user accounts and manage their roles and permissions. | Low | 5 |
