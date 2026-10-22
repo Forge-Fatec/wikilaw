@@ -137,7 +137,7 @@ The project's source code is publicly available, allowing developers, students, 
 
 | ID | User Story | Priority | Story Points |
 |----|------------|----------|--------------|
-| 20 | As a user, I want the implemented import routine to retrieve data from integrated legal sources and store it in our database so that searches and analyses can use locally available information. | High | — |
+| 20 | As a user, I want the implemented import routine to retrieve data from integrated legal sources and store it in our database so that searches and analyses can use locally available information. | High | 8 |
 | 11 | As a user, I want to view a dashboard with indicators and charts related to my researched case so that I can understand the results in a consolidated way. | High | 5 |
 | 12 | As a user, I want to interact with dashboard elements to dynamically filter the displayed indicators and results. | High | 3 |
 | 13 | As a user, I want to compare my case data with the court's overall statistics so that I can understand how my research results relate to the broader set of decisions. | Medium | 3 |
