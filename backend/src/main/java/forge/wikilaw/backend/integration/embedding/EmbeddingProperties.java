@@ -42,6 +42,9 @@ public class EmbeddingProperties {
     @NotNull
     private String queryPrefix = "";
 
+    /** Envia {@code input_type} ("document"/"query"), aceito pela Voyage AI e recusado pela OpenAI. */
+    private boolean sendInputType;
+
     @NotNull
     private Duration connectTimeout = Duration.ofSeconds(5);
 

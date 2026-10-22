@@ -17,13 +17,15 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Cliente da rota {@code POST /v1/embeddings}, aceita por Ollama, LM Studio e OpenAI.
+ * Cliente da rota {@code POST /v1/embeddings}, aceita por Voyage AI, Ollama, LM Studio e OpenAI.
  * Os vetores sao normalizados (norma L2 = 1) para que a similaridade de cosseno seja um produto escalar.
  */
 @Component
 public class OpenAiCompatibleEmbeddingClient implements EmbeddingProvider {
 
     private static final Logger log = LoggerFactory.getLogger(OpenAiCompatibleEmbeddingClient.class);
+    private static final String INPUT_TYPE_DOCUMENT = "document";
+    private static final String INPUT_TYPE_QUERY = "query";
 
     private final EmbeddingProperties properties;
     private final HttpClient httpClient;
@@ -56,23 +58,24 @@ public class OpenAiCompatibleEmbeddingClient implements EmbeddingProvider {
         var vectors = new ArrayList<float[]>(texts.size());
         for (int start = 0; start < texts.size(); start += properties.getBatchSize()) {
             List<String> batch = texts.subList(start, Math.min(texts.size(), start + properties.getBatchSize()));
-            vectors.addAll(embed(batch.stream().map(text -> properties.getDocumentPrefix() + text).toList()));
+            vectors.addAll(embed(batch.stream().map(text -> properties.getDocumentPrefix() + text).toList(),
+                    INPUT_TYPE_DOCUMENT));
         }
         return List.copyOf(vectors);
     }
 
     @Override
     public float[] embedQuery(String text) {
-        return embed(List.of(properties.getQueryPrefix() + text)).getFirst();
+        return embed(List.of(properties.getQueryPrefix() + text), INPUT_TYPE_QUERY).getFirst();
     }
 
-    private List<float[]> embed(List<String> inputs) {
+    private List<float[]> embed(List<String> inputs, String inputType) {
         ensureConfigured();
         for (String input : inputs) {
             if (input == null || input.isBlank())
                 throw new EmbeddingProviderException("Texto vazio nao pode gerar embedding", 0);
         }
-        String body = requestBody(inputs);
+        String body = requestBody(inputs, inputType);
         URI endpoint = URI.create(stripTrailingSlash(properties.getBaseUrl()) + "/v1/embeddings");
         HttpRequest.Builder request = HttpRequest.newBuilder(endpoint)
                 .timeout(properties.getReadTimeout())
@@ -108,11 +111,12 @@ public class OpenAiCompatibleEmbeddingClient implements EmbeddingProvider {
         throw new EmbeddingProviderException("Chamada ao provedor de embeddings falhou", 0);
     }
 
-    private String requestBody(List<String> inputs) {
+    private String requestBody(List<String> inputs, String inputType) {
         var root = json.createObjectNode();
         root.put("model", properties.getModel());
         var input = root.putArray("input");
         inputs.forEach(input::add);
+        if (properties.isSendInputType()) root.put("input_type", inputType);
         return json.writeValueAsString(root);
     }
 

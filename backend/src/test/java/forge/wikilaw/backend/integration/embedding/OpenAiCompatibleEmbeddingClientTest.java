@@ -54,6 +54,7 @@ class OpenAiCompatibleEmbeddingClientTest {
         assertThat(requests).hasSize(1);
         assertThat(requests.getFirst().path("model").asString()).isEqualTo("modelo-teste");
         assertThat(requests.getFirst().path("input").get(0).asString()).isEqualTo("passage: dano moral");
+        assertThat(requests.getFirst().has("input_type")).isFalse();
         assertThat(authorization.get()).isEqualTo("Bearer chave-teste");
         assertThat(vectors.get(0)).containsExactly(new float[] {0.6f, 0.8f}, within(1e-6f));
         assertThat(vectors.get(1)).containsExactly(new float[] {0.0f, 1.0f}, within(1e-6f));
@@ -87,6 +88,23 @@ class OpenAiCompatibleEmbeddingClientTest {
 
         assertThat(client.embedQuery("colisao de veiculo")).containsExactly(1.0f, 0.0f);
         assertThat(lastInput.get()).isEqualTo("query: colisao de veiculo");
+    }
+
+    @Test
+    void sendsVoyageInputTypeForDocumentsAndQueriesWhenEnabled() throws Exception {
+        List<String> inputTypes = new CopyOnWriteArrayList<>();
+        start(exchange -> {
+            inputTypes.add(json.readTree(exchange.getRequestBody().readAllBytes()).path("input_type").asString());
+            respond(exchange, 200, "{\"data\":[{\"index\":0,\"embedding\":[1.0,0.0]}]}");
+        });
+        EmbeddingProperties properties = properties();
+        properties.setSendInputType(true);
+        var client = client(properties);
+
+        client.embedDocuments(List.of("trecho do acervo"));
+        client.embedQuery("descricao do caso");
+
+        assertThat(inputTypes).containsExactly("document", "query");
     }
 
     @Test
