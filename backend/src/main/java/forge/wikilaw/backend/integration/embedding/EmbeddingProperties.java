@@ -1,5 +1,6 @@
 package forge.wikilaw.backend.integration.embedding;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -57,4 +58,31 @@ public class EmbeddingProperties {
 
     @NotNull
     private Duration retryDelay = Duration.ofSeconds(1);
+
+    @Valid
+    @NotNull
+    private Worker worker = new Worker();
+
+    /** Rotina em segundo plano que gera os vetores dos documentos preparados. */
+    @Getter
+    @Setter
+    public static class Worker {
+
+        @Min(1)
+        @Max(100)
+        private int documentsPerBatch = 10;
+
+        /** Falhas por documento antes de desistir; limite de requisicoes (HTTP 429) nao conta. */
+        @Min(1)
+        @Max(50)
+        private int maxAttempts = 5;
+
+        /** Espera minima antes de tentar de novo um documento com erro. */
+        @NotNull
+        private Duration retryBackoff = Duration.ofMinutes(5);
+
+        /** Documento em PROCESSANDO ha mais tempo que isso e considerado abandonado e volta para a fila. */
+        @NotNull
+        private Duration processingTimeout = Duration.ofMinutes(15);
+    }
 }

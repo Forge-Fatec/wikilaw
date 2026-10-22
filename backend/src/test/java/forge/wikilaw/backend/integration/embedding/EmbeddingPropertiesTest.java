@@ -44,6 +44,25 @@ class EmbeddingPropertiesTest {
         assertThat(properties.getRetryDelay()).isEqualTo(Duration.ofMillis(250));
     }
 
+    @Test
+    void bindsWorkerSettingsWithConservativeDefaults() {
+        EmbeddingProperties defaults = bind(Map.of());
+        assertThat(defaults.getWorker().getDocumentsPerBatch()).isEqualTo(10);
+        assertThat(defaults.getWorker().getMaxAttempts()).isEqualTo(5);
+        assertThat(defaults.getWorker().getRetryBackoff()).isEqualTo(Duration.ofMinutes(5));
+        assertThat(defaults.getWorker().getProcessingTimeout()).isEqualTo(Duration.ofMinutes(15));
+
+        EmbeddingProperties configured = bind(Map.of(
+                "wikilaw.semantic.embedding.worker.documents-per-batch", "25",
+                "wikilaw.semantic.embedding.worker.max-attempts", "3",
+                "wikilaw.semantic.embedding.worker.retry-backoff", "30s",
+                "wikilaw.semantic.embedding.worker.processing-timeout", "2m"));
+        assertThat(configured.getWorker().getDocumentsPerBatch()).isEqualTo(25);
+        assertThat(configured.getWorker().getMaxAttempts()).isEqualTo(3);
+        assertThat(configured.getWorker().getRetryBackoff()).isEqualTo(Duration.ofSeconds(30));
+        assertThat(configured.getWorker().getProcessingTimeout()).isEqualTo(Duration.ofMinutes(2));
+    }
+
     private EmbeddingProperties bind(Map<String, String> values) {
         return new Binder(new MapConfigurationPropertySource(values))
                 .bindOrCreate("wikilaw.semantic.embedding", EmbeddingProperties.class);
