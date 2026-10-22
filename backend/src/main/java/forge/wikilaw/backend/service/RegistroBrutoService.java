@@ -22,6 +22,13 @@ public class RegistroBrutoService {
         this.repository = repository;
     }
 
+    @Transactional(readOnly = true)
+    public forge.wikilaw.backend.integration.documents.AuditedFetch.Payload lerPayload(Long id) {
+        var registro = repository.findById(id)
+                .orElseThrow(() -> new IllegalStateException("Snapshot não encontrado: " + id));
+        return new forge.wikilaw.backend.integration.documents.AuditedFetch.Payload(registro.getPayloadTexto(), id);
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public RegistroBruto salvarTextoOriginal(CargaDados carga, String identificador, String payload) {
         return salvarTextoOriginal(carga, identificador, payload, "JSON");

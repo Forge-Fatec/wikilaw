@@ -11,7 +11,11 @@ import org.springframework.validation.annotation.Validated;
 @ConfigurationProperties(prefix = "wikilaw.bootstrap.jurisprudencia")
 public class JurisprudenciaBootstrapProperties {
 
-    private boolean enabled;
+    private boolean enabled = true;
+    private boolean completo = true;
+
+    public boolean isCompleto() { return completo; }
+    public void setCompleto(boolean completo) { this.completo = completo; }
 
     @NotBlank
     @Size(max = 300)

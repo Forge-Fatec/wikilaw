@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -92,6 +93,41 @@ public class JurisprudenciaQueryService {
         return decisoes.findAll(
                 filtro(termo, idFonte, idTribunal, dataDe, dataAte),
                 PageRequest.of(pagina, tamanho, ordenacao));
+    }
+
+    /**
+     * Mesmo recorte da listagem, para quem precisa agregar em vez de paginar.
+     * Fonte ou tribunal fora do cadastro resultam em recorte vazio, não em erro:
+     * a tela monta essas opções a partir dos documentos de todas as categorias,
+     * então pode citar uma fonte ou tribunal que não tem decisões.
+     */
+    Optional<Specification<DecisaoJudicial>> recorte(
+            String termo,
+            String fonte,
+            String tribunal,
+            LocalDate dataDe,
+            LocalDate dataAte) {
+        validarPeriodo(dataDe, dataAte);
+
+        Long idFonte = null;
+        if (fonte != null && !fonte.isBlank()) {
+            var encontrada = fontes.findBySigla(fonte.trim().toUpperCase(Locale.ROOT));
+            if (encontrada.isEmpty()) {
+                return Optional.empty();
+            }
+            idFonte = encontrada.get().getId();
+        }
+
+        Long idTribunal = null;
+        if (tribunal != null && !tribunal.isBlank()) {
+            var encontrado = tribunais.findBySigla(tribunal.trim().toUpperCase(Locale.ROOT));
+            if (encontrado.isEmpty()) {
+                return Optional.empty();
+            }
+            idTribunal = encontrado.get().getId();
+        }
+
+        return Optional.of(filtro(termo, idFonte, idTribunal, dataDe, dataAte));
     }
 
     private Specification<DecisaoJudicial> filtro(

@@ -12,8 +12,9 @@ public class ScieloAdapter implements DocumentAdapter {
     public ScieloAdapter(ObjectMapper json) { this.json = json; }
     public DocumentSource source() { return DocumentSource.SCIELO; }
     public SourcePage collect(DocumentImportRequest r, AuditedFetch fetch) {
-        String url = "https://articlemeta.scielo.org/api/v1/articles/?collection=scl&issn=" + enc(r.journal())
-            + "&limit=" + r.size() + "&offset=" + r.start() + "&body=false";
+        String url = "https://articlemeta.scielo.org/api/v1/articles/?limit=" + r.size()
+            + "&offset=" + r.start() + "&body=false";
+        if (!r.fullCollection()) url += "&collection=scl&issn=" + enc(r.journal());
         if (r.desde() != null) url += "&from=" + enc(r.desde());
         if (r.ate() != null) url += "&until=" + enc(r.ate());
         var response = fetch.get(url, "JSON");

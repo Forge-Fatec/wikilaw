@@ -1,5 +1,7 @@
 # Integrações de jurisprudência, precedentes e doutrina
 
+> SCRUM-244: os POSTs de importação agora retornam HTTP 202 com `idTarefa`. Consulte [o fluxo assíncrono](IMPORTACAO_ASSINCRONA.md) antes de executar os exemplos.
+
 ## O que está implementado
 
 | Fonte | Coleta | Dados operacionais |
@@ -72,20 +74,16 @@ As novas fontes públicas não exigiram chave nas consultas realizadas. DataJud 
 
 As portas do Compose são publicadas apenas em `127.0.0.1`. Os endpoints de importação são administrativos de desenvolvimento, ainda sem autenticação/autorização de produção. Não exponha o backend por proxy/túnel público sem controles de acesso e rate limiting.
 
-No ambiente Docker, uma carga do TJDFT é executada sempre que o backend sobe. Por
-padrão são solicitadas 3 páginas de 20 resultados para o termo `dano moral`. As
-decisões são atualizadas pela chave externa, sem duplicá-las. A carga não impede o
-backend de permanecer disponível em caso de falha externa. Ela pode ser ajustada ou
-desativada pelas variáveis:
+Ao iniciar o backend, por padrão, são enfileiradas cargas completas das fontes documentais
+integradas, sem o filtro de `dano moral`, até esgotar as continuações. DataJud também entra
+na carga automática para TJSP/TJRJ/TJMG quando sua chave está configurada.
+Reiniciar preserva o checkpoint e não repete uma carga inicial já concluída.
+Consulte [o guia da carga completa](IMPORTACAO_ASSINCRONA.md) para cobertura e limitações.
 
-- `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_ENABLED`;
-- `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_TERMO`;
-- `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_PAGINAS`;
-- `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_TAMANHO_PAGINA`;
-- `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_SOMENTE_SE_VAZIO`.
-
-Defina `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_SOMENTE_SE_VAZIO=true` para executar a
-carga somente enquanto não houver decisões ativas do TJDFT.
+- `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_ENABLED=false`: desativa a preparação automática.
+- `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_COMPLETO=false`: restaura a amostra limitada.
+- `TERMO`, `PAGINAS` e `SOMENTE_SE_VAZIO` só controlam a amostra.
+- `TAMANHO_PAGINA` controla o tamanho das páginas em ambos os modos.
 
 ## Importar uma página
 
@@ -97,7 +95,11 @@ POST /api/integrations/documentos/{fonte}/import
 
 Fontes: `TJDFT`, `STJ`, `STJ_PRECEDENTES`, `BDJUR`, `BDTD`, `SCIELO`, `PANGEA` (maiúsculas).
 
-Cada chamada importa **uma página limitada**: padrão 10 itens, máximo 100. O resumo retorna `idCarga`, `status`, `recebidos`, `processados`, `erros`, `mensagemErro`, `ids`, `avisos` e `proxima`. HTTP 200 significa que a execução foi registrada; verifique o `status` da carga para saber se a fonte foi importada. Parâmetros inválidos/não suportados retornam HTTP 400.
+Cada chamada enfileira uma tarefa e retorna **HTTP 202** com `idTarefa`. O padrão é
+uma página de 10 itens, com máximo de 100 itens por página. Use `?maximoPaginas=N`
+para várias páginas e consulte `/api/integrations/tarefas/{idTarefa}` para status,
+totais e `ultimaCarga`. A continuação fica no backend. Parâmetros inválidos ou
+não suportados retornam HTTP 400.
 
 Os contadores referem-se aos registros selecionados nesta página. Um recurso bruto do STJ ou uma página OAI pode conter mais registros que o limite de normalização.
 
@@ -127,14 +129,14 @@ Troque o tribunal por `TJRJ` ou `TJMG` e use um número correspondente ou remova
 
 ### Paginação e filtros
 
-- **TJDFT/BDJur:** repetir o termo/tamanho e usar `proxima.pagina` (inicia em zero).
-- **STJ:** usar `proxima.offset` e `proxima.recursoId`, mantendo o dataset e tamanho. Sem recurso explícito, seleciona o JSON de nome mais recente; não baixa todo o histórico ZIP. Para outro período/órgão, consultar o [catálogo de acórdãos](https://dadosabertos.web.stj.jus.br/dataset/?q=espelhos-de-acordaos) e informar dataset/recurso.
-- **STJ_PRECEDENTES:** repetir com `proxima.offset` e `proxima.recursoId`; o coletor combina os CSVs completos antes de selecionar os temas. Os arquivos podem mudar entre chamadas: reimporte para atualizar, não trate offset como snapshot imutável.
-- **SciELO:** usar `proxima.offset`; padrão ISSN `1808-2432` (Revista Direito GV). Aceita outro ISSN e `desde`/`ate` no formato YYYY-MM-DD. Esses filtros seguem a semântica do ArticleMeta. Não aceita `termo` de busca livre.
-- **BDTD:** filtro local literal por `termo` (padrão “direito”) nos metadados. Não equivale a classificador jurídico nem a busca textual remota. Pode haver página com zero itens e continuação. Usar `proxima.offset`/`proxima.resumptionToken`. Dentro da mesma página OAI, o offset evita perder itens quando o limite local é menor. Ao receber um novo token, não repetir `desde`, `ate` ou `conjunto`; o protocolo não permite combinar esses seletores com o token. O token pode expirar.
-- `proxima=null` significa fim do recurso/resultado consultado, não fim de todo o acervo da fonte.
+O worker aplica a continuação de cada fonte automaticamente. Informe `?maximoPaginas=N`
+no POST documental para processar várias páginas; ao atingir o orçamento, retome a tarefa.
+TJDFT/BDJur/Pangea usam página; STJ/SciELO usam offset; BDTD usa offset e token OAI.
+O worker remove os filtros iniciais do OAI ao receber um token.
+STJ/STJ_PRECEDENTES reutilizam um snapshot por tarefa. SciELO mantém ISSN e janela de datas.
+O fim da continuação significa fim do recurso/resultado selecionado, não de todo o acervo.
 
-Não alterar o termo/tamanho/ISSN/dataset no meio da paginação. As coletas são manuais, sem agendamento e sem garantia de atualização em tempo real.
+Não alterar o termo/tamanho/ISSN/dataset no meio da paginação. A carga inicial é automática; atualizações posteriores podem ser disparadas manualmente, sem garantia de atualização em tempo real.
 
 ## Ler os dados
 

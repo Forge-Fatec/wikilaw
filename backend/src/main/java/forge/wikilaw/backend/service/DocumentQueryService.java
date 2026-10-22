@@ -79,6 +79,8 @@ public class DocumentQueryService {
                 :doutrina!=null?doutrina.getResumo():precedente.getQuestaoJuridica(),
             // Para o precedente, o equivalente ao dispositivo da decisão é a tese firmada.
             decisao!=null?decisao.getDecisao():precedente!=null?textoOuNulo(precedente.getTese()):null,
+            // Mesma classificação do dashboard, para a tela filtrar pela barra clicada.
+            decisao!=null?ResultadoDecisao.classificar(decisao.getDecisao()).rotulo():null,
             tribunalOf(d, tribunalNames),
             orgaoJulgadorOf(d),
             precedente!=null?textoOuNulo(precedente.getSituacao()):null,
@@ -221,10 +223,26 @@ public class DocumentQueryService {
      */
     public record Summary(Long id,String fonte,String categoria,String identificadorExterno,
         String titulo,String tipoDocumento,String numeroProcessoOuTema,
-        String autoresOuRelator,String resumoOuEmenta,String decisao,
+        String autoresOuRelator,String resumoOuEmenta,String decisao,String resultado,
         String tribunal,String orgaoJulgador,
         String situacao,Boolean possuiInteiroTeor,
         String periodico,String doi,String issn,String idioma,String palavrasChave,
         java.time.LocalDate dataJulgamento,java.time.LocalDate dataPublicacao,String dataOriginal,String urlOriginal,Long idRegistroBruto) {}
     public record Result(List<Summary> itens,int pagina,int tamanho,long total,int totalPaginas) {}
+
+    /** Fetch canonical export data in batches, without re-running a changing search. */
+    public List<Summary> summariesByIds(String category,List<Long> ids) {
+        Map<Long,String> sourceNames=new HashMap<>();
+        sources.findAll().forEach(f -> sourceNames.put(f.getId(),f.getSigla()));
+        Map<Long,String> tribunalNames=new HashMap<>();
+        tribunals.findAll().forEach(t -> tribunalNames.put(t.getId(),t.getSigla()));
+        List<? extends DocumentoBase> documents=switch(category) {
+            case "decisoes" -> decisions.findAllById(ids);
+            case "precedentes" -> precedents.findAllById(ids);
+            case "doutrina" -> doctrine.findAllById(ids);
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Categoria inválida");
+        };
+        return documents.stream().filter(DocumentoBase::isAtivo)
+                .map(d -> toSummary(d,category,sourceNames,tribunalNames)).toList();
+    }
 }

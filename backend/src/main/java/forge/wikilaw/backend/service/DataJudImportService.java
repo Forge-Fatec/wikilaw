@@ -18,6 +18,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class DataJudImportService {
@@ -50,19 +52,29 @@ public class DataJudImportService {
     }
 
     public CargaResumoResponse importar(DataJudImportRequest request) {
+        return importarComCursor(request, List.of(), request.maximoPaginasEfetivo()).resumo();
+    }
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public PageResult importarPagina(DataJudImportRequest request, List<JsonNode> cursor) {
+        return importarComCursor(request, cursor, 1);
+    }
+
+    private PageResult importarComCursor(DataJudImportRequest request, List<JsonNode> cursor, int maximoPaginas) {
         CargaDados carga = cargaService.iniciar("DATAJUD");
         int recebidos = 0;
         int processados = 0;
         int erros = 0;
         boolean falhaFatal = false;
         List<String> mensagensErro = new ArrayList<>();
-        List<JsonNode> searchAfter = List.of();
+        List<JsonNode> searchAfter = cursor;
+        List<JsonNode> proxima = List.of();
 
         log.info("Iniciando carga DataJud id={} tribunal={} tamanhoPagina={} maximoPaginas={}",
                 carga.getId(), request.tribunal(), request.tamanhoPaginaEfetivo(), request.maximoPaginasEfetivo());
 
         try {
-            for (int pagina = 1; pagina <= request.maximoPaginasEfetivo(); pagina++) {
+            for (int pagina = 1; pagina <= maximoPaginas; pagina++) {
                 String query = queryFactory.create(request, searchAfter);
                 log.info("Consultando página DataJud carga={} tribunal={} página={}",
                         carga.getId(), request.tribunal(), pagina);
@@ -91,22 +103,24 @@ public class DataJudImportService {
                         erros++;
                         String externalId = hit == null ? null : hit.id();
                         String message = "Registro %s: %s".formatted(externalId, safeMessage(exception));
-                        mensagensErro.add(message);
+                        if (mensagensErro.size() < 10) mensagensErro.add(message);
                         log.warn("Falha ao normalizar registro DataJud carga={} tribunal={} registro={}: {}",
                                 carga.getId(), request.tribunal(), externalId, exception.getMessage());
                     }
                 }
 
                 if (hits.size() < request.tamanhoPaginaEfetivo()) {
+                    proxima = List.of();
                     break;
                 }
                 List<JsonNode> nextCursor = hits.get(hits.size() - 1).sort();
                 if (nextCursor == null || nextCursor.isEmpty() || nextCursor.equals(searchAfter)) {
                     log.warn("Paginação DataJud encerrada sem novo cursor carga={} tribunal={} página={}",
                             carga.getId(), request.tribunal(), pagina);
-                    break;
+                    throw new IllegalStateException("Página completa sem cursor novo; carga pode ser retomada");
                 }
                 searchAfter = List.copyOf(nextCursor);
+                proxima = searchAfter;
             }
         } catch (RuntimeException exception) {
             falhaFatal = true;
@@ -122,7 +136,7 @@ public class DataJudImportService {
         log.info("Carga DataJud finalizada id={} tribunal={} status={} recebidos={} processados={} erros={}",
                 carga.getId(), request.tribunal(), finalizada.getStatus(), recebidos, processados, erros);
 
-        return new CargaResumoResponse(
+        return new PageResult(new CargaResumoResponse(
                 carga.getId(),
                 "DATAJUD",
                 request.tribunal().name(),
@@ -130,8 +144,10 @@ public class DataJudImportService {
                 recebidos,
                 processados,
                 erros,
-                finalizada.getMensagemErro());
+                finalizada.getMensagemErro()), proxima);
     }
+
+    public record PageResult(CargaResumoResponse resumo, List<JsonNode> proxima) {}
 
     private String safeMessage(RuntimeException exception) {
         String message = exception.getMessage();

@@ -3,11 +3,13 @@ package forge.wikilaw.backend;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import forge.wikilaw.backend.config.JurisprudenciaBootstrapProperties;
 import forge.wikilaw.backend.integration.datajud.DataJudProperties;
 
 @SpringBootApplication
+@EnableScheduling
 @EnableConfigurationProperties({DataJudProperties.class, JurisprudenciaBootstrapProperties.class})
 public class BackendApplication {
 

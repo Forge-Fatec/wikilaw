@@ -1,10 +1,8 @@
 package forge.wikilaw.backend.service;
 
 import forge.wikilaw.backend.config.JurisprudenciaBootstrapProperties;
-import forge.wikilaw.backend.entity.CargaStatus;
 import forge.wikilaw.backend.integration.documents.DocumentImportRequest;
 import forge.wikilaw.backend.integration.documents.DocumentSource;
-import forge.wikilaw.backend.integration.documents.SourcePage;
 import forge.wikilaw.backend.repository.DecisaoJudicialRepository;
 import forge.wikilaw.backend.repository.DocumentoDoutrinarioRepository;
 import forge.wikilaw.backend.repository.FonteDadosRepository;
@@ -14,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Scheduled;
 
 @Service
 public class JurisprudenciaBootstrapService {
@@ -30,7 +29,7 @@ public class JurisprudenciaBootstrapService {
     };
 
     private final JurisprudenciaBootstrapProperties properties;
-    private final DocumentImportService importService;
+    private final ImportJobService importService;
     private final FonteDadosRepository fontes;
     private final DecisaoJudicialRepository decisoes;
     private final PrecedenteRepository precedentes;
@@ -38,7 +37,7 @@ public class JurisprudenciaBootstrapService {
 
     public JurisprudenciaBootstrapService(
             JurisprudenciaBootstrapProperties properties,
-            DocumentImportService importService,
+            ImportJobService importService,
             FonteDadosRepository fontes,
             DecisaoJudicialRepository decisoes,
             PrecedenteRepository precedentes,
@@ -65,13 +64,24 @@ public class JurisprudenciaBootstrapService {
     }
 
     void importarPaginas() {
-        log.info("Iniciando carga automatica documental: termo='{}', paginas={}, tamanho={}",
-                properties.getTermo(), properties.getPaginas(), properties.getTamanhoPagina());
-        int processados = 0;
+        log.debug("Preparando carga documental: modo={}, tamanho={}",
+                properties.isCompleto() ? "acervo completo" : "amostra", properties.getTamanhoPagina());
+        int enfileiradas = 0;
         for (DocumentSource fonte : FONTES_DOCUMENTAIS) {
-            processados += importarFonte(fonte);
+            try {
+                enfileiradas += importarFonte(fonte);
+            } catch (RuntimeException exception) {
+                log.warn("Não foi possível enfileirar fonte {}: {}", fonte, exception.getMessage());
+            }
         }
-        log.info("Carga automatica documental finalizada: {} documentos processados", processados);
+        log.debug("Carga automática documental: {} fontes preparadas", enfileiradas);
+    }
+
+    // Reconcile only the initial plans, including a bounded job that was busy
+    // during startup. Completed, failed or cancelled full jobs are not recreated.
+    @Scheduled(initialDelay = 30000, fixedDelay = 30000)
+    public void garantirCargaCompleta() {
+        if (properties.isEnabled() && properties.isCompleto()) importarPaginas();
     }
 
     int importarFonte(DocumentSource source) {
@@ -82,39 +92,18 @@ public class JurisprudenciaBootstrapService {
         }
 
         long existentes = contarAtivos(source, fonte.get().getId());
-        if (properties.isSomenteSeVazio() && existentes > 0) {
+        if (!properties.isCompleto() && properties.isSomenteSeVazio() && existentes > 0) {
             log.info("Carga automatica {} ignorada: {} documentos ativos ja cadastrados",
                     source, existentes);
             return 0;
         }
 
-        int processados = 0;
-        var request = primeiraRequisicao(source);
-        for (int etapa = 0; etapa < properties.getPaginas(); etapa++) {
-            DocumentImportService.ImportResult resultado;
-            try {
-                resultado = importService.importar(source, request);
-            } catch (RuntimeException exception) {
-                log.error("Carga automatica {} falhou; proximas fontes continuarao: {}",
-                        source, exception.getMessage(), exception);
-                break;
-            }
-
-            processados += resultado.processados();
-            log.info("Carga automatica {} etapa={} status={} recebidos={} processados={} erros={}",
-                    source,
-                    etapa,
-                    resultado.status(),
-                    resultado.recebidos(),
-                    resultado.processados(),
-                    resultado.erros());
-
-            if (resultado.status() == CargaStatus.FALHA || resultado.proxima() == null) {
-                break;
-            }
-            request = proximaRequisicao(source, request, resultado.proxima());
+        if (properties.isCompleto()) {
+            var job = importService.ensureDocumentsComplete(source, primeiraRequisicao(source).withFullCollection());
+            return job != null && job.paginas() == 0 ? 1 : 0;
         }
-        return processados;
+        importService.enqueueDocuments(source, primeiraRequisicao(source), properties.getPaginas());
+        return 1;
     }
 
     private long contarAtivos(DocumentSource source, Long fonteId) {
@@ -128,10 +117,10 @@ public class JurisprudenciaBootstrapService {
     private DocumentImportRequest primeiraRequisicao(DocumentSource source) {
         return switch (source) {
             case TJDFT, BDJUR, PANGEA -> new DocumentImportRequest(
-                    properties.getTermo(), 0, properties.getTamanhoPagina(),
+                    properties.isCompleto() ? null : properties.getTermo(), 0, properties.getTamanhoPagina(),
                     null, null, null, null, null, null, null, null);
             case BDTD -> new DocumentImportRequest(
-                    properties.getTermo(), null, properties.getTamanhoPagina(),
+                    properties.isCompleto() ? null : properties.getTermo(), null, properties.getTamanhoPagina(),
                     0, null, null, null, null, null, null, null);
             case STJ, STJ_PRECEDENTES, SCIELO -> new DocumentImportRequest(
                     null, null, properties.getTamanhoPagina(),
@@ -139,30 +128,4 @@ public class JurisprudenciaBootstrapService {
         };
     }
 
-    private DocumentImportRequest proximaRequisicao(
-            DocumentSource source,
-            DocumentImportRequest atual,
-            SourcePage.Continuacao proxima) {
-        return switch (source) {
-            case TJDFT, BDJUR, PANGEA -> new DocumentImportRequest(
-                    atual.termo(), proxima.pagina(), atual.tamanhoPagina(),
-                    null, null, null, null, null, null, null, null);
-            case STJ -> new DocumentImportRequest(
-                    null, null, atual.tamanhoPagina(),
-                    proxima.offset(), atual.dataset(), proxima.recursoId(),
-                    null, null, null, null, null);
-            case STJ_PRECEDENTES -> new DocumentImportRequest(
-                    null, null, atual.tamanhoPagina(),
-                    proxima.offset(), null, proxima.recursoId(),
-                    null, null, null, null, null);
-            case SCIELO -> new DocumentImportRequest(
-                    null, null, atual.tamanhoPagina(),
-                    proxima.offset(), null, null,
-                    atual.issn(), null, null, atual.desde(), atual.ate());
-            case BDTD -> new DocumentImportRequest(
-                    atual.termo(), null, atual.tamanhoPagina(),
-                    proxima.offset(), null, null,
-                    null, proxima.resumptionToken(), atual.conjunto(), atual.desde(), atual.ate());
-        };
-    }
 }

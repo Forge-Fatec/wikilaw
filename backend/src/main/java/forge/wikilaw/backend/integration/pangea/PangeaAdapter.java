@@ -21,13 +21,17 @@ public class PangeaAdapter implements DocumentAdapter {
         // O portal envia as opções do catálogo; não pressupor que lista vazia signifique todas.
         List<String> organs = codes(catalog.path("orgaos"), "orgaos");
         List<String> types = codes(catalog.path("especies"), "especies");
+        String organ = r.orgao()==null ? organs.getFirst() : r.orgao();
+        String type = r.tipo()==null ? types.getFirst() : r.tipo();
+        if (r.fullCollection() && (!organs.contains(organ) || !types.contains(type)))
+            throw new IllegalArgumentException("Partição Pangea fora do catálogo");
         Map<String,Object> filter = new LinkedHashMap<>();
         filter.put("buscaGeral", r.query());
         for (String field : List.of("todasPalavras", "quaisquerPalavras", "semPalavras",
                 "trechoExato", "atualizacaoDesde", "atualizacaoAte", "nr")) filter.put(field, "");
-        filter.put("orgaos", organs);
-        filter.put("tipos", types);
-        filter.put("cancelados", false);
+        filter.put("orgaos", r.fullCollection() ? List.of(organ) : organs);
+        filter.put("tipos", r.fullCollection() ? List.of(type) : types);
+        filter.put("cancelados", r.fullCollection());
         filter.put("ordenacao", "Text");
         filter.put("pagina", r.page() + 1); // WikiLaw: zero-based; Pangea: one-based.
         filter.put("tamanhoPagina", r.size());
@@ -38,9 +42,23 @@ public class PangeaAdapter implements DocumentAdapter {
         if (!root.path("total").isIntegralNumber() || root.path("total").asLong() < 0)
             throw new IllegalArgumentException("Resposta Pangea sem total válido");
         if (rows.size() > r.size()) throw new IllegalArgumentException("Pangea excedeu o tamanho da página solicitado");
-        boolean more = ((long) r.page() + 1) * r.size() < root.path("total").asLong();
+        boolean more = r.fullCollection() ? rows.size()==r.size()
+                : ((long) r.page() + 1) * r.size() < root.path("total").asLong();
+        if (r.fullCollection()) {
+            var next = more ? new SourcePage.Continuacao(r.page()+1,null,null,null,null,organ,type)
+                    : nextPartition(organs,types,organ,type);
+            return new SourcePage(rows,payload.registroBrutoId(),next);
+        }
         return new SourcePage(rows, payload.registroBrutoId(),
             more && !rows.isEmpty() ? new SourcePage.Continuacao(r.page()+1, null, null, null) : null);
+    }
+
+    private SourcePage.Continuacao nextPartition(List<String> organs,List<String> types,String organ,String type) {
+        int nextType=types.indexOf(type)+1;
+        if (nextType<types.size()) return new SourcePage.Continuacao(0,null,null,null,null,organ,types.get(nextType));
+        int nextOrgan=organs.indexOf(organ)+1;
+        if (nextOrgan<organs.size()) return new SourcePage.Continuacao(0,null,null,null,null,organs.get(nextOrgan),types.getFirst());
+        return null;
     }
 
     private List<String> codes(JsonNode node, String field) {
