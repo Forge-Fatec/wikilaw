@@ -67,6 +67,7 @@ public class SemanticContentService {
         semantic.setMetadados(metadata);
         semantic.setMensagemErro(null);
         semantic.setAtualizadoEm(now);
+        semantic.marcarEmbeddingPendente();
         semantic = documents.saveAndFlush(semantic);
 
         chunks.deleteByIdDocumentoSemantico(semantic.getId());
@@ -112,6 +113,7 @@ public class SemanticContentService {
         String message = exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
         semantic.setMensagemErro(message.substring(0, Math.min(message.length(), 500)));
         semantic.setAtualizadoEm(now);
+        semantic.marcarEmbeddingPendente();
         semantic = documents.saveAndFlush(semantic);
         chunks.deleteByIdDocumentoSemantico(semantic.getId());
         return new PreparationResult(semantic.getId(), true, 0);
