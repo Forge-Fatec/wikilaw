@@ -131,6 +131,20 @@ The project's source code is publicly available, allowing developers, students, 
 | 22 | As a user, I want to view the main facts and legal arguments identified by AI in the uploaded documents so that I can verify the information that will be used in the similarity search. | Low | 3 |
 | 23 | As a user, I want to export my search results and information as a PDF so that I can consult or share them later. | Low | 3 |
 ---
+# Sprint Backlog
+
+## Sprint 2
+
+| ID | User Story | Priority | Story Points |
+|----|------------|----------|--------------|
+| 11 | As a user, I want to view a dashboard with indicators and charts related to my researched case so that I can understand the results in a consolidated way. | High | 5 |
+| 12 | As a user, I want to interact with dashboard elements to dynamically filter the displayed indicators and results. | High | 3 |
+| 13 | As a user, I want to compare my case data with the court's overall statistics so that I can understand how my research results relate to the broader set of decisions. | Medium | 3 |
+| 14 | As a user, I want AI to interpret the context of my case to find legally similar content, even when different terms are used in the documents. | Medium | 8 |
+| 15 | As a user, I want to view results ranked by similarity, including a similarity percentage and an explanation, so that I can understand which content is most relevant to my case. | Medium | 5 |
+| 17 | As a user, I want to view the main facts and legal arguments identified by AI in the submitted documents so that I can verify the information used for similarity searches. | Low | 3 |
+| 18 | As a user, I want to export my research results and information as a PDF so that I can review or share them later. | Low | 3 |
+| 19 | As a user, I want to log into the system with a role-based access profile (Administrator or Regular User), allowing administrators to create user accounts and manage their roles and permissions. | Low | 5 |
 
 # Definition of Ready (DoR)
 
