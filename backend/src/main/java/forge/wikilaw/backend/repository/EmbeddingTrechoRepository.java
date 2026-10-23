@@ -1,10 +1,15 @@
 package forge.wikilaw.backend.repository;
 
+import forge.wikilaw.backend.config.SemanticSearchProperties;
+import forge.wikilaw.backend.entity.DocumentoSemantico;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Persistencia dos vetores em SQL nativo: o tipo {@code vector} do pgvector nao e mapeado pelo JPA,
@@ -15,9 +20,11 @@ public class EmbeddingTrechoRepository {
     public static final int DIMENSIONS = 1024;
 
     private final JdbcClient jdbc;
+    private final SemanticSearchProperties search;
 
-    public EmbeddingTrechoRepository(JdbcClient jdbc) {
+    public EmbeddingTrechoRepository(JdbcClient jdbc, SemanticSearchProperties search) {
         this.jdbc = jdbc;
+        this.search = search;
     }
 
     public void saveAll(String model, List<TrechoEmbedding> embeddings) {
@@ -67,6 +74,59 @@ public class EmbeddingTrechoRepository {
                 .single();
     }
 
+    /**
+     * Trechos mais proximos do vetor informado pela distancia de cosseno ({@code <=>}), usando o indice HNSW.
+     * Considera apenas vetores do modelo atual e documentos ativos das categorias pedidas.
+     */
+    @Transactional(readOnly = true)
+    public List<SimilarChunk> findSimilares(float[] vector, String model,
+            Collection<DocumentoSemantico.Categoria> categories, int limit) {
+        if (categories.isEmpty()) return List.of();
+        tuneIndexScan();
+        return jdbc.sql("""
+                select e.id_trecho_semantico, t.id_documento_semantico, d.categoria,
+                       d.id_decisao, d.id_precedente, d.id_documento_doutrinario,
+                       t.secao, t.texto,
+                       1 - (e.vetor <=> cast(:vetor as vector)) as similaridade
+                from embedding_trecho e
+                join trecho_semantico t on t.id_trecho_semantico = e.id_trecho_semantico
+                join documento_semantico d on d.id_documento_semantico = t.id_documento_semantico
+                where e.modelo = :modelo
+                  and d.status = 'PRONTO'
+                  and d.categoria in (:categorias)
+                order by e.vetor <=> cast(:vetor as vector)
+                limit :limite
+                """)
+                .param("vetor", toVectorLiteral(vector))
+                .param("modelo", model)
+                .param("categorias", categories.stream().map(Enum::name).toList())
+                .param("limite", limit)
+                .query((row, index) -> new SimilarChunk(
+                        row.getLong("id_trecho_semantico"),
+                        row.getLong("id_documento_semantico"),
+                        DocumentoSemantico.Categoria.valueOf(row.getString("categoria")),
+                        row.getObject("id_decisao", Long.class),
+                        row.getObject("id_precedente", Long.class),
+                        row.getObject("id_documento_doutrinario", Long.class),
+                        row.getString("secao"),
+                        row.getString("texto"),
+                        row.getDouble("similaridade")))
+                .list();
+    }
+
+    /**
+     * Ajustes do HNSW valem so para a transacao atual ({@code set_config(..., true)} = {@code SET LOCAL}).
+     * Sem a varredura iterativa, filtros por modelo/categoria podem devolver menos trechos que o limite.
+     */
+    private void tuneIndexScan() {
+        jdbc.sql("select set_config('hnsw.ef_search', :efSearch, true), "
+                        + "set_config('hnsw.iterative_scan', :iterativeScan, true)")
+                .param("efSearch", Integer.toString(search.getEfSearch()))
+                .param("iterativeScan", search.getIterativeScan().name().toLowerCase(Locale.ROOT))
+                .query((row, index) -> row.getString(1))
+                .single();
+    }
+
     /** Formato textual aceito pelo pgvector: {@code [0.1,0.2,...]}. */
     public static String toVectorLiteral(float[] vector) {
         if (vector == null || vector.length != DIMENSIONS)
@@ -83,4 +143,9 @@ public class EmbeddingTrechoRepository {
     }
 
     public record TrechoEmbedding(Long idTrecho, String hashTexto, float[] vetor) {}
+
+    /** Trecho recuperado com a similaridade de cosseno (1 = identico) e o documento de origem. */
+    public record SimilarChunk(Long idTrecho, Long idDocumentoSemantico, DocumentoSemantico.Categoria categoria,
+            Long idDecisao, Long idPrecedente, Long idDocumentoDoutrinario,
+            String secao, String texto, double similaridade) {}
 }
