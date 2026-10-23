@@ -126,28 +126,28 @@ test.describe('busca por conteúdos jurídicos', () => {
       route.fulfill({ status: 500 }),
     )
 
-    printStep(cenario, 'Abrindo o frontend e pesquisando: busca segue no hero')
+    printStep(cenario, 'Pesquisando: a tela desce sozinha e a busca entra na barra')
     await abrirFrontend(page)
     const barra = page.getByRole('region', { name: 'Busca e filtros' })
     const buscaDoHero = page.locator('.hero').getByLabel('Descrição do caso')
     await buscaDoHero.fill('dano moral')
     await buscaDoHero.press('Enter')
     await expect(page.getByText('10 documentos encontrados')).toBeVisible()
-    await expect(buscaDoHero).toBeInViewport()
-    await expect(barra.getByLabel('Descrição do caso')).toHaveCount(0)
-
-    printStep(cenario, 'Rolando para baixo: a busca entra na barra presa no topo')
-    await page.mouse.wheel(0, 1500)
     await expect(barra.getByLabel('Descrição do caso')).toHaveValue('dano moral')
     await expect(barra.getByLabel('Descrição do caso')).toBeInViewport()
     await expect(page.locator('.barra-fixa')).toHaveAttribute('data-presa', '')
     await expect.poll(() => barra.evaluate((el) => el.getBoundingClientRect().top)).toBe(8)
 
     printStep(cenario, 'Rolando para cima: a busca volta ao hero')
-    await page.mouse.wheel(0, -3000)
+    await page.mouse.wheel(0, -5000)
     await expect(barra.getByLabel('Descrição do caso')).toHaveCount(0)
     await expect(buscaDoHero).toBeInViewport()
     await expect(page.locator('.barra-fixa')).not.toHaveAttribute('data-presa', '')
+
+    printStep(cenario, 'Rolando para baixo: a busca entra de novo na barra')
+    await page.mouse.wheel(0, 2500)
+    await expect(barra.getByLabel('Descrição do caso')).toHaveValue('dano moral')
+    await expect(page.locator('.barra-fixa')).toHaveAttribute('data-presa', '')
   })
 
   test('nova pesquisa substitui a que ainda está em andamento', async ({ page }) => {

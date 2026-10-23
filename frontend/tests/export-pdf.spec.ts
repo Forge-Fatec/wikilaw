@@ -1,6 +1,6 @@
 import { test, expect, type Page, type TestInfo } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
-import { abrirFrontend, pesquisar } from './helpers/test-helper'
+import { abrirFrontend, campoDeBusca, pesquisar } from './helpers/test-helper'
 
 function pdfFixture(): Buffer {
   const objects = [
@@ -70,12 +70,11 @@ test('CA01 e CA03: gera o PDF da pesquisa e disponibiliza o download', async ({ 
     return route.fulfill({ headers: PDF_HEADERS, body: PDF })
   })
   await prepare(page)
-  await page.getByRole('textbox', { name: 'Descrição do caso' }).fill('negativação indevida')
-  await page.getByRole('button', { name: /^pesquisar$/i }).click()
+  await pesquisar(page, 'negativação indevida')
   await expect(page.getByText('12 documentos encontrados', { exact: false })).toBeVisible()
   await screenshot(page, testInfo, 'ca01-resultados-da-pesquisa')
   // Editing the input without submitting a new search must not relabel old results.
-  await page.getByRole('textbox', { name: 'Descrição do caso' }).fill('outro caso ainda não pesquisado')
+  await (await campoDeBusca(page)).fill('outro caso ainda não pesquisado')
   const downloadPromise = page.waitForEvent('download')
   await openExport(page)
   await screenshot(page, testInfo, 'ca01-opcao-de-exportacao')

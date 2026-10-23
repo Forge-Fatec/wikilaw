@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 
 export const FRONTEND_URL =
   process.env.FRONTEND_URL ?? 'http://localhost:3000'
@@ -25,11 +25,34 @@ export async function abrirFrontend(
   await page.goto(FRONTEND_URL, { waitUntil: 'domcontentloaded' })
 }
 
-// Pesquisa pela busca do hero: a tela só lista documentos depois disso.
+// Espera a rolagem automática até a lista terminar (posição estável).
+export async function aguardarRolagem(page: Page): Promise<void> {
+  await expect
+    .poll(async () => {
+      const antes = await page.evaluate(() => window.scrollY)
+      await page.waitForTimeout(150)
+      return (await page.evaluate(() => window.scrollY)) === antes
+    }, { timeout: 5_000 })
+    .toBe(true)
+}
+
+// Depois de uma pesquisa a tela desce até a lista e a busca passa para a
+// barra fixa; antes disso, só existe a do hero.
+export async function formularioDeBusca(page: Page): Promise<Locator> {
+  await aguardarRolagem(page)
+  const naBarra = page.locator('.barra-fixa .busca-encaixe[data-fase="barra"]')
+  return (await naBarra.count()) ? naBarra : page.locator('.hero')
+}
+
+export async function campoDeBusca(page: Page): Promise<Locator> {
+  return (await formularioDeBusca(page)).getByLabel('Descrição do caso')
+}
+
+// A tela só lista documentos depois de uma pesquisa.
 export async function pesquisar(page: Page, termo = TERMO_PADRAO): Promise<void> {
-  const hero = page.locator('.hero')
-  await hero.getByLabel('Descrição do caso').fill(termo)
-  await hero.getByRole('button', { name: 'PESQUISAR' }).click()
+  const formulario = await formularioDeBusca(page)
+  await formulario.getByLabel('Descrição do caso').fill(termo)
+  await formulario.getByRole('button', { name: 'PESQUISAR' }).click()
 }
 
 export async function abrirEPesquisar(page: Page, termo = TERMO_PADRAO): Promise<void> {

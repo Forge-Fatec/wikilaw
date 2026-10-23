@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { abrirEPesquisar } from './helpers/test-helper'
+import { abrirEPesquisar, pesquisar } from './helpers/test-helper'
 
 const EMPTY_RESPONSE = {
   itens: [],
@@ -141,8 +141,7 @@ test.describe('dashboard integrado à pesquisa ativa', () => {
     printStep(cenario, 'Pesquisando')
     await abrirEPesquisar(page, 'outro caso')
     await expect(valor(page, 'ADERÊNCIA')).toHaveText('50%')
-    await page.getByLabel('Descrição do caso').fill('dano moral')
-    await page.getByRole('button', { name: 'PESQUISAR' }).click()
+    await pesquisar(page, 'dano moral')
 
     printStep(cenario, 'Validando a consulta enviada')
     await expect
@@ -233,8 +232,7 @@ test.describe('dashboard integrado à pesquisa ativa', () => {
     await expect(panorama).toContainText('Selecione um tribunal nos filtros')
 
     printStep(cenario, 'Pesquisando e filtrando por TJSP')
-    await page.getByLabel('Descrição do caso').fill('dano moral')
-    await page.getByRole('button', { name: 'PESQUISAR' }).click()
+    await pesquisar(page, 'dano moral')
     await abrirFiltros(page)
     await page.locator('#filtro-tribunal').selectOption('TJSP')
 

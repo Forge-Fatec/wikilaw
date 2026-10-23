@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test'
-import { abrirFrontend } from './helpers/test-helper'
+import { abrirFrontend, campoDeBusca } from './helpers/test-helper'
 
 const decisoes = [
   {
@@ -93,10 +93,7 @@ function grafico(page: Page, titulo: string): Locator {
 }
 
 async function pesquisar(page: Page, termo: string): Promise<void> {
-  const buscaNaBarra = page.locator('.barra-fixa .busca-encaixe').getByLabel('Descrição do caso')
-  const campo = await buscaNaBarra.count()
-    ? buscaNaBarra
-    : page.locator('.hero').getByLabel('Descrição do caso')
+  const campo = await campoDeBusca(page)
   await campo.fill(termo)
   await expect(campo).toHaveValue(termo)
   await campo.press('Enter')
