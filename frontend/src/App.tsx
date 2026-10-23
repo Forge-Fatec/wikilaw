@@ -804,7 +804,7 @@ function App() {
           </div>
         </header>
 
-        <section className="hero">
+        <section className={'hero' + (filtrosAbertos ? ' filtros-abertos' : '')}>
           <div className="hero-rule" />
           <h1>
             Descreva o seu caso.{' '}

@@ -197,7 +197,7 @@ nav a.active {
 .painel-filtros {
   display: grid;
   grid-template-rows: 0fr;
-  max-width: 760px;
+  max-width: 960px;
   margin: 0 auto;
   opacity: 0;
   transition:
@@ -214,9 +214,14 @@ nav a.active {
   min-height: 0;
   overflow: hidden;
 }
+/* Fontes na primeira linha; tipo, tribunal e período lado a lado na segunda,
+   com os títulos alinhados no topo e os controles na mesma altura. */
 .painel-filtros .filters {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px 32px;
   margin: 0;
-  padding: 20px 22px;
+  padding: 18px 22px;
   border: 0;
   border-radius: 10px;
   background: #fff;
@@ -225,9 +230,42 @@ nav a.active {
   color: var(--ink);
   animation: none;
 }
+.painel-filtros .check-row {
+  min-height: 38px;
+  align-items: center;
+}
+.painel-filtros .check-row .check {
+  margin-bottom: 0;
+}
+.painel-filtros select {
+  width: 160px;
+}
+.painel-filtros .date-row > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.painel-filtros .date-row label {
+  margin: 0;
+}
+.painel-filtros .date-input {
+  width: 140px;
+}
 @media (prefers-reduced-motion: reduce) {
   .painel-filtros {
     transition: none;
+  }
+}
+/* Em tela pequena o hero se compacta com os filtros abertos, para a
+   primeira tela continuar sem rolagem. */
+@media (max-width: 760px), (max-height: 700px) {
+  .hero.filtros-abertos {
+    padding-top: 24px;
+    padding-bottom: 28px;
+  }
+  .hero.filtros-abertos .hero-rule,
+  .hero.filtros-abertos > p {
+    display: none;
   }
 }
 
