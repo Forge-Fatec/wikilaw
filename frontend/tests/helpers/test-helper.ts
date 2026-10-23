@@ -16,11 +16,26 @@ export const FONTES_PADRAO: FonteMock[] = [
 
 export const TERMO_PADRAO = 'dano moral'
 
+export const USUARIO_PADRAO = {
+  id: 1,
+  login: 'admin',
+  perfil: 'ADMIN',
+  ativo: true,
+  criadoEm: '2026-01-01T00:00:00Z',
+}
+
+// Sem back no CI: a sessão vem do mock para a tela abrir já autenticada.
+export async function simularSessao(page: Page): Promise<void> {
+  await page.route('**/api/auth/me', (route) => route.fulfill({ json: USUARIO_PADRAO }))
+  await page.route('**/api/auth/csrf', (route) => route.fulfill({ json: { token: 'csrf-teste' } }))
+}
+
 // A lista de fontes vem sempre do mock: o teste não depende do cadastro do back.
 export async function abrirFrontend(
   page: Page,
   fontes: FonteMock[] = FONTES_PADRAO,
 ): Promise<void> {
+  await simularSessao(page)
   await page.route('**/api/fontes', (route) => route.fulfill({ json: fontes }))
   await page.goto(FRONTEND_URL, { waitUntil: 'domcontentloaded' })
 }
