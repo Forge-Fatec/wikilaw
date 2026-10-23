@@ -757,47 +757,50 @@ function App() {
 
   return (
     <>
-      <header className="header">
-        <div className="brand">
-          <div className="brand-mark">W</div>
-          <div className="brand-text">
-            <div className="name">Wikilaw</div>
-            <div className="tag">PESQUISA JURÍDICA</div>
+      {/* Cabeçalho e hero ocupam a primeira tela inteira: ao entrar só se vê a busca. */}
+      <div className="abertura">
+        <header className="header">
+          <div className="brand">
+            <div className="brand-mark">W</div>
+            <div className="brand-text">
+              <div className="name">Wikilaw</div>
+              <div className="tag">PESQUISA JURÍDICA</div>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <section className="hero">
-        <div className="hero-rule" />
-        <h1>
-          Descreva o seu caso.{' '}
-          <em>
-            Nós
-            <br />
-            encontramos o direito.
-          </em>
-        </h1>
-        <p>
-          Pesquisa em linguagem natural entre jurisprudências, precedentes e
-          doutrinas dos principais tribunais do país.
-        </p>
-        {/* Já encaixada na barra, esta cópia está fora da tela: sai do foco e
-            dos leitores de tela para não haver duas buscas ativas. */}
-        <div
-          className="busca-destaque"
-          ref={buscaDestaqueRef}
-          inert={encaixe === 'barra'}
-        >
-          {formularioBusca('destaque')}
-          <FiltroFontes
-            fontes={fontesCadastradas.fontes}
-            desmarcadas={fontesDesmarcadas}
-            carregando={fontesCadastradas.carregando}
-            erro={fontesCadastradas.erro}
-            onAlternar={alternarFonte}
-          />
-        </div>
-      </section>
+        <section className="hero">
+          <div className="hero-rule" />
+          <h1>
+            Descreva o seu caso.{' '}
+            <em>
+              Nós
+              <br />
+              encontramos o direito.
+            </em>
+          </h1>
+          <p>
+            Pesquisa em linguagem natural entre jurisprudências, precedentes e
+            doutrinas dos principais tribunais do país.
+          </p>
+          {/* Já encaixada na barra, esta cópia está fora da tela: sai do foco e
+              dos leitores de tela para não haver duas buscas ativas. */}
+          <div
+            className="busca-destaque"
+            ref={buscaDestaqueRef}
+            inert={encaixe === 'barra'}
+          >
+            {formularioBusca('destaque')}
+            <FiltroFontes
+              fontes={fontesCadastradas.fontes}
+              desmarcadas={fontesDesmarcadas}
+              carregando={fontesCadastradas.carregando}
+              erro={fontesCadastradas.erro}
+              onAlternar={alternarFonte}
+            />
+          </div>
+        </section>
+      </div>
 
       {/* Montada desde o início (os efeitos de rolagem dependem dela), mas
           só aparece depois da primeira pesquisa. */}

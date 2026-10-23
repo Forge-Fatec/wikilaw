@@ -88,7 +88,20 @@ nav a.active {
   color: #fff;
 }
 
+/* Cabeçalho + hero preenchem a primeira tela na cor do hero; depois da
+   pesquisa a altura se mantém, para a lista não fazer a página pular. */
+.abertura {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--navy);
+}
 .hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   background: var(--navy);
   text-align: center;
   padding: 52px 24px 74px;
