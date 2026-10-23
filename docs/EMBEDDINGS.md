@@ -117,3 +117,29 @@ O resultado (`texto`, `vetor`, `modelo`) é a entrada de `SemanticVectorRetrieva
 Exemplo validado com o acervo real: a descrição *"Comprei um imóvel e moro nele há mais de quinze anos de forma
 contínua e sem oposição de ninguém..."*, sem a palavra "usucapião", recupera precedentes de usucapião e de compromisso
 de compra e venda de imóvel.
+
+## Fatos, fundamentos e pedidos no contexto da busca
+
+O caso pesquisado pode vir em partes (`SemanticCaseQuery`): `fatos`, `fundamentos`, `pedidos` e, opcionalmente, a
+`descricao` livre. `SemanticCaseContextComposer` monta um único texto rotulado, no mesmo estilo dos trechos do acervo:
+
+```text
+Fatos:
+O banco descontou parcelas de um empréstimo que eu nunca contratei da minha aposentadoria.
+
+Fundamentos juridicos:
+Código de Defesa do Consumidor, falha na prestação do serviço.
+
+Pedidos:
+Devolução em dobro dos valores descontados e indenização por dano moral.
+```
+
+- A ordem é fixa (fatos, fundamentos, pedidos, descrição); partes vazias são ignoradas e textos repetidos entram uma vez.
+- Cada parte passa pela normalização do acervo. O mínimo de caracteres vale para o conteúdo informado (sem os rótulos)
+  e o máximo para o texto final.
+- Um único vetor representa o caso inteiro, então a similaridade considera os três elementos juntos, e não só a parte
+  mais longa. Pesquisas equivalentes (mesmo conteúdo, espaços diferentes) compartilham o cache.
+- `representar(String)` continua aceitando a descrição livre.
+
+Exemplo validado com o acervo real: o caso acima recuperou em primeiro lugar o IRDR do TJMA sobre empréstimos
+consignados (similaridade 0,588), seguido de precedentes sobre legitimidade do banco e devolução de tarifas.
