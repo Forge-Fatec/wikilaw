@@ -81,6 +81,32 @@ test.describe('filtros abaixo da busca do hero', () => {
     await expect.poll(() => alturaDoPainel(page)).toBeLessThan(1)
   })
 
+  for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 }]) {
+    test(`aberto em ${viewport.width}x${viewport.height}, não cria rolagem`, async ({ page }) => {
+      await page.setViewportSize(viewport)
+      await abrirFrontend(page)
+      await botaoDoHero(page).click()
+      await expect(page.locator('#painel-filtros')).toHaveAttribute('data-aberto')
+      await expect.poll(() => page.evaluate(
+        () => document.documentElement.scrollHeight - window.innerHeight,
+      )).toBe(0)
+    })
+  }
+
+  test('fontes ficam numa linha e tipo, tribunal e período lado a lado abaixo', async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 768 })
+    await abrirFrontend(page)
+    await botaoDoHero(page).click()
+    await expect(page.locator('#painel-filtros')).toHaveAttribute('data-aberto')
+    const topos = await page.locator('.painel-filtros .filters > *').evaluateAll(
+      (grupos) => grupos.map((grupo) => Math.round(grupo.getBoundingClientRect().top)),
+    )
+    const [fontes, tipo, tribunal, periodo] = topos
+    expect(tipo).toBeGreaterThan(fontes)
+    expect(tribunal).toBe(tipo)
+    expect(periodo).toBe(tipo)
+  })
+
   test('o painel se expande aos poucos', async ({ page }) => {
     await abrirFrontend(page)
     const alturas = await alturasAoAbrir(page)
