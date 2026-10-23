@@ -14,20 +14,45 @@ import org.springframework.stereotype.Service;
 @Service
 public class SemanticCaseRepresentationService {
     private final LegalTextNormalizer normalizer;
+    private final SemanticCaseContextComposer composer;
     private final EmbeddingProvider provider;
     private final SemanticSearchProperties properties;
     private final QueryVectorCache cache;
 
-    public SemanticCaseRepresentationService(LegalTextNormalizer normalizer, EmbeddingProvider provider,
-            SemanticSearchProperties properties) {
+    public SemanticCaseRepresentationService(LegalTextNormalizer normalizer, SemanticCaseContextComposer composer,
+            EmbeddingProvider provider, SemanticSearchProperties properties) {
         this.normalizer = normalizer;
+        this.composer = composer;
         this.provider = provider;
         this.properties = properties;
         this.cache = new QueryVectorCache(properties.getQuery().getCacheSize());
     }
 
     public CaseRepresentation representar(String descricao) {
-        String text = normalize(descricao);
+        return embed(normalize(descricao));
+    }
+
+    /**
+     * Caso informado em partes: fatos, fundamentos juridicos e pedidos entram rotulados no mesmo texto,
+     * de modo que o vetor represente o caso inteiro e nao so a parte mais longa.
+     */
+    public CaseRepresentation representar(SemanticCaseQuery query) {
+        var limits = properties.getQuery();
+        int rawLength = length(query.descricao()) + length(query.fatos())
+                + length(query.fundamentos()) + length(query.pedidos());
+        if (rawLength > limits.getMaxCharacters() * 4) throw tooLong(limits.getMaxCharacters());
+
+        var context = composer.compose(query);
+        if (context.vazio())
+            throw new SemanticQueryException("Informe os fatos, os fundamentos, os pedidos ou a descricao do caso");
+        if (context.caracteresInformados() < limits.getMinCharacters())
+            throw new SemanticQueryException("Descreva o caso com pelo menos "
+                    + limits.getMinCharacters() + " caracteres");
+        if (context.texto().length() > limits.getMaxCharacters()) throw tooLong(limits.getMaxCharacters());
+        return embed(context.texto());
+    }
+
+    private CaseRepresentation embed(String text) {
         String model = provider.model();
         String key = model + '\u0000' + text;
         float[] cached = cache.get(key);
@@ -52,6 +77,10 @@ public class SemanticCaseRepresentationService {
         if (text.length() > limits.getMaxCharacters())
             throw tooLong(limits.getMaxCharacters());
         return text;
+    }
+
+    private int length(String value) {
+        return value == null ? 0 : value.length();
     }
 
     private SemanticQueryException tooLong(int maxCharacters) {

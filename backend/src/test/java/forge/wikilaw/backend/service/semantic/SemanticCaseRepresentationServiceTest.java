@@ -14,6 +14,7 @@ import forge.wikilaw.backend.exception.SemanticQueryException;
 import forge.wikilaw.backend.integration.embedding.EmbeddingProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class SemanticCaseRepresentationServiceTest {
     private EmbeddingProvider provider;
@@ -25,7 +26,74 @@ class SemanticCaseRepresentationServiceTest {
         provider = mock(EmbeddingProvider.class);
         when(provider.model()).thenReturn("voyage-4");
         properties = new SemanticSearchProperties();
-        service = new SemanticCaseRepresentationService(new LegalTextNormalizer(), provider, properties);
+        service = newService();
+    }
+
+    private SemanticCaseRepresentationService newService() {
+        var normalizer = new LegalTextNormalizer();
+        return new SemanticCaseRepresentationService(normalizer, new SemanticCaseContextComposer(normalizer),
+                provider, properties);
+    }
+
+    @Test
+    void embedsFactsLegalGroundsAndRequestsTogether() {
+        ArgumentCaptor<String> sent = ArgumentCaptor.forClass(String.class);
+        when(provider.embedQuery(sent.capture())).thenReturn(new float[] {1f});
+
+        var result = service.representar(new SemanticCaseQuery(null,
+                "Meu nome foi incluído no SPC por uma dívida já paga.",
+                "Art. 14 do CDC.",
+                "Indenização por dano moral."));
+
+        assertThat(sent.getValue())
+                .contains("Fatos:\nMeu nome foi incluído no SPC por uma dívida já paga.")
+                .contains("Fundamentos juridicos:\nArt. 14 do CDC.")
+                .contains("Pedidos:\nIndenização por dano moral.");
+        assertThat(result.texto()).isEqualTo(sent.getValue());
+    }
+
+    @Test
+    void acceptsAStructuredCaseWithOnlyOnePart() {
+        when(provider.embedQuery(anyString())).thenReturn(new float[] {1f});
+
+        var result = service.representar(new SemanticCaseQuery(null, null, null,
+                "Revisão do contrato de financiamento imobiliário."));
+
+        assertThat(result.texto()).startsWith("Pedidos:\n");
+    }
+
+    @Test
+    void rejectsStructuredCasesWithoutContent() {
+        assertThatThrownBy(() -> service.representar(new SemanticCaseQuery(" ", "", null, "<p></p>")))
+                .isInstanceOf(SemanticQueryException.class)
+                .hasMessageContaining("fatos, os fundamentos, os pedidos");
+        assertThatThrownBy(() -> service.representar(new SemanticCaseQuery(null, "Batida", "CC", null)))
+                .isInstanceOf(SemanticQueryException.class)
+                .hasMessageContaining("pelo menos 20 caracteres");
+        verify(provider, never()).embedQuery(anyString());
+    }
+
+    @Test
+    void appliesTheMaximumToTheComposedContext() {
+        properties.getQuery().setMaxCharacters(100);
+        service = newService();
+
+        assertThatThrownBy(() -> service.representar(new SemanticCaseQuery(null,
+                "f".repeat(40), "g".repeat(40), "p".repeat(40))))
+                .isInstanceOf(SemanticQueryException.class)
+                .hasMessageContaining("no maximo 100 caracteres");
+        verify(provider, never()).embedQuery(anyString());
+    }
+
+    @Test
+    void sharesTheCacheBetweenEquivalentStructuredQueries() {
+        when(provider.embedQuery(anyString())).thenReturn(new float[] {1f});
+        var query = new SemanticCaseQuery(null, "Cobrança indevida de tarifa.", null, "Devolução em dobro.");
+
+        service.representar(query);
+        service.representar(new SemanticCaseQuery(null, " Cobrança  indevida de tarifa. ", "", "Devolução em dobro."));
+
+        verify(provider, times(1)).embedQuery(anyString());
     }
 
     @Test
@@ -69,7 +137,7 @@ class SemanticCaseRepresentationServiceTest {
     @Test
     void evictsTheLeastRecentlyUsedDescriptionWhenFull() {
         properties.getQuery().setCacheSize(1);
-        service = new SemanticCaseRepresentationService(new LegalTextNormalizer(), provider, properties);
+        service = newService();
         when(provider.embedQuery(anyString())).thenReturn(new float[] {1f});
 
         service.representar("Primeiro caso de negativação indevida");
@@ -82,7 +150,7 @@ class SemanticCaseRepresentationServiceTest {
     @Test
     void callsTheProviderEveryTimeWhenCacheIsDisabled() {
         properties.getQuery().setCacheSize(0);
-        service = new SemanticCaseRepresentationService(new LegalTextNormalizer(), provider, properties);
+        service = newService();
         when(provider.embedQuery(anyString())).thenReturn(new float[] {1f});
 
         service.representar("Cobrança indevida de tarifa bancária em conta salário");
@@ -96,7 +164,7 @@ class SemanticCaseRepresentationServiceTest {
         assertThatThrownBy(() -> service.representar("   "))
                 .isInstanceOf(SemanticQueryException.class)
                 .hasMessageContaining("Descreva o caso");
-        assertThatThrownBy(() -> service.representar(null))
+        assertThatThrownBy(() -> service.representar((String) null))
                 .isInstanceOf(SemanticQueryException.class);
         verify(provider, never()).embedQuery(anyString());
     }
