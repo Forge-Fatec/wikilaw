@@ -94,3 +94,26 @@ select t.secao, left(t.texto, 100), round((1 - (e.vetor <=> a.vetor))::numeric, 
 from alvo a, embedding_trecho e join trecho_semantico t using (id_trecho_semantico)
 order by e.vetor <=> a.vetor limit 5;
 ```
+
+## Representação semântica do caso pesquisado
+
+`SemanticCaseRepresentationService.representar(descricao)` transforma o texto digitado pelo usuário no vetor de consulta:
+
+1. Aplica a mesma normalização do acervo (`LegalTextNormalizer`: remove HTML, espaços e caracteres de controle).
+2. Valida o tamanho: descrições vazias ou com menos de `min-characters` não carregam contexto suficiente; acima de
+   `max-characters` são recusadas. Os dois casos lançam `SemanticQueryException`, sem chamar o provedor.
+3. Gera o vetor com `embedQuery`, que envia `input_type=query` à Voyage AI, no mesmo espaço vetorial dos trechos (`document`).
+4. Guarda o vetor em um cache LRU em memória (chave = modelo + texto normalizado). Repetir a pesquisa, trocar de
+   página ou de filtro não gasta nova requisição, o que importa com o limite por minuto da conta gratuita.
+
+O resultado (`texto`, `vetor`, `modelo`) é a entrada de `SemanticVectorRetrievalService.recuperar`.
+
+| Propriedade | Padrão | Uso |
+| --- | --- | --- |
+| `WIKILAW_SEMANTIC_QUERY_MIN_CHARACTERS` | `20` | Tamanho mínimo da descrição |
+| `WIKILAW_SEMANTIC_QUERY_MAX_CHARACTERS` | `20000` | Tamanho máximo (cerca de 5 mil tokens; o `voyage-4` aceita 32 mil) |
+| `WIKILAW_SEMANTIC_QUERY_CACHE_SIZE` | `200` | Descrições guardadas no cache; `0` desliga |
+
+Exemplo validado com o acervo real: a descrição *"Comprei um imóvel e moro nele há mais de quinze anos de forma
+contínua e sem oposição de ninguém..."*, sem a palavra "usucapião", recupera precedentes de usucapião e de compromisso
+de compra e venda de imóvel.
