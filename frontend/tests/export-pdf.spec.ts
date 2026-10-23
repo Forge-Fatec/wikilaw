@@ -1,6 +1,6 @@
 import { test, expect, type Page, type TestInfo } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
-import { abrirFrontend } from './helpers/test-helper'
+import { abrirFiltros, abrirFrontend, campoDeBusca, pesquisar } from './helpers/test-helper'
 
 function pdfFixture(): Buffer {
   const objects = [
@@ -28,15 +28,21 @@ const DOCUMENTS = Array.from({ length: 12 }, (_, index) => ({
 }))
 
 async function prepare(page: Page, documents = DOCUMENTS) {
-  await page.route('**/api/documentos/**', (route) => route.fulfill({
-    json: { itens: route.request().url().includes('/decisoes') ? documents : [], pagina: 0, tamanho: 100, total: documents.length, totalPaginas: 1 },
-  }))
+  await page.route('**/api/documentos/**', (route) => {
+    const url = new URL(route.request().url())
+    const fontes = url.searchParams.getAll('fonte')
+    const itens = url.pathname.endsWith('/decisoes')
+      ? documents.filter((document) => !fontes.length || fontes.includes(document.fonte))
+      : []
+    return route.fulfill({ json: { itens, pagina: 0, tamanho: 100, total: itens.length, totalPaginas: 1 } })
+  })
   await page.route('**/api/dashboard**', (route) => route.fulfill({ json: {
     indicadores: { totalDecisoes: documents.length, classificadas: 0, favoraveis: 0, aderencia: null },
     distribuicaoMerito: [], distribuicaoCamaraTurma: [],
   } }))
   await abrirFrontend(page)
   await expect(page.getByRole('button', { name: /^pesquisar$/i })).toBeEnabled()
+  await pesquisar(page)
 }
 
 const PDF_HEADERS = { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="wikilaw-pesquisa-teste.pdf"', 'Access-Control-Expose-Headers': 'Content-Disposition' }
@@ -64,12 +70,11 @@ test('CA01 e CA03: gera o PDF da pesquisa e disponibiliza o download', async ({ 
     return route.fulfill({ headers: PDF_HEADERS, body: PDF })
   })
   await prepare(page)
-  await page.getByRole('textbox', { name: 'Descrição do caso' }).fill('negativação indevida')
-  await page.getByRole('button', { name: /^pesquisar$/i }).click()
+  await pesquisar(page, 'negativação indevida')
   await expect(page.getByText('12 documentos encontrados', { exact: false })).toBeVisible()
   await screenshot(page, testInfo, 'ca01-resultados-da-pesquisa')
   // Editing the input without submitting a new search must not relabel old results.
-  await page.getByRole('textbox', { name: 'Descrição do caso' }).fill('outro caso ainda não pesquisado')
+  await (await campoDeBusca(page)).fill('outro caso ainda não pesquisado')
   const downloadPromise = page.waitForEvent('download')
   await openExport(page)
   await screenshot(page, testInfo, 'ca01-opcao-de-exportacao')
@@ -95,12 +100,17 @@ test('CA02: envia os dados principais e todos os resultados filtrados para o PDF
     return route.fulfill({ headers: PDF_HEADERS, body: PDF })
   })
   await prepare(page)
-  // O painel de filtros começa fechado.
-  await page.getByRole('button', { name: 'Filtros', expanded: false }).click()
+  // Só a fonte TJDFT: a pesquisa precisa ser refeita para valer.
+  await abrirFiltros(page)
+  await page.getByRole('checkbox', { name: 'STJ', exact: true }).uncheck()
+  await page.getByRole('checkbox', { name: 'BDJUR', exact: true }).uncheck()
+  await pesquisar(page)
+  await expect(page.getByText('6 documentos encontrados', { exact: false })).toBeVisible()
+  // O painel continua aberto depois da pesquisa.
+  await abrirFiltros(page)
   await page.getByLabel('Precedente', { exact: true }).uncheck()
   await page.getByLabel('Doutrina', { exact: true }).uncheck()
-  await page.locator('select').nth(0).selectOption('TJDFT')
-  await page.locator('select').nth(1).selectOption('TJDFT')
+  await page.locator('#filtro-tribunal').selectOption('TJDFT')
   await page.locator('.date-input').nth(0).fill('2025-01-03')
   await page.locator('.date-input').nth(1).fill('2025-01-06')
   await page.getByRole('button', { name: 'Mais antigos', exact: true }).click()
@@ -112,7 +122,7 @@ test('CA02: envia os dados principais e todos os resultados filtrados para o PDF
   await screenshot(page, testInfo, 'ca02-resumo-da-exportacao')
   await confirmExport(page)
   await download
-  expect(payload).toMatchObject({ termo: '', categorias: ['decisoes'], fonte: 'TJDFT', tribunal: 'TJDFT', dataDe: '2025-01-03', dataAte: '2025-01-06', ordenacao: 'mais-antigos', resultados: [
+  expect(payload).toMatchObject({ termo: 'dano moral', categorias: ['decisoes'], fonte: 'TJDFT', tribunal: 'TJDFT', dataDe: '2025-01-03', dataAte: '2025-01-06', ordenacao: 'mais-antigos', resultados: [
     { categoria: 'decisoes', id: 3 }, { categoria: 'decisoes', id: 4 }, { categoria: 'decisoes', id: 5 }, { categoria: 'decisoes', id: 6 },
   ] })
 })

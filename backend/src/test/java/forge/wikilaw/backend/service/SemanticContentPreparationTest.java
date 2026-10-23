@@ -76,6 +76,49 @@ class SemanticContentPreparationTest {
     }
 
     @Test
+    void keepsEmbeddingStatusWhileContentIsUnchangedAndResetsItWhenChunksAreRebuilt() {
+        RegistroBruto raw = raw("BDJUR");
+        var document = NormalizedDocument.builder()
+                .identificador("doutrina-embedding")
+                .titulo("Dano moral por negativação indevida")
+                .tipo("ARTIGO")
+                .resumo("A inscrição indevida gera dano moral presumido.")
+                .metadados("{}")
+                .build();
+
+        Long id = processor.process(DocumentSource.BDJUR, raw.getFonte().getId(), raw.getId(), document);
+        DocumentoSemantico semantic = semanticDocuments.findByIdDocumentoDoutrinario(id).orElseThrow();
+        assertEquals(DocumentoSemantico.StatusEmbedding.PENDENTE, semantic.getStatusEmbedding());
+        assertEquals(0, semantic.getTentativasEmbedding());
+
+        semantic.setStatusEmbedding(DocumentoSemantico.StatusEmbedding.PRONTO);
+        semantic.setModeloEmbedding("modelo-teste");
+        semantic.setTentativasEmbedding(1);
+        semantic.setEmbeddingAtualizadoEm(OffsetDateTime.now());
+        semanticDocuments.saveAndFlush(semantic);
+
+        processor.process(DocumentSource.BDJUR, raw.getFonte().getId(), raw.getId(), document);
+        DocumentoSemantico unchanged = semanticDocuments.findByIdDocumentoDoutrinario(id).orElseThrow();
+        assertEquals(DocumentoSemantico.StatusEmbedding.PRONTO, unchanged.getStatusEmbedding());
+        assertEquals("modelo-teste", unchanged.getModeloEmbedding());
+
+        var updated = NormalizedDocument.builder()
+                .identificador("doutrina-embedding")
+                .titulo("Dano moral por negativação indevida")
+                .tipo("ARTIGO")
+                .resumo("O cadastro indevido em órgão de proteção ao crédito dispensa prova do prejuízo.")
+                .metadados("{}")
+                .build();
+        processor.process(DocumentSource.BDJUR, raw.getFonte().getId(), raw.getId(), updated);
+
+        DocumentoSemantico rebuilt = semanticDocuments.findByIdDocumentoDoutrinario(id).orElseThrow();
+        assertEquals(DocumentoSemantico.StatusEmbedding.PENDENTE, rebuilt.getStatusEmbedding());
+        assertNull(rebuilt.getModeloEmbedding());
+        assertNull(rebuilt.getEmbeddingAtualizadoEm());
+        assertEquals(0, rebuilt.getTentativasEmbedding());
+    }
+
+    @Test
     void preservesSpecificSectionsForDecisionsAndPrecedents() {
         tribunal("TJDFT");
         RegistroBruto decisionRaw = raw("TJDFT");

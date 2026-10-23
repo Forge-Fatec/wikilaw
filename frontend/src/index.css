@@ -88,7 +88,20 @@ nav a.active {
   color: #fff;
 }
 
+/* Cabeçalho + hero preenchem a primeira tela na cor do hero; depois da
+   pesquisa a altura se mantém, para a lista não fazer a página pular. */
+.abertura {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--navy);
+}
 .hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   background: var(--navy);
   text-align: center;
   padding: 52px 24px 74px;
@@ -148,6 +161,8 @@ nav a.active {
   font-weight: 700;
   letter-spacing: 1px;
   cursor: pointer;
+  /* Cabe "PESQUISANDO...": o botão não muda de largura ao trocar o texto. */
+  min-width: 172px;
 }
 .search-box button:hover {
   background: var(--terracotta-dark);
@@ -160,6 +175,137 @@ nav a.active {
   text-align: left;
 }
 
+/* Botão Filtros centralizado abaixo da busca do hero. */
+.filtros-hero {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+.filtros-hero .filters-toggle {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+.filtros-hero .filters-toggle:hover,
+.filtros-hero .filters-toggle[aria-expanded='true'] {
+  border-color: var(--terracotta);
+  background: rgba(226, 153, 111, 0.16);
+}
+
+/* O painel se expande abaixo do botão: a linha da grade vai de 0fr à altura
+   do conteúdo, então a animação acompanha qualquer altura. */
+.painel-filtros {
+  display: grid;
+  grid-template-rows: 0fr;
+  max-width: 960px;
+  margin: 0 auto;
+  opacity: 0;
+  transition:
+    grid-template-rows 0.32s ease,
+    opacity 0.32s ease,
+    margin-top 0.32s ease;
+}
+.painel-filtros[data-aberto] {
+  grid-template-rows: 1fr;
+  margin-top: 14px;
+  opacity: 1;
+}
+.painel-filtros-conteudo {
+  min-height: 0;
+  overflow: hidden;
+}
+/* Fontes na primeira linha; tipo, tribunal e período lado a lado na segunda,
+   com os títulos alinhados no topo e os controles na mesma altura. */
+.painel-filtros .filters {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px 32px;
+  margin: 0;
+  padding: 18px 22px;
+  border: 0;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 18px 40px -14px rgba(0, 0, 0, 0.5);
+  text-align: left;
+  color: var(--ink);
+  animation: none;
+}
+.painel-filtros .check-row {
+  min-height: 38px;
+  align-items: center;
+}
+.painel-filtros .check-row .check {
+  margin-bottom: 0;
+}
+.painel-filtros select {
+  width: 160px;
+}
+.painel-filtros .date-row > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.painel-filtros .date-row label {
+  margin: 0;
+}
+.painel-filtros .date-input {
+  width: 140px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .painel-filtros {
+    transition: none;
+  }
+}
+/* Em tela pequena o hero se compacta com os filtros abertos, para a
+   primeira tela continuar sem rolagem. */
+@media (max-width: 760px), (max-height: 700px) {
+  .hero.filtros-abertos {
+    padding-top: 24px;
+    padding-bottom: 28px;
+  }
+  .hero.filtros-abertos .hero-rule,
+  .hero.filtros-abertos > p {
+    display: none;
+  }
+}
+
+/* Fontes da pesquisa, primeira linha do painel de filtros. */
+.filtro-fontes {
+  flex: 1 1 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.filtro-fontes legend {
+  padding: 0;
+  margin-bottom: 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+.filtro-fontes-opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+}
+.filtro-fontes .check {
+  margin-bottom: 0;
+}
+/* Última fonte marcada: não pode ser desmarcada. */
+.filtro-fontes .check.travada {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.filtro-fontes .check.travada input {
+  cursor: not-allowed;
+}
+.filtro-fontes-aviso {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
 .layout {
   max-width: 1400px;
   margin: -30px auto 60px;
@@ -167,6 +313,9 @@ nav a.active {
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+.layout[hidden] {
+  display: none;
 }
 
 .toolbar {
@@ -323,6 +472,7 @@ nav a.active {
 .toolbar .search-box button {
   padding: 0 18px;
   font-size: 12px;
+  min-width: 152px;
 }
 .toolbar .search-error {
   color: var(--terracotta-dark);
@@ -1135,6 +1285,11 @@ select,
     overflow: hidden;
     clip: rect(0 0 0 0);
     white-space: nowrap;
+  }
+  /* Em tela estreita o campo vale mais que a largura fixa do botão. */
+  .search-box button,
+  .toolbar .search-box button {
+    min-width: 0;
   }
   .toolbar .search-box button {
     padding: 0 12px;

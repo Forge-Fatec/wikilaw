@@ -1,5 +1,5 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test'
-import { abrirFrontend } from './helpers/test-helper'
+import { abrirEPesquisar } from './helpers/test-helper'
 
 type Decisao = { id: number; resultado: string; orgaoJulgador: string }
 
@@ -143,7 +143,7 @@ test('SCRUM-179: gráficos filtram dashboard e resultados; limpar restaura a pes
 
   await etapa('Preparar a API e abrir a pesquisa completa', async () => {
     consultas = await mockarApi(page)
-    await abrirFrontend(page)
+    await abrirEPesquisar(page)
     await expect(page.getByText('5 documentos encontrados')).toBeVisible()
     await expect(valor(page, 'DECISÕES ANALISADAS')).toHaveText('4')
     await expect(valor(page, 'ADERÊNCIA')).toHaveText('50%')
@@ -156,7 +156,7 @@ test('SCRUM-179: gráficos filtram dashboard e resultados; limpar restaura a pes
   await etapa('CA01: selecionar a categoria de mérito Provido aplica o filtro', async () => {
     await clicarNaBarra(page, 'Resultado dos recursos', 0)
     await expect(page.getByRole('button', { name: 'Remover filtro Resultado: Provido' })).toBeVisible()
-    await expect.poll(() => consultas.at(-1)).toBe('resultado=Provido')
+    await expect.poll(() => consultas.at(-1)).toBe('termo=dano+moral&resultado=Provido')
   })
 
   await etapa('CA02 e CA03: indicadores, gráficos e resultados refletem Provido', async () => {
@@ -175,7 +175,7 @@ test('SCRUM-179: gráficos filtram dashboard e resultados; limpar restaura a pes
   await etapa('CA01: selecionar 2ª Turma Cível combina os filtros dos gráficos', async () => {
     await clicarNaBarra(page, 'Decisões por órgão julgador', 1)
     await expect(page.getByRole('button', { name: 'Remover filtro Órgão: 2ª Turma Cível' })).toBeVisible()
-    await expect.poll(() => consultas.at(-1)).toBe('resultado=Provido&orgaoJulgador=2%C2%AA+Turma+C%C3%ADvel')
+    await expect.poll(() => consultas.at(-1)).toBe('termo=dano+moral&resultado=Provido&orgaoJulgador=2%C2%AA+Turma+C%C3%ADvel')
   })
 
   await etapa('CA02 e CA03: dashboard e lista mostram apenas a decisão da turma selecionada', async () => {
@@ -190,7 +190,7 @@ test('SCRUM-179: gráficos filtram dashboard e resultados; limpar restaura a pes
 
   await etapa('CA04: limpar filtros restaura indicadores, gráficos e resultados', async () => {
     await page.getByRole('button', { name: 'Limpar filtros' }).click()
-    await expect.poll(() => consultas.at(-1)).toBe('')
+    await expect.poll(() => consultas.at(-1)).toBe('termo=dano+moral')
     await expect(page.getByRole('list', { name: 'Filtros ativos' })).toHaveCount(0)
     await expect(valor(page, 'DECISÕES ANALISADAS')).toHaveText('4')
     await expect(valor(page, 'ADERÊNCIA')).toHaveText('50%')

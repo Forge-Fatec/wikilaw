@@ -2,8 +2,10 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import './index.css'
 import { API_BASE } from './api'
 import { paginasVisiveis, RETICENCIAS } from './paginacao'
+import { rolarSuavementeAte } from './rolagemSuave'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
 import { ExportPdfDialog } from './components/ExportPdfDialog'
+import { FiltroFontes } from './components/FiltroFontes'
 import { PanoramaTribunal } from './components/PanoramaTribunal'
 import {
   useDashboard,
@@ -11,6 +13,7 @@ import {
   OUTROS,
   type DistribuicaoItem,
 } from './components/hooks/useDashboard'
+import { useFontes } from './components/hooks/useFontes'
 
 type DocType = 'jurisprudencia' | 'precedente' | 'doutrina'
 type Ordenacao = 'mais-recentes' | 'mais-antigos'
@@ -63,7 +66,6 @@ const BADGE_POR_TIPO: Record<DocType, string> = {
 
 const ITENS_POR_PAGINA = 10
 const ITENS_POR_PAGINA_API = 100
-const TODAS_AS_FONTES = 'Todas as fontes'
 const TODOS_OS_TRIBUNAIS = 'Todos os tribunais'
 
 const ERRO_CARREGAMENTO =
@@ -267,9 +269,11 @@ function toDocumento(tipo: DocType, item: ApiSummary): Documento {
   }
 }
 
+// Fontes marcadas na pesquisa; lista vazia significa todas (sem parâmetro fonte).
 async function carregarPagina(
   tipo: DocType,
   termo: string,
+  fontes: string[],
   pagina: number,
   signal: AbortSignal,
 ): Promise<ApiResult> {
@@ -279,6 +283,7 @@ async function carregarPagina(
     tamanho: String(ITENS_POR_PAGINA_API),
   })
   if (termo.trim()) params.set('termo', termo.trim())
+  fontes.forEach((sigla) => params.append('fonte', sigla))
 
   const res = await fetch(`${API_BASE}/api/documentos/${categoria}?${params}`, { signal })
   if (!res.ok) {
@@ -290,28 +295,30 @@ async function carregarPagina(
 async function carregarCategoria(
   tipo: DocType,
   termo: string,
+  fontes: string[],
   signal: AbortSignal,
 ): Promise<Documento[]> {
-  const primeira = await carregarPagina(tipo, termo, 0, signal)
+  const primeira = await carregarPagina(tipo, termo, fontes, 0, signal)
   const documentos = primeira.itens.map((item) => toDocumento(tipo, item))
 
   for (let pagina = 1; pagina < primeira.totalPaginas; pagina += 1) {
-    const data = await carregarPagina(tipo, termo, pagina, signal)
+    const data = await carregarPagina(tipo, termo, fontes, pagina, signal)
     documentos.push(...data.itens.map((item) => toDocumento(tipo, item)))
   }
 
   return documentos
 }
 
-// O signal interrompe a carga quando outra pesquisa a substitui: sem isso, a
-// carga inicial (dezenas de milhares de documentos) seguiria ocupando a rede.
+// O signal interrompe a carga quando outra pesquisa a substitui: sem isso, uma
+// pesquisa ampla (milhares de documentos) seguiria ocupando a rede.
 async function carregarDocumentos(
   termo: string,
+  fontes: string[],
   signal: AbortSignal,
 ): Promise<Documento[]> {
   const respostas = await Promise.allSettled(
     (Object.keys(CATEGORIA_POR_TIPO) as DocType[]).map((tipo) =>
-      carregarCategoria(tipo, termo, signal),
+      carregarCategoria(tipo, termo, fontes, signal),
     ),
   )
 
@@ -329,6 +336,8 @@ function App() {
   const [query, setQuery] = useState('')
   // The dashboard and PDF describe the last submitted search, not the current input.
   const [termoPesquisado, setTermoPesquisado] = useState('')
+  // Até a primeira pesquisa a tela mostra só a busca: nada é listado nem consultado.
+  const pesquisou = termoPesquisado !== ''
   const [exportando, setExportando] = useState(false)
   const [modalExportacao, setModalExportacao] = useState(false)
   const botaoExportar = useRef<HTMLButtonElement>(null)
@@ -340,6 +349,10 @@ function App() {
   const faixaRef = useRef<HTMLDivElement>(null)
   const buscaDestaqueRef = useRef<HTMLDivElement>(null)
   const cargaRef = useRef<AbortController | null>(null)
+  const resultadosRef = useRef<HTMLElement>(null)
+  // Conta as pesquisas que terminaram (com ou sem erro): cada uma leva a tela
+  // até a lista. Filtros, ordenação e paginação não mexem na rolagem.
+  const [pesquisasConcluidas, setPesquisasConcluidas] = useState(0)
   const [encaixe, setEncaixe] = useState<FaseEncaixe>('destaque')
 
   // A busca do hero "desce" para a barra fixa conforme a página rola e volta
@@ -396,7 +409,12 @@ function App() {
     }
   }, [])
   const [tribunal, setTribunal] = useState(TODOS_OS_TRIBUNAIS)
-  const [fonte, setFonte] = useState(TODAS_AS_FONTES)
+  const fontesCadastradas = useFontes()
+  // Guarda as desmarcadas para que toda fonte comece marcada assim que a lista chega.
+  const [fontesDesmarcadas, setFontesDesmarcadas] = useState<string[]>([])
+  // Fontes aplicadas na última pesquisa (vazio = todas); mudar os checkboxes
+  // só vale a partir da próxima pesquisa.
+  const [fontesPesquisadas, setFontesPesquisadas] = useState<string[]>([])
   const [dataDe, setDataDe] = useState('')
   const [dataAte, setDataAte] = useState('')
   const [ordenacao, setOrdenacao] = useState<Ordenacao>('mais-recentes')
@@ -404,7 +422,7 @@ function App() {
   const [escopo, setEscopo] = useState<EscopoPainel>('pesquisa')
 
   const [documentos, setDocumentos] = useState<Documento[]>([])
-  const [carregando, setCarregando] = useState(true)
+  const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [paginaAtual, setPaginaAtual] = useState(1)
   const [documentoSelecionado, setDocumentoSelecionado] =
@@ -413,10 +431,10 @@ function App() {
   // O dashboard é calculado no back com o mesmo recorte da lista. Só
   // jurisprudência entra na conta, então sem ela não há o que consultar.
   const dashboard = useDashboard(
-    filtros.jurisprudencia
+    pesquisou && filtros.jurisprudencia
       ? {
           termo: termoPesquisado,
-          fonte: fonte === TODAS_AS_FONTES ? null : fonte,
+          fontes: fontesPesquisadas,
           tribunal: tribunal === TODOS_OS_TRIBUNAIS ? null : tribunal,
           dataDe,
           dataAte,
@@ -432,22 +450,29 @@ function App() {
       return
     }
 
-    // Pesquisar não espera a carga em andamento (a inicial demora): ela é
-    // cancelada e só o resultado desta pesquisa chega à tela.
+    // Pesquisar não espera a carga em andamento: ela é cancelada e só o
+    // resultado desta pesquisa chega à tela.
     cargaRef.current?.abort()
     const carga = new AbortController()
     cargaRef.current = carga
+
+    // Com todas marcadas (ou sem a lista de fontes) não há o que filtrar.
+    const marcadas = fontesCadastradas.fontes
+      .map((fonte) => fonte.sigla)
+      .filter((sigla) => !fontesDesmarcadas.includes(sigla))
+    const fontes = marcadas.length < fontesCadastradas.fontes.length ? marcadas : []
 
     setErroValidacao(null)
     setErroExportacao(null)
     setExportacaoConcluida(false)
     setTermoPesquisado(query.trim())
+    setFontesPesquisadas(fontes)
     setCarregando(true)
     setErro(null)
     setPaginaAtual(1)
     setDocumentoSelecionado(null)
     try {
-      const resultados = await carregarDocumentos(query, carga.signal)
+      const resultados = await carregarDocumentos(query, fontes, carga.signal)
       if (!carga.signal.aborted) setDocumentos(resultados)
     } catch {
       if (!carga.signal.aborted) {
@@ -455,31 +480,41 @@ function App() {
         setDocumentos([])
       }
     } finally {
-      if (!carga.signal.aborted) setCarregando(false)
+      if (!carga.signal.aborted) {
+        setCarregando(false)
+        setPesquisasConcluidas((total) => total + 1)
+      }
     }
-  }, [query])
+  }, [query, fontesCadastradas.fontes, fontesDesmarcadas])
 
-  // Carrega os resultados iniciais (sem termo) assim que a página abre.
+  // Depois de cada pesquisa, desce com suavidade até o título "Resultados da
+  // pesquisa" (que também aparece com lista vazia ou erro), logo abaixo da barra fixa.
   useEffect(() => {
-    const carga = new AbortController()
-    cargaRef.current = carga
+    if (!pesquisasConcluidas) return
+    const alvo = resultadosRef.current?.querySelector<HTMLElement>('.results-header')
+    if (!alvo) return
 
-    carregarDocumentos('', carga.signal)
-      .then((resultados) => {
-        if (!carga.signal.aborted) setDocumentos(resultados)
-      })
-      .catch(() => {
-        if (!carga.signal.aborted) {
-          setErro(ERRO_CARREGAMENTO)
-          setDocumentos([])
-        }
-      })
-      .finally(() => {
-        if (!carga.signal.aborted) setCarregando(false)
-      })
+    return rolarSuavementeAte(() => {
+      const alturaBarra = faixaRef.current?.offsetHeight ?? 0
+      return window.scrollY + alvo.getBoundingClientRect().top - alturaBarra - 16
+    })
+  }, [pesquisasConcluidas])
 
-    return () => carga.abort()
-  }, [])
+  // Desmarcar a última fonte marcada é ignorado (o checkbox dela também fica travado).
+  function alternarFonte(sigla: string) {
+    setFontesDesmarcadas((desmarcadas) => {
+      if (desmarcadas.includes(sigla)) {
+        return desmarcadas.filter((item) => item !== sigla)
+      }
+      const restantes = fontesCadastradas.fontes.filter(
+        (fonte) => fonte.sigla !== sigla && !desmarcadas.includes(fonte.sigla),
+      )
+      return restantes.length ? [...desmarcadas, sigla] : desmarcadas
+    })
+  }
+
+  // Ao sair da página, não deixa uma carga em andamento ocupando a rede.
+  useEffect(() => () => cargaRef.current?.abort(), [])
 
   useEffect(() => {
     if (!documentoSelecionado) return
@@ -505,18 +540,9 @@ function App() {
     return Array.from(siglas).sort()
   }, [documentos])
 
-  const fontesDisponiveis = useMemo(() => {
-    const siglas = new Set(documentos.map((d) => d.fonte).filter(Boolean))
-    return Array.from(siglas).sort()
-  }, [documentos])
-
   const resultados = useMemo(() => {
     const filtrados = documentos.filter((doc) => {
       if (!filtros[doc.type]) return false
-
-      if (fonte !== TODAS_AS_FONTES && doc.fonte !== fonte) {
-        return false
-      }
 
       if (tribunal !== TODOS_OS_TRIBUNAIS && doc.tribunal !== tribunal) {
         return false
@@ -559,7 +585,7 @@ function App() {
 
       return ordenacao === 'mais-recentes' ? dataB - dataA : dataA - dataB
     })
-  }, [documentos, filtros, fonte, tribunal, dataDe, dataAte, selecao, ordenacao])
+  }, [documentos, filtros, tribunal, dataDe, dataAte, selecao, ordenacao])
 
   async function exportarPdf(paginaDe: number, paginaAte: number) {
     if (carregando || exportando || erro || !resultados.length) return
@@ -580,7 +606,7 @@ function App() {
           termo: termoPesquisado,
           categorias: (Object.keys(filtros) as DocType[])
             .filter((tipo) => filtros[tipo]).map((tipo) => CATEGORIA_POR_TIPO[tipo]),
-          fonte: fonte === TODAS_AS_FONTES ? null : fonte,
+          fonte: fontesPesquisadas.length ? fontesPesquisadas.join(', ') : null,
           tribunal: tribunal === TODOS_OS_TRIBUNAIS ? null : tribunal,
           dataDe: dataDe || null,
           dataAte: dataAte || null,
@@ -665,7 +691,6 @@ function App() {
 
   function limparFiltros() {
     setFiltros(TODOS_OS_TIPOS)
-    setFonte(TODAS_AS_FONTES)
     setTribunal(TODOS_OS_TRIBUNAIS)
     setDataDe('')
     setDataAte('')
@@ -684,9 +709,6 @@ function App() {
         : 'Nenhum tipo',
       remover: () => setFiltros(TODOS_OS_TIPOS),
     })
-  }
-  if (fonte !== TODAS_AS_FONTES) {
-    filtrosAtivos.push({ chave: 'fonte', rotulo: `Fonte: ${fonte}`, remover: () => setFonte(TODAS_AS_FONTES) })
   }
   if (tribunal !== TODOS_OS_TRIBUNAIS) {
     filtrosAtivos.push({
@@ -716,6 +738,20 @@ function App() {
     })
   }
 
+  // Sobe com suavidade até a busca do hero, com o painel de filtros aberto logo abaixo.
+  function abrirFiltrosNoHero() {
+    setFiltrosAbertos(true)
+    rolarSuavementeAte(() => {
+      const busca = buscaDestaqueRef.current
+      if (!busca) return 0
+      return Math.max(0, window.scrollY + busca.getBoundingClientRect().top - 24)
+    })
+  }
+
+  // O contador do botão Filtros soma as fontes desmarcadas, que não viram chip:
+  // elas só valem na próxima pesquisa.
+  const totalFiltros = filtrosAtivos.length + (fontesDesmarcadas.length ? 1 : 0)
+
   // A mesma busca aparece no hero e na barra fixa (as duas compartilham o
   // texto digitado); os ids mudam para não repetir no DOM durante a transição.
   const formularioBusca = (origem: 'destaque' | 'barra') => (
@@ -743,7 +779,7 @@ function App() {
         />
         {/* Fica habilitado durante a carga: uma nova pesquisa substitui a anterior. */}
         <button type="submit" aria-busy={carregando}>
-          PESQUISAR
+          {carregando ? 'PESQUISANDO...' : 'PESQUISAR'}
         </button>
       </div>
       {erroValidacao && (
@@ -756,42 +792,142 @@ function App() {
 
   return (
     <>
-      <header className="header">
-        <div className="brand">
-          <div className="brand-mark">W</div>
-          <div className="brand-text">
-            <div className="name">Wikilaw</div>
-            <div className="tag">PESQUISA JURÍDICA</div>
+      {/* Cabeçalho e hero ocupam a primeira tela inteira: ao entrar só se vê a busca. */}
+      <div className="abertura">
+        <header className="header">
+          <div className="brand">
+            <div className="brand-mark">W</div>
+            <div className="brand-text">
+              <div className="name">Wikilaw</div>
+              <div className="tag">PESQUISA JURÍDICA</div>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <section className="hero">
-        <div className="hero-rule" />
-        <h1>
-          Descreva o seu caso.{' '}
-          <em>
-            Nós
-            <br />
-            encontramos o direito.
-          </em>
-        </h1>
-        <p>
-          Pesquisa em linguagem natural entre jurisprudências, precedentes e
-          doutrinas dos principais tribunais do país.
-        </p>
-        {/* Já encaixada na barra, esta cópia está fora da tela: sai do foco e
-            dos leitores de tela para não haver duas buscas ativas. */}
-        <div
-          className="busca-destaque"
-          ref={buscaDestaqueRef}
-          inert={encaixe === 'barra'}
-        >
-          {formularioBusca('destaque')}
-        </div>
-      </section>
+        <section className={'hero' + (filtrosAbertos ? ' filtros-abertos' : '')}>
+          <div className="hero-rule" />
+          <h1>
+            Descreva o seu caso.{' '}
+            <em>
+              Nós
+              <br />
+              encontramos o direito.
+            </em>
+          </h1>
+          <p>
+            Pesquisa em linguagem natural entre jurisprudências, precedentes e
+            doutrinas dos principais tribunais do país.
+          </p>
+          {/* Já encaixada na barra, esta cópia está fora da tela: sai do foco e
+              dos leitores de tela para não haver duas buscas ativas. */}
+          <div
+            className="busca-destaque"
+            ref={buscaDestaqueRef}
+            inert={encaixe === 'barra'}
+          >
+            {formularioBusca('destaque')}
+            <div className="filtros-hero">
+              <button
+                type="button"
+                className="filters-toggle"
+                aria-expanded={filtrosAbertos}
+                aria-controls="painel-filtros"
+                onClick={() => setFiltrosAbertos((aberto) => !aberto)}
+              >
+                <span aria-hidden="true">▤</span> <span className="rotulo-filtros">Filtros</span>
+                {totalFiltros > 0 && <span className="filters-count">{totalFiltros}</span>}
+                <span className="chevron" aria-hidden="true">▾</span>
+              </button>
+            </div>
+            {/* Sempre montado para a altura animar de 0 até o conteúdo; fechado,
+                sai do foco e dos leitores de tela. */}
+            <div id="painel-filtros" className="painel-filtros" data-aberto={filtrosAbertos || undefined}>
+              <div className="painel-filtros-conteudo" inert={!filtrosAbertos}>
+                <div className="filters">
+                  <FiltroFontes
+                    fontes={fontesCadastradas.fontes}
+                    desmarcadas={fontesDesmarcadas}
+                    carregando={fontesCadastradas.carregando}
+                    erro={fontesCadastradas.erro}
+                    onAlternar={alternarFonte}
+                  />
 
-      <div className="layout">
+                  <fieldset className="group doc-types">
+                    <legend className="group-label">TIPO DE DOCUMENTO</legend>
+                    <div className="check-row">
+                      {(Object.keys(ROTULO_POR_TIPO) as DocType[]).map((tipo) => (
+                        <label className="check" key={tipo}>
+                          <input
+                            type="checkbox"
+                            checked={filtros[tipo]}
+                            onChange={() => toggleFiltro(tipo)}
+                          />
+                          {ROTULO_POR_TIPO[tipo]}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+
+                  <div className="group">
+                    <label className="group-label" htmlFor="filtro-tribunal">TRIBUNAL</label>
+                    <select
+                      id="filtro-tribunal"
+                      value={tribunal}
+                      onChange={(e) => {
+                        setTribunal(e.target.value)
+                        voltarParaPrimeiraPagina()
+                      }}
+                    >
+                      <option>{TODOS_OS_TRIBUNAIS}</option>
+                      {tribunaisDisponiveis.map((sigla) => (
+                        <option key={sigla}>{sigla}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <fieldset className="group">
+                    <legend className="group-label">PERÍODO</legend>
+                    <div className="date-row">
+                      <div>
+                        <label htmlFor="filtro-data-de">De</label>
+                        <input
+                          id="filtro-data-de"
+                          className="date-input"
+                          type="date"
+                          value={dataDe}
+                          onChange={(e) => {
+                            setDataDe(e.target.value)
+                            voltarParaPrimeiraPagina()
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="filtro-data-ate">Até</label>
+                        <input
+                          id="filtro-data-ate"
+                          className="date-input"
+                          type="date"
+                          value={dataAte}
+                          onChange={(e) => {
+                            setDataAte(e.target.value)
+                            voltarParaPrimeiraPagina()
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </fieldset>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* Montada desde o início (os efeitos de rolagem dependem dela), mas só
+          aparece quando a primeira pesquisa termina: enquanto ela roda, a
+          tela inicial continua limpa. Nas seguintes, a lista anterior fica
+          espiando abaixo do hero e convida a rolar. */}
+      <div className="layout" hidden={!pesquisasConcluidas}>
         <div className="barra-fixa" ref={faixaRef}>
           <section className="toolbar" aria-label="Busca e filtros">
             <div className="toolbar-row">
@@ -826,106 +962,20 @@ function App() {
                 </>
               )}
 
+              {/* O painel fica no hero: este botão sobe até ele e o abre. */}
               <button
                 type="button"
                 className="filters-toggle"
-                aria-expanded={filtrosAbertos}
-                aria-controls="painel-filtros"
-                onClick={() => setFiltrosAbertos((aberto) => !aberto)}
+                aria-label="Filtros: abrir o painel no topo da página"
+                onClick={abrirFiltrosNoHero}
               >
                 <span aria-hidden="true">▤</span> <span className="rotulo-filtros">Filtros</span>
-                {filtrosAtivos.length > 0 && (
-                  <span className="filters-count">{filtrosAtivos.length}</span>
+                {totalFiltros > 0 && (
+                  <span className="filters-count">{totalFiltros}</span>
                 )}
-                <span className="chevron" aria-hidden="true">▾</span>
+                <span className="chevron" aria-hidden="true">▴</span>
               </button>
             </div>
-
-            {filtrosAbertos && (
-              <div id="painel-filtros" className="filters">
-                <fieldset className="group doc-types">
-                  <legend className="group-label">TIPO DE DOCUMENTO</legend>
-                  <div className="check-row">
-                    {(Object.keys(ROTULO_POR_TIPO) as DocType[]).map((tipo) => (
-                      <label className="check" key={tipo}>
-                        <input
-                          type="checkbox"
-                          checked={filtros[tipo]}
-                          onChange={() => toggleFiltro(tipo)}
-                        />
-                        {ROTULO_POR_TIPO[tipo]}
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-
-                <div className="group">
-                  <label className="group-label" htmlFor="filtro-fonte">FONTE</label>
-                  <select
-                    id="filtro-fonte"
-                    value={fonte}
-                    onChange={(e) => {
-                      setFonte(e.target.value)
-                      voltarParaPrimeiraPagina()
-                    }}
-                  >
-                    <option>{TODAS_AS_FONTES}</option>
-                    {fontesDisponiveis.map((sigla) => (
-                      <option key={sigla}>{sigla}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="group">
-                  <label className="group-label" htmlFor="filtro-tribunal">TRIBUNAL</label>
-                  <select
-                    id="filtro-tribunal"
-                    value={tribunal}
-                    onChange={(e) => {
-                      setTribunal(e.target.value)
-                      voltarParaPrimeiraPagina()
-                    }}
-                  >
-                    <option>{TODOS_OS_TRIBUNAIS}</option>
-                    {tribunaisDisponiveis.map((sigla) => (
-                      <option key={sigla}>{sigla}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <fieldset className="group">
-                  <legend className="group-label">PERÍODO</legend>
-                  <div className="date-row">
-                    <div>
-                      <label htmlFor="filtro-data-de">De</label>
-                      <input
-                        id="filtro-data-de"
-                        className="date-input"
-                        type="date"
-                        value={dataDe}
-                        onChange={(e) => {
-                          setDataDe(e.target.value)
-                          voltarParaPrimeiraPagina()
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="filtro-data-ate">Até</label>
-                      <input
-                        id="filtro-data-ate"
-                        className="date-input"
-                        type="date"
-                        value={dataAte}
-                        onChange={(e) => {
-                          setDataAte(e.target.value)
-                          voltarParaPrimeiraPagina()
-                        }}
-                      />
-                    </div>
-                  </div>
-                </fieldset>
-              </div>
-            )}
           </section>
         </div>
 
@@ -1022,7 +1072,7 @@ function App() {
             )}
           </aside>
 
-          <main className="results">
+          <main className="results" ref={resultadosRef}>
             <div className="results-header">
               <div className="results-summary">
                 <h2>Resultados da pesquisa</h2>

@@ -37,6 +37,9 @@ export default defineConfig({
     baseURL: FRONTEND_URL,
 
     viewport,
+    // Animations (auto-scroll, filters panel) finish instantly so tests don't
+    // wait for them; specs that check an animation turn motion back on.
+    contextOptions: { reducedMotion: 'reduce' },
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
     screenshot: 'only-on-failure',
