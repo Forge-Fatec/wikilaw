@@ -9,6 +9,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -24,6 +25,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     ResponseEntity<ApiErrorResponse> handleUnreadable(HttpMessageNotReadableException exception) {
         return response(HttpStatus.BAD_REQUEST, "JSON inválido", List.of("Verifique os campos e valores enviados"));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    ResponseEntity<ApiErrorResponse> handleResponseStatus(ResponseStatusException exception) {
+        HttpStatus status = HttpStatus.valueOf(exception.getStatusCode().value());
+        String reason = exception.getReason() == null ? status.getReasonPhrase() : exception.getReason();
+        return response(status, reason, List.of());
     }
 
     @ExceptionHandler(SemanticQueryException.class)

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { API_BASE } from '../../api'
+import { apiFetch } from '../../auth'
 
 export interface DistribuicaoItem {
   categoria: string
@@ -75,7 +76,7 @@ export function useDashboard(recorte: RecorteDashboard | null) {
 
     // Descarta respostas de um recorte que já mudou (filtro trocado no meio da consulta).
     let ativo = true
-    fetch(url)
+    apiFetch(url)
       .then((res) => {
         if (!res.ok) throw new Error(`Erro ao carregar o dashboard (status ${res.status})`)
         return res.json() as Promise<Dashboard>

@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import './index.css'
 import { API_BASE } from './api'
+import { apiFetch, type AuthUser } from './auth'
 import { paginasVisiveis, RETICENCIAS } from './paginacao'
 import { rolarSuavementeAte } from './rolagemSuave'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
@@ -285,7 +286,7 @@ async function carregarPagina(
   if (termo.trim()) params.set('termo', termo.trim())
   fontes.forEach((sigla) => params.append('fonte', sigla))
 
-  const res = await fetch(`${API_BASE}/api/documentos/${categoria}?${params}`, { signal })
+  const res = await apiFetch(`${API_BASE}/api/documentos/${categoria}?${params}`, { signal })
   if (!res.ok) {
     throw new Error(`Erro ao buscar ${categoria} (status ${res.status})`)
   }
@@ -332,7 +333,15 @@ async function carregarDocumentos(
   return documentos
 }
 
-function App() {
+function App({
+  user,
+  onLogout,
+  onOpenAdmin,
+}: {
+  user: AuthUser
+  onLogout: () => void
+  onOpenAdmin: () => void
+}) {
   const [query, setQuery] = useState('')
   // The dashboard and PDF describe the last submitted search, not the current input.
   const [termoPesquisado, setTermoPesquisado] = useState('')
@@ -599,7 +608,7 @@ function App() {
     }
     setExportando(true)
     try {
-      const response = await fetch(`${API_BASE}/api/pesquisas/exportacoes/pdf`, {
+      const response = await apiFetch(`${API_BASE}/api/pesquisas/exportacoes/pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -801,6 +810,27 @@ function App() {
               <div className="name">Wikilaw</div>
               <div className="tag">PESQUISA JURÍDICA</div>
             </div>
+          </div>
+          <div className="account-actions">
+            <div className="account-name">
+              <strong>{user.login}</strong>
+              <span>{user.perfil === 'ADMIN' ? 'Administrador' : 'Usuário'}</span>
+            </div>
+            {user.perfil === 'ADMIN' && (
+              <button
+                type="button"
+                className="settings-button"
+                onClick={onOpenAdmin}
+                aria-label="Abrir gestão de usuários"
+                title="Gestão de usuários"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z" />
+                  <path d="m19.4 15 .1.1 1.2 2.1-2.5 2.5-2.1-1.2-.1-.1c-.6.3-1.2.6-1.9.8V21h-3.5v-2.4c-.7-.2-1.3-.5-1.9-.8l-.1.1-2.1 1.2-2.5-2.5 1.2-2.1.1-.1a8 8 0 0 1-.8-1.9H3V9h2.4c.2-.7.5-1.3.8-1.9l-.1-.1-1.2-2.1 2.5-2.5 2.1 1.2.1.1c.6-.3 1.2-.6 1.9-.8V1h3.5v2.4c.7.2 1.3.5 1.9.8l.1-.1 2.1-1.2 2.5 2.5-1.2 2.1-.1.1c.3.6.6 1.2.8 1.9H23V13h-2.4c-.2.7-.5 1.4-.8 2Z" />
+                </svg>
+              </button>
+            )}
+            <button type="button" className="logout-button" onClick={onLogout}>Sair</button>
           </div>
         </header>
 

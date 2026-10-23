@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { API_BASE } from '../../api'
+import { apiFetch } from '../../auth'
 
 export interface Fonte {
   sigla: string
@@ -25,7 +26,7 @@ export function useFontes(): EstadoFontes {
 
   useEffect(() => {
     let ativo = true
-    fetch(`${API_BASE}/api/fontes`)
+    apiFetch(`${API_BASE}/api/fontes`)
       .then((res) => {
         if (!res.ok) throw new Error(`Erro ao carregar as fontes (status ${res.status})`)
         return res.json() as Promise<Fonte[]>
