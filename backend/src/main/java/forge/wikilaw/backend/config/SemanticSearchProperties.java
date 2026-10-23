@@ -1,5 +1,6 @@
 package forge.wikilaw.backend.config;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -34,4 +35,29 @@ public class SemanticSearchProperties {
     @Min(1)
     @Max(100)
     private int maxResults = 50;
+
+    @Valid
+    @NotNull
+    private Query query = new Query();
+
+    /** Descricao do caso pesquisado que vira o vetor de consulta. */
+    @Getter
+    @Setter
+    public static class Query {
+
+        /** Descricoes muito curtas nao carregam contexto suficiente para a similaridade. */
+        @Min(1)
+        @Max(500)
+        private int minCharacters = 20;
+
+        /** Cerca de 5 mil tokens, bem abaixo dos 32 mil aceitos pelo voyage-4. */
+        @Min(100)
+        @Max(100_000)
+        private int maxCharacters = 20_000;
+
+        /** Consultas repetidas reaproveitam o vetor sem nova chamada ao provedor; 0 desliga. */
+        @Min(0)
+        @Max(10_000)
+        private int cacheSize = 200;
+    }
 }

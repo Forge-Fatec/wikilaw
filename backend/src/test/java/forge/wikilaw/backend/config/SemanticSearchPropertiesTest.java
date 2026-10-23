@@ -33,6 +33,22 @@ class SemanticSearchPropertiesTest {
         assertThat(properties.getMaxResults()).isEqualTo(20);
     }
 
+    @Test
+    void bindsSearchedCaseLimits() {
+        SemanticSearchProperties defaults = bind(Map.of());
+        assertThat(defaults.getQuery().getMinCharacters()).isEqualTo(20);
+        assertThat(defaults.getQuery().getMaxCharacters()).isEqualTo(20_000);
+        assertThat(defaults.getQuery().getCacheSize()).isEqualTo(200);
+
+        SemanticSearchProperties configured = bind(Map.of(
+                "wikilaw.semantic.search.query.min-characters", "10",
+                "wikilaw.semantic.search.query.max-characters", "5000",
+                "wikilaw.semantic.search.query.cache-size", "0"));
+        assertThat(configured.getQuery().getMinCharacters()).isEqualTo(10);
+        assertThat(configured.getQuery().getMaxCharacters()).isEqualTo(5000);
+        assertThat(configured.getQuery().getCacheSize()).isZero();
+    }
+
     private SemanticSearchProperties bind(Map<String, String> values) {
         return new Binder(new MapConfigurationPropertySource(values))
                 .bindOrCreate("wikilaw.semantic.search", SemanticSearchProperties.class);
