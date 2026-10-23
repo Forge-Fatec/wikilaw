@@ -267,9 +267,11 @@ function toDocumento(tipo: DocType, item: ApiSummary): Documento {
   }
 }
 
+// Fontes marcadas na pesquisa; lista vazia significa todas (sem parâmetro fonte).
 async function carregarPagina(
   tipo: DocType,
   termo: string,
+  fontes: string[],
   pagina: number,
   signal: AbortSignal,
 ): Promise<ApiResult> {
@@ -279,6 +281,7 @@ async function carregarPagina(
     tamanho: String(ITENS_POR_PAGINA_API),
   })
   if (termo.trim()) params.set('termo', termo.trim())
+  fontes.forEach((sigla) => params.append('fonte', sigla))
 
   const res = await fetch(`${API_BASE}/api/documentos/${categoria}?${params}`, { signal })
   if (!res.ok) {
@@ -290,28 +293,30 @@ async function carregarPagina(
 async function carregarCategoria(
   tipo: DocType,
   termo: string,
+  fontes: string[],
   signal: AbortSignal,
 ): Promise<Documento[]> {
-  const primeira = await carregarPagina(tipo, termo, 0, signal)
+  const primeira = await carregarPagina(tipo, termo, fontes, 0, signal)
   const documentos = primeira.itens.map((item) => toDocumento(tipo, item))
 
   for (let pagina = 1; pagina < primeira.totalPaginas; pagina += 1) {
-    const data = await carregarPagina(tipo, termo, pagina, signal)
+    const data = await carregarPagina(tipo, termo, fontes, pagina, signal)
     documentos.push(...data.itens.map((item) => toDocumento(tipo, item)))
   }
 
   return documentos
 }
 
-// O signal interrompe a carga quando outra pesquisa a substitui: sem isso, a
-// carga inicial (dezenas de milhares de documentos) seguiria ocupando a rede.
+// O signal interrompe a carga quando outra pesquisa a substitui: sem isso, uma
+// pesquisa ampla (milhares de documentos) seguiria ocupando a rede.
 async function carregarDocumentos(
   termo: string,
+  fontes: string[],
   signal: AbortSignal,
 ): Promise<Documento[]> {
   const respostas = await Promise.allSettled(
     (Object.keys(CATEGORIA_POR_TIPO) as DocType[]).map((tipo) =>
-      carregarCategoria(tipo, termo, signal),
+      carregarCategoria(tipo, termo, fontes, signal),
     ),
   )
 
@@ -329,6 +334,8 @@ function App() {
   const [query, setQuery] = useState('')
   // The dashboard and PDF describe the last submitted search, not the current input.
   const [termoPesquisado, setTermoPesquisado] = useState('')
+  // Até a primeira pesquisa a tela mostra só a busca: nada é listado nem consultado.
+  const pesquisou = termoPesquisado !== ''
   const [exportando, setExportando] = useState(false)
   const [modalExportacao, setModalExportacao] = useState(false)
   const botaoExportar = useRef<HTMLButtonElement>(null)
@@ -404,7 +411,7 @@ function App() {
   const [escopo, setEscopo] = useState<EscopoPainel>('pesquisa')
 
   const [documentos, setDocumentos] = useState<Documento[]>([])
-  const [carregando, setCarregando] = useState(true)
+  const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [paginaAtual, setPaginaAtual] = useState(1)
   const [documentoSelecionado, setDocumentoSelecionado] =
@@ -413,7 +420,7 @@ function App() {
   // O dashboard é calculado no back com o mesmo recorte da lista. Só
   // jurisprudência entra na conta, então sem ela não há o que consultar.
   const dashboard = useDashboard(
-    filtros.jurisprudencia
+    pesquisou && filtros.jurisprudencia
       ? {
           termo: termoPesquisado,
           fonte: fonte === TODAS_AS_FONTES ? null : fonte,
@@ -447,7 +454,7 @@ function App() {
     setPaginaAtual(1)
     setDocumentoSelecionado(null)
     try {
-      const resultados = await carregarDocumentos(query, carga.signal)
+      const resultados = await carregarDocumentos(query, [], carga.signal)
       if (!carga.signal.aborted) setDocumentos(resultados)
     } catch {
       if (!carga.signal.aborted) {
@@ -459,27 +466,8 @@ function App() {
     }
   }, [query])
 
-  // Carrega os resultados iniciais (sem termo) assim que a página abre.
-  useEffect(() => {
-    const carga = new AbortController()
-    cargaRef.current = carga
-
-    carregarDocumentos('', carga.signal)
-      .then((resultados) => {
-        if (!carga.signal.aborted) setDocumentos(resultados)
-      })
-      .catch(() => {
-        if (!carga.signal.aborted) {
-          setErro(ERRO_CARREGAMENTO)
-          setDocumentos([])
-        }
-      })
-      .finally(() => {
-        if (!carga.signal.aborted) setCarregando(false)
-      })
-
-    return () => carga.abort()
-  }, [])
+  // Ao sair da página, não deixa uma carga em andamento ocupando a rede.
+  useEffect(() => () => cargaRef.current?.abort(), [])
 
   useEffect(() => {
     if (!documentoSelecionado) return
@@ -791,7 +779,9 @@ function App() {
         </div>
       </section>
 
-      <div className="layout">
+      {/* Montada desde o início (os efeitos de rolagem dependem dela), mas
+          só aparece depois da primeira pesquisa. */}
+      <div className="layout" hidden={!pesquisou}>
         <div className="barra-fixa" ref={faixaRef}>
           <section className="toolbar" aria-label="Busca e filtros">
             <div className="toolbar-row">

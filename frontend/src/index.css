@@ -168,6 +168,9 @@ nav a.active {
   flex-direction: column;
   gap: 24px;
 }
+.layout[hidden] {
+  display: none;
+}
 
 .toolbar {
   background: #fff;
