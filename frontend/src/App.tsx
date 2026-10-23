@@ -823,9 +823,11 @@ function App() {
         </section>
       </div>
 
-      {/* Montada desde o início (os efeitos de rolagem dependem dela), mas
-          só aparece depois da primeira pesquisa. */}
-      <div className="layout" hidden={!pesquisou}>
+      {/* Montada desde o início (os efeitos de rolagem dependem dela), mas só
+          aparece quando a primeira pesquisa termina: enquanto ela roda, a
+          tela inicial continua limpa. Nas seguintes, a lista anterior fica
+          espiando abaixo do hero e convida a rolar. */}
+      <div className="layout" hidden={!pesquisasConcluidas}>
         <div className="barra-fixa" ref={faixaRef}>
           <section className="toolbar" aria-label="Busca e filtros">
             <div className="toolbar-row">
