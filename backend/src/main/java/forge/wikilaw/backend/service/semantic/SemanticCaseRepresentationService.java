@@ -3,6 +3,8 @@ package forge.wikilaw.backend.service.semantic;
 import forge.wikilaw.backend.config.SemanticSearchProperties;
 import forge.wikilaw.backend.exception.SemanticQueryException;
 import forge.wikilaw.backend.integration.embedding.EmbeddingProvider;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 
 /**
@@ -14,17 +16,26 @@ public class SemanticCaseRepresentationService {
     private final LegalTextNormalizer normalizer;
     private final EmbeddingProvider provider;
     private final SemanticSearchProperties properties;
+    private final QueryVectorCache cache;
 
     public SemanticCaseRepresentationService(LegalTextNormalizer normalizer, EmbeddingProvider provider,
             SemanticSearchProperties properties) {
         this.normalizer = normalizer;
         this.provider = provider;
         this.properties = properties;
+        this.cache = new QueryVectorCache(properties.getQuery().getCacheSize());
     }
 
     public CaseRepresentation representar(String descricao) {
         String text = normalize(descricao);
-        return new CaseRepresentation(text, provider.embedQuery(text), provider.model());
+        String model = provider.model();
+        String key = model + '\u0000' + text;
+        float[] cached = cache.get(key);
+        if (cached == null) {
+            cached = provider.embedQuery(text);
+            cache.put(key, cached);
+        }
+        return new CaseRepresentation(text, cached.clone(), model);
     }
 
     String normalize(String descricao) {
@@ -45,6 +56,33 @@ public class SemanticCaseRepresentationService {
 
     private SemanticQueryException tooLong(int maxCharacters) {
         return new SemanticQueryException("A descricao do caso deve ter no maximo " + maxCharacters + " caracteres");
+    }
+
+    /**
+     * Cache LRU em memoria: a mesma descricao (pesquisa repetida, troca de pagina ou de filtro) nao gasta
+     * outra requisicao do provedor. A chave inclui o modelo, entao trocar de modelo nunca reaproveita vetor antigo.
+     */
+    private static final class QueryVectorCache {
+        private final int capacity;
+        private final Map<String, float[]> entries;
+
+        QueryVectorCache(int capacity) {
+            this.capacity = capacity;
+            this.entries = new LinkedHashMap<>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, float[]> eldest) {
+                    return size() > QueryVectorCache.this.capacity;
+                }
+            };
+        }
+
+        synchronized float[] get(String key) {
+            return capacity == 0 ? null : entries.get(key);
+        }
+
+        synchronized void put(String key, float[] vector) {
+            if (capacity > 0) entries.put(key, vector.clone());
+        }
     }
 
     /** Texto efetivamente enviado ao provedor, o vetor resultante e o modelo que o gerou. */
