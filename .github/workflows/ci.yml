@@ -64,11 +64,17 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+  # One job per browser, in parallel: total time is the slowest browser
+  # instead of the sum of all three.
   playwright-tests:
-    name: Playwright end-to-end tests
+    name: Playwright (${{ matrix.browser }})
     runs-on: ubuntu-24.04
     continue-on-error: true
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     defaults:
       run:
         working-directory: frontend
@@ -87,17 +93,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Run Playwright tests
-        run: npm run test:e2e
+        run: npm run test:e2e -- --project=${{ matrix.browser }}
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.browser }}
           path: frontend/playwright-report/
           retention-days: 7
 
