@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { abrirFrontend } from './helpers/test-helper'
+import { abrirEPesquisar } from './helpers/test-helper'
 
 function printStep(cenario: string, etapa: string): void {
   console.info(`[filtro-graficos][${cenario}] ${etapa}`)
@@ -141,8 +141,8 @@ test.describe('filtro pela seleção nos gráficos', () => {
     printStep(cenario, 'Configurando mock da API')
     const consultas = await mockarApi(page)
 
-    printStep(cenario, 'Abrindo o frontend')
-    await abrirFrontend(page)
+    printStep(cenario, 'Abrindo o frontend e pesquisando')
+    await abrirEPesquisar(page)
     await expect(page.getByText('5 documentos encontrados')).toBeVisible()
 
     printStep(cenario, 'Selecionando "Provido"')
@@ -166,7 +166,7 @@ test.describe('filtro pela seleção nos gráficos', () => {
 
     printStep(cenario, 'Configurando mock da API')
     const consultas = await mockarApi(page)
-    await abrirFrontend(page)
+    await abrirEPesquisar(page)
     await expect(page.getByText('5 documentos encontrados')).toBeVisible()
 
     printStep(cenario, 'Selecionando "Provido" e "2ª Turma Cível"')
@@ -178,7 +178,7 @@ test.describe('filtro pela seleção nos gráficos', () => {
     await expect(titulosListados(page)).toHaveText(['Documento 3'])
     await expect
       .poll(() => consultas.at(-1)?.toString())
-      .toBe('resultado=Provido&orgaoJulgador=2%C2%AA+Turma+C%C3%ADvel')
+      .toBe('termo=dano+moral&resultado=Provido&orgaoJulgador=2%C2%AA+Turma+C%C3%ADvel')
 
     printStep(cenario, 'Clicando de novo na barra selecionada')
     await clicarNaBarra(page, 'Decisões por órgão julgador', 1)
@@ -192,7 +192,7 @@ test.describe('filtro pela seleção nos gráficos', () => {
 
     printStep(cenario, 'Configurando mock da API')
     await mockarApi(page)
-    await abrirFrontend(page)
+    await abrirEPesquisar(page)
     await expect(page.getByText('5 documentos encontrados')).toBeVisible()
 
     printStep(cenario, 'Clicando em "Outros"')
@@ -219,7 +219,7 @@ test.describe('painel de filtros recolhível', () => {
 
     printStep(cenario, 'Configurando mock da API')
     await mockarApi(page)
-    await abrirFrontend(page)
+    await abrirEPesquisar(page)
     await expect(page.getByText('5 documentos encontrados')).toBeVisible()
 
     const botao = page.getByRole('button', { name: 'Filtros', exact: false, expanded: false })
@@ -229,7 +229,7 @@ test.describe('painel de filtros recolhível', () => {
 
     printStep(cenario, 'Abrindo o painel e filtrando por tipo')
     await botao.click()
-    await expect(page.getByLabel('Fonte')).toBeVisible()
+    await expect(page.getByLabel('Tribunal')).toBeVisible()
     await page.getByLabel('Doutrina').uncheck()
     await clicarNaBarra(page, 'Resultado dos recursos', 0)
 

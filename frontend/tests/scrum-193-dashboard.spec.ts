@@ -82,6 +82,8 @@ async function prepararApi(page: Page): Promise<string[]> {
       ? dashboardContrato : dashboardDanoMoral })
   })
   await abrirFrontend(page)
+  // 'decisão' aparece no título das duas decisões do mock.
+  await pesquisar(page, 'decisão')
   await expect(page.getByText('2 documentos encontrados', { exact: false })).toBeVisible()
   return consultas
 }

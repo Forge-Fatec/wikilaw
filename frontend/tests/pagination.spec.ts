@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { paginasVisiveis } from '../src/paginacao'
-import { abrirFrontend } from './helpers/test-helper'
+import { abrirEPesquisar } from './helpers/test-helper'
 
 const TOTAL_DOCUMENTOS = 500 // 50 páginas de 10 na tela
 
@@ -82,8 +82,8 @@ test.describe('paginação dos resultados', () => {
     printStep(cenario, 'Configurando mock da API')
     await mockarApi(page)
 
-    printStep(cenario, 'Abrindo o frontend')
-    await abrirFrontend(page)
+    printStep(cenario, 'Abrindo o frontend e pesquisando')
+    await abrirEPesquisar(page)
     await expect(page.getByText('500 documentos encontrados · Página 1 de 50')).toBeVisible()
     expect(await paginasExibidas(page)).toEqual([
       'ANTERIOR', '1', '2', '3', '…', '49', '50', 'PRÓXIMA',

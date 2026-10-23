@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { abrirFrontend } from './helpers/test-helper'
+import { abrirEPesquisar, abrirFrontend } from './helpers/test-helper'
 
 const EMPTY_RESPONSE = {
   itens: [],
@@ -41,7 +41,7 @@ test.describe('busca por conteúdos jurídicos', () => {
       await route.fulfill({ json: resposta })
     })
 
-    await abrirFrontend(page)
+    await abrirEPesquisar(page)
     await expect(page.getByText('11 documentos encontrados')).toBeVisible()
     await expect(page.locator('.card h3').first()).toHaveText('Documento 11')
 
@@ -66,10 +66,10 @@ test.describe('busca por conteúdos jurídicos', () => {
       await route.fulfill({ json: EMPTY_RESPONSE })
     })
 
-    printStep(cenario, 'Abrindo o frontend')
+    printStep(cenario, 'Abrindo o frontend: nada é listado antes da busca')
     await abrirFrontend(page)
-    await expect(page.locator('.results-count')).not.toHaveText('Buscando...')
-    const totalAposCarregamentoInicial = requisicoes.length
+    await expect(page.getByRole('checkbox', { name: 'STJ' })).toBeChecked()
+    expect(requisicoes).toHaveLength(0)
 
     printStep(cenario, 'Preenchendo a descrição do caso')
     const descricao = 'Dano moral por negativação indevida'
@@ -81,14 +81,12 @@ test.describe('busca por conteúdos jurídicos', () => {
     await page.getByRole('button', { name: /pesquisar/i }).click()
 
     printStep(cenario, 'Validando as requisições da busca')
-    await expect
-      .poll(() => requisicoes.length)
-      .toBe(totalAposCarregamentoInicial + 3)
-
-    const requisicoesDaBusca = requisicoes.slice(totalAposCarregamentoInicial)
-    expect(requisicoesDaBusca).toHaveLength(3)
-    for (const urlRequisitada of requisicoesDaBusca) {
-      expect(new URL(urlRequisitada).searchParams.get('termo')).toBe(descricao)
+    await expect.poll(() => requisicoes.length).toBe(3)
+    for (const urlRequisitada of requisicoes) {
+      const params = new URL(urlRequisitada).searchParams
+      expect(params.get('termo')).toBe(descricao)
+      // Todas as fontes marcadas: nenhuma é filtrada.
+      expect(params.has('fonte')).toBe(false)
     }
   })
 
@@ -152,22 +150,22 @@ test.describe('busca por conteúdos jurídicos', () => {
     await expect(page.locator('.barra-fixa')).not.toHaveAttribute('data-presa', '')
   })
 
-  test('pesquisa mesmo com a carga inicial ainda em andamento', async ({ page }) => {
+  test('nova pesquisa substitui a que ainda está em andamento', async ({ page }) => {
     const cenario = 'busca durante a carga'
 
-    printStep(cenario, 'Configurando mock: carga inicial que não termina')
+    printStep(cenario, 'Configurando mock: primeira pesquisa que não termina')
     await page.route('**/api/documentos/**', async (route) => {
-      if (new URL(route.request().url()).searchParams.has('termo')) {
+      if (new URL(route.request().url()).searchParams.get('termo') !== 'primeira') {
         await route.fulfill({ json: EMPTY_RESPONSE })
       }
-      // Sem termo (carga inicial): a requisição fica pendente.
+      // A primeira pesquisa fica pendente.
     })
     await page.route('**/api/dashboard*', (route) =>
       route.fulfill({ status: 500 }),
     )
 
-    printStep(cenario, 'Pesquisando antes da carga inicial terminar')
-    await abrirFrontend(page)
+    printStep(cenario, 'Pesquisando antes da primeira pesquisa terminar')
+    await abrirEPesquisar(page, 'primeira')
     await expect(page.locator('.results-count')).toHaveText('Buscando...')
     await page.getByLabel('Descrição do caso').fill('dano moral')
     await page.getByLabel('Descrição do caso').press('Enter')
@@ -190,8 +188,6 @@ test.describe('busca por conteúdos jurídicos', () => {
 
     printStep(cenario, 'Abrindo o frontend')
     await abrirFrontend(page)
-    await expect(page.locator('.results-count')).not.toHaveText('Buscando...')
-    const totalAposCarregamentoInicial = requisicoes.length
 
     printStep(cenario, 'Enviando a busca sem descrição')
     await page.getByRole('button', { name: /pesquisar/i }).click()
@@ -203,6 +199,6 @@ test.describe('busca por conteúdos jurídicos', () => {
 
     printStep(cenario, 'Validando que nenhuma busca foi iniciada')
     await page.waitForTimeout(200)
-    expect(requisicoes).toHaveLength(totalAposCarregamentoInicial)
+    expect(requisicoes).toHaveLength(0)
   })
 })
