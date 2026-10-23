@@ -108,6 +108,8 @@ test.describe('filtros abaixo da busca do hero', () => {
   })
 
   test('o painel se expande aos poucos', async ({ page }) => {
+    // O padrão dos testes é movimento reduzido; aqui a animação é o que se testa.
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
     await abrirFrontend(page)
     const alturas = await alturasAoAbrir(page)
     const finais = Math.max(...alturas)

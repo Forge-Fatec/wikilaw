@@ -130,6 +130,8 @@ test.describe('tela inicial e rolagem até os resultados', () => {
 
   test('depois de pesquisar, desce com suavidade até o título dos resultados', async ({ page }) => {
     const cenario = 'rolagem suave'
+    // O padrão dos testes é movimento reduzido; aqui a animação é o que se testa.
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
     const api = await mockarApi(page)
     await abrirFrontend(page)
 
