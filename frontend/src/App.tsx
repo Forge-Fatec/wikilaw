@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import './index.css'
 import { API_BASE } from './api'
 import { paginasVisiveis, RETICENCIAS } from './paginacao'
+import { rolarSuavementeAte } from './rolagemSuave'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
 import { ExportPdfDialog } from './components/ExportPdfDialog'
 import { FiltroFontes } from './components/FiltroFontes'
@@ -348,6 +349,10 @@ function App() {
   const faixaRef = useRef<HTMLDivElement>(null)
   const buscaDestaqueRef = useRef<HTMLDivElement>(null)
   const cargaRef = useRef<AbortController | null>(null)
+  const resultadosRef = useRef<HTMLElement>(null)
+  // Conta as pesquisas que terminaram (com ou sem erro): cada uma leva a tela
+  // até a lista. Filtros, ordenação e paginação não mexem na rolagem.
+  const [pesquisasConcluidas, setPesquisasConcluidas] = useState(0)
   const [encaixe, setEncaixe] = useState<FaseEncaixe>('destaque')
 
   // A busca do hero "desce" para a barra fixa conforme a página rola e volta
@@ -475,9 +480,25 @@ function App() {
         setDocumentos([])
       }
     } finally {
-      if (!carga.signal.aborted) setCarregando(false)
+      if (!carga.signal.aborted) {
+        setCarregando(false)
+        setPesquisasConcluidas((total) => total + 1)
+      }
     }
   }, [query, fontesCadastradas.fontes, fontesDesmarcadas])
+
+  // Depois de cada pesquisa, desce com suavidade até o primeiro registro (ou
+  // até a mensagem de vazio/erro), logo abaixo da barra fixa.
+  useEffect(() => {
+    if (!pesquisasConcluidas) return
+    const alvo = resultadosRef.current?.querySelector<HTMLElement>('article.card, .empty')
+    if (!alvo) return
+
+    return rolarSuavementeAte(() => {
+      const alturaBarra = faixaRef.current?.offsetHeight ?? 0
+      return window.scrollY + alvo.getBoundingClientRect().top - alturaBarra - 16
+    })
+  }, [pesquisasConcluidas])
 
   // Desmarcar a última fonte marcada é ignorado (o checkbox dela também fica travado).
   function alternarFonte(sigla: string) {
@@ -1018,7 +1039,7 @@ function App() {
             )}
           </aside>
 
-          <main className="results">
+          <main className="results" ref={resultadosRef}>
             <div className="results-header">
               <div className="results-summary">
                 <h2>Resultados da pesquisa</h2>
