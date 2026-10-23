@@ -49,7 +49,7 @@ test.describe('tela inicial e rolagem até os resultados', () => {
 
     printStep(cenario, 'Validando a altura da abertura e a cor do fundo')
     await expect(page.locator('.abertura')).toBeVisible()
-    await expect(page.getByRole('checkbox', { name: 'STJ' })).toBeVisible()
+    await expect(page.locator('.filtros-hero .filters-toggle')).toBeVisible()
     const medidas = await page.evaluate(() => ({
       abertura: document.querySelector('.abertura')!.getBoundingClientRect().height,
       janela: window.innerHeight,

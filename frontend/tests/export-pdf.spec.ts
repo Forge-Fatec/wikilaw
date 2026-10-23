@@ -1,6 +1,6 @@
 import { test, expect, type Page, type TestInfo } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
-import { abrirFrontend, campoDeBusca, pesquisar } from './helpers/test-helper'
+import { abrirFiltros, abrirFrontend, campoDeBusca, pesquisar } from './helpers/test-helper'
 
 function pdfFixture(): Buffer {
   const objects = [
@@ -101,12 +101,13 @@ test('CA02: envia os dados principais e todos os resultados filtrados para o PDF
   })
   await prepare(page)
   // Só a fonte TJDFT: a pesquisa precisa ser refeita para valer.
+  await abrirFiltros(page)
   await page.getByRole('checkbox', { name: 'STJ', exact: true }).uncheck()
   await page.getByRole('checkbox', { name: 'BDJUR', exact: true }).uncheck()
   await pesquisar(page)
   await expect(page.getByText('6 documentos encontrados', { exact: false })).toBeVisible()
-  // O painel de filtros começa fechado.
-  await page.getByRole('button', { name: 'Filtros', expanded: false }).click()
+  // O painel continua aberto depois da pesquisa.
+  await abrirFiltros(page)
   await page.getByLabel('Precedente', { exact: true }).uncheck()
   await page.getByLabel('Doutrina', { exact: true }).uncheck()
   await page.locator('#filtro-tribunal').selectOption('TJDFT')

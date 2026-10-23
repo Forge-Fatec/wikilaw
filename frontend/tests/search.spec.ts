@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { abrirEPesquisar, abrirFrontend } from './helpers/test-helper'
+import { abrirEPesquisar, abrirFiltros, abrirFrontend } from './helpers/test-helper'
 
 const EMPTY_RESPONSE = {
   itens: [],
@@ -68,6 +68,7 @@ test.describe('busca por conteúdos jurídicos', () => {
 
     printStep(cenario, 'Abrindo o frontend: nada é listado antes da busca')
     await abrirFrontend(page)
+    await abrirFiltros(page)
     await expect(page.getByRole('checkbox', { name: 'STJ' })).toBeChecked()
     expect(requisicoes).toHaveLength(0)
 

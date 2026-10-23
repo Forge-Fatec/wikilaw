@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { abrirFrontend, FRONTEND_URL, pesquisar } from './helpers/test-helper'
+import { abrirFiltros, abrirFrontend, FRONTEND_URL, pesquisar } from './helpers/test-helper'
 
 const DOCUMENTOS = [
   { id: 1, fonte: 'STJ', titulo: 'Acórdão do STJ' },
@@ -50,6 +50,7 @@ test.describe('filtro de fontes da tela inicial', () => {
     printStep(cenario, 'Abrindo o frontend')
     const consultas = await mockarApi(page)
     await abrirFrontend(page)
+    await abrirFiltros(page)
 
     printStep(cenario, 'Validando a busca e as fontes marcadas')
     await expect(page.locator('.hero').getByLabel('Descrição do caso')).toBeVisible()
@@ -70,6 +71,7 @@ test.describe('filtro de fontes da tela inicial', () => {
     const cenario = 'última fonte'
     await mockarApi(page)
     await abrirFrontend(page)
+    await abrirFiltros(page)
 
     printStep(cenario, 'Desmarcando duas das três fontes')
     await fonte(page, 'STJ').uncheck()
@@ -96,6 +98,7 @@ test.describe('filtro de fontes da tela inicial', () => {
     const cenario = 'várias fontes'
     const consultas = await mockarApi(page)
     await abrirFrontend(page)
+    await abrirFiltros(page)
 
     printStep(cenario, 'Desmarcando BDJUR e pesquisando')
     await fonte(page, 'BDJUR').uncheck()
@@ -116,6 +119,7 @@ test.describe('filtro de fontes da tela inicial', () => {
     const cenario = 'próxima pesquisa'
     const consultas = await mockarApi(page)
     await abrirFrontend(page)
+    await abrirFiltros(page)
 
     printStep(cenario, 'Pesquisando com todas as fontes')
     await pesquisar(page)
@@ -139,6 +143,7 @@ test.describe('filtro de fontes da tela inicial', () => {
     const consultas = await mockarApi(page)
     await page.route('**/api/fontes', (route) => route.fulfill({ status: 500 }))
     await page.goto(FRONTEND_URL, { waitUntil: 'domcontentloaded' })
+    await abrirFiltros(page)
 
     printStep(cenario, 'Validando o aviso')
     await expect(page.getByRole('alert')).toHaveText(

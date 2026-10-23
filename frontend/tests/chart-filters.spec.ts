@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { abrirEPesquisar } from './helpers/test-helper'
+import { abrirEPesquisar, abrirFiltros } from './helpers/test-helper'
 
 function printStep(cenario: string, etapa: string): void {
   console.info(`[filtro-graficos][${cenario}] ${etapa}`)
@@ -222,28 +222,28 @@ test.describe('painel de filtros recolhível', () => {
     await abrirEPesquisar(page)
     await expect(page.getByText('5 documentos encontrados')).toBeVisible()
 
-    const botao = page.getByRole('button', { name: 'Filtros', exact: false, expanded: false })
+    const botao = page.locator('.filtros-hero .filters-toggle')
     printStep(cenario, 'Validando o painel fechado')
     await expect(botao).toHaveAttribute('aria-expanded', 'false')
-    await expect(page.locator('#painel-filtros')).toHaveCount(0)
+    await expect(page.locator('#painel-filtros')).not.toHaveAttribute('data-aberto')
 
     printStep(cenario, 'Abrindo o painel e filtrando por tipo')
-    await botao.click()
+    await abrirFiltros(page)
     await expect(page.getByLabel('Tribunal')).toBeVisible()
     await page.getByLabel('Doutrina').uncheck()
     await clicarNaBarra(page, 'Resultado dos recursos', 0)
 
-    printStep(cenario, 'Validando os chips e o contador')
+    printStep(cenario, 'Validando os chips e o contador dos dois botões')
     const ativos = page.getByRole('list', { name: 'Filtros ativos' })
     await expect(ativos.getByRole('button')).toHaveText([
       'Tipo: Jurisprudência, Precedente ×',
       'Resultado: Provido ×',
     ])
-    await expect(page.locator('.filters-count')).toHaveText('2')
+    await expect(page.locator('.filters-count')).toHaveText(['2', '2'])
 
     printStep(cenario, 'Fechando o painel: os chips continuam')
-    await page.getByRole('button', { name: 'Filtros', expanded: true }).click()
-    await expect(page.locator('#painel-filtros')).toHaveCount(0)
+    await botao.click()
+    await expect(page.locator('#painel-filtros')).not.toHaveAttribute('data-aberto')
     await ativos.getByRole('button', { name: 'Remover filtro Resultado: Provido' }).click()
     await expect(ativos.getByRole('button')).toHaveText(['Tipo: Jurisprudência, Precedente ×'])
     // O mock não tem doutrina: sem o filtro do gráfico voltam as 4 decisões e o precedente.

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { abrirEPesquisar, pesquisar } from './helpers/test-helper'
+import { abrirEPesquisar, abrirFiltros, pesquisar } from './helpers/test-helper'
 
 const EMPTY_RESPONSE = {
   itens: [],
@@ -97,9 +97,6 @@ function valor(page: Page, rotulo: string) {
 }
 
 // O painel de filtros começa fechado.
-async function abrirFiltros(page: Page) {
-  await page.getByRole('button', { name: 'Filtros', expanded: false }).click()
-}
 
 function grafico(page: Page, titulo: string) {
   return page.locator('.chart-container').filter({ hasText: titulo })

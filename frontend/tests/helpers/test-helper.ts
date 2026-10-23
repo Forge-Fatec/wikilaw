@@ -48,6 +48,15 @@ export async function campoDeBusca(page: Page): Promise<Locator> {
   return (await formularioDeBusca(page)).getByLabel('Descrição do caso')
 }
 
+// O painel de filtros (fontes, tipo, tribunal e período) fica recolhido
+// abaixo da busca do hero; o botão centralizado o expande.
+export async function abrirFiltros(page: Page): Promise<void> {
+  await aguardarRolagem(page)
+  const botao = page.locator('.filtros-hero .filters-toggle')
+  if ((await botao.getAttribute('aria-expanded')) !== 'true') await botao.click()
+  await expect(page.locator('#painel-filtros')).toHaveAttribute('data-aberto')
+}
+
 // A tela só lista documentos depois de uma pesquisa.
 export async function pesquisar(page: Page, termo = TERMO_PADRAO): Promise<void> {
   const formulario = await formularioDeBusca(page)
