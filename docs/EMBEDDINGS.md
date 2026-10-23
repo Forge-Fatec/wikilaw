@@ -143,3 +143,56 @@ Devolução em dobro dos valores descontados e indenização por dano moral.
 
 Exemplo validado com o acervo real: o caso acima recuperou em primeiro lugar o IRDR do TJMA sobre empréstimos
 consignados (similaridade 0,588), seguido de precedentes sobre legitimidade do banco e devolução de tarifas.
+
+## Endpoint de busca semântica
+
+`POST /api/pesquisas/semantica` (POST porque a descrição do caso pode ser longa demais para a URL).
+
+```json
+{
+  "fatos": "O banco descontou parcelas de um empréstimo que eu nunca contratei da minha aposentadoria.",
+  "fundamentos": "Código de Defesa do Consumidor, falha na prestação do serviço.",
+  "pedidos": "Devolução em dobro dos valores descontados e indenização por dano moral.",
+  "descricao": null,
+  "categorias": ["precedentes", "decisoes"],
+  "limite": 10
+}
+```
+
+- Ao menos um entre `fatos`, `fundamentos`, `pedidos` e `descricao` deve vir preenchido (até 20 000 caracteres cada).
+- `categorias` usa os nomes de `GET /api/documentos/{categoria}` (`decisoes`, `precedentes`, `doutrina`); vazio = todas.
+- `limite` vai de 1 a 50 (padrão 10).
+
+Resposta: `documento` traz o mesmo resumo da busca por palavras (o card da tela pode ser reaproveitado), mais a
+similaridade (0 a 1), quantos trechos do documento ficaram próximos e o trecho que justifica o resultado.
+
+```json
+{
+  "modelo": "voyage-4",
+  "resultados": [
+    {
+      "documento": { "id": 149, "categoria": "precedentes", "titulo": "STJ — Controvérsia 149", "tribunal": "STJ", "...": "..." },
+      "similaridade": 0.568,
+      "trechosSemelhantes": 1,
+      "trechoRelevante": { "secao": "QUESTAO_JURIDICA", "texto": "Teses fixadas pelo TJMA no julgamento do IRDR..." }
+    }
+  ]
+}
+```
+
+| HTTP | Quando |
+| --- | --- |
+| `200` | Busca realizada (lista vazia se nada estiver indexado ainda) |
+| `400` | Campos inválidos (`Requisição inválida`) ou descrição vazia/curta/longa (`Consulta semântica inválida`) |
+| `429` | A Voyage AI recusou pelo limite de requisições; tente de novo em alguns segundos |
+| `503` | Embeddings desligados, sem chave ou provedor fora do ar (`Busca semântica indisponível`) |
+
+Na conta gratuita da Voyage, o worker de embeddings e as buscas disputam o mesmo limite por minuto, então a busca
+pode receber `429` enquanto o acervo ainda está sendo indexado. Cadastrar um cartão (os tokens gratuitos continuam
+valendo) elimina a disputa na prática.
+
+```bash
+curl -X POST http://localhost:8080/api/pesquisas/semantica \
+  -H "Content-Type: application/json" \
+  -d '{"descricao":"Moro no imóvel há quinze anos sem oposição e quero a propriedade.","limite":5}'
+```
