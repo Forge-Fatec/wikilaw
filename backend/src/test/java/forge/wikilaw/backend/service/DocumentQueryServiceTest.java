@@ -338,6 +338,33 @@ class DocumentQueryServiceTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    void listagemAceitaVariasFontes() throws Exception {
+        for (var fonte : List.of(DocumentSource.BDJUR, DocumentSource.BDTD, DocumentSource.SCIELO)) {
+            var registro = registro(fonte.sigla());
+            processor.process(fonte, registro.getFonte().getId(), registro.getId(),
+                    NormalizedDocument.builder()
+                            .identificador("doc-" + fonte.sigla())
+                            .titulo("Artigo multifonte da " + fonte.sigla())
+                            .resumo("Resumo.")
+                            .metadados("{}")
+                            .build());
+        }
+
+        mockMvc.perform(get("/api/documentos/doutrina")
+                        .param("termo", "multifonte").param("fonte", "BDJUR", "scielo"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(2))
+                .andExpect(jsonPath("$.itens[*].fonte").value(
+                        org.hamcrest.Matchers.containsInAnyOrder("BDJUR", "SCIELO")));
+        // Sem fonte, nenhuma é filtrada.
+        mockMvc.perform(get("/api/documentos/doutrina").param("termo", "multifonte"))
+                .andExpect(jsonPath("$.total").value(3));
+        mockMvc.perform(get("/api/documentos/doutrina")
+                        .param("fonte", "BDJUR", "INEXISTENTE"))
+                .andExpect(status().isBadRequest());
+    }
+
     private RegistroBruto registro(String sigla) {
         var fonte = new FonteDados();
         fonte.setNome(sigla);

@@ -110,7 +110,7 @@ class DashboardServiceTest {
         salvarDecisao("d3", "Concurso público", "Recurso desprovido.", "3ª Turma Cível", LocalDate.of(2025, 1, 10));
 
         var resumo = service.resumir(new DashboardFiltro(
-                "negativação", "tjdft", "tjdft", LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31), null, null));
+                "negativação", List.of("tjdft"), "tjdft", LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31), null, null));
 
         assertEquals(new DashboardResponse.Indicadores(1, 1, 1, 100), resumo.indicadores());
         assertEquals(List.of(new DistribuicaoItem("1ª Turma Cível", 1)), resumo.distribuicaoCamaraTurma());
@@ -200,7 +200,7 @@ class DashboardServiceTest {
     }
 
     @Test
-    void distribuiPorTribunal() {
+    void distribuiPorTribunal() throws Exception {
         var fonteStj = new FonteDados();
         fonteStj.setNome("Jurisprudência STJ");
         fonteStj.setSigla("STJ");
@@ -223,7 +223,19 @@ class DashboardServiceTest {
                 new DistribuicaoItem("STJ", 1)),
                 service.distribuicaoTribunal(DashboardFiltro.semFiltros()));
         assertEquals(List.of(new DistribuicaoItem("STJ", 1)),
-                service.distribuicaoTribunal(new DashboardFiltro(null, "stj", null, null, null, null, null)));
+                service.distribuicaoTribunal(new DashboardFiltro(null, List.of("stj"), null, null, null, null, null)));
+        // Várias fontes somam os recortes; sigla desconhecida entre elas é ignorada.
+        assertEquals(List.of(
+                new DistribuicaoItem("TJDFT", 2),
+                new DistribuicaoItem("STJ", 1)),
+                service.distribuicaoTribunal(new DashboardFiltro(
+                        null, List.of("stj", "tjdft"), null, null, null, null, null)));
+        assertEquals(List.of(new DistribuicaoItem("STJ", 1)),
+                service.distribuicaoTribunal(new DashboardFiltro(
+                        null, List.of("stj", "inexistente"), null, null, null, null, null)));
+        mockMvc.perform(get("/api/dashboard").param("fonte", "stj", "tjdft"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.indicadores.totalDecisoes").value(3));
     }
 
     @Test

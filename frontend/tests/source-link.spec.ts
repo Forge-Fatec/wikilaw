@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { abrirFrontend } from './helpers/test-helper'
+import { abrirEPesquisar } from './helpers/test-helper'
 
 const URL_FONTE = 'https://fonte-original.example.test/acordao/123'
 
@@ -47,7 +47,7 @@ async function prepararPagina(page: Page): Promise<void> {
     route.fulfill({ contentType: 'text/html', body: '<h1>Fonte original</h1>' }),
   )
 
-  await abrirFrontend(page)
+  await abrirEPesquisar(page)
 }
 
 function card(page: Page, titulo: string) {

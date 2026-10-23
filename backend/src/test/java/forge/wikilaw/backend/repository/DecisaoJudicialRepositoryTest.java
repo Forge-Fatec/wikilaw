@@ -30,6 +30,17 @@ class DecisaoJudicialRepositoryTest {
         assertThat(repository.findByIdFonteAndIdentificadorExterno(FONTE_STJ, "RE-1000")).isEmpty();
     }
 
+    @Test
+    void countsOnlyActiveDecisoesOfGivenFonte() {
+        repository.save(decisao(FONTE_STF, "RE-1000", true));
+        repository.save(decisao(FONTE_STF, "RE-1001", true));
+        repository.save(decisao(FONTE_STF, "RE-1002", false));
+        repository.save(decisao(FONTE_STJ, "REsp-2000", true));
+        repository.flush();
+
+        assertThat(repository.countByIdFonteAndAtivoTrue(FONTE_STF)).isEqualTo(2);
+    }
+
     private DecisaoJudicial decisao(long fonte, String identificador, boolean ativo) {
         DecisaoJudicial decisao = new DecisaoJudicial();
         decisao.setIdFonte(fonte);

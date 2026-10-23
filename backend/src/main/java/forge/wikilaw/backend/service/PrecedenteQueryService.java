@@ -12,7 +12,9 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.springframework.data.domain.Page;
@@ -72,7 +74,7 @@ public class PrecedenteQueryService {
             int pagina,
             int tamanho) {
         var resultado = buscarPagina(
-                termo, fonte, tribunal, tipo, situacao, dataDe, dataAte, pagina, tamanho);
+                termo, FiltroFontes.uma(fonte), tribunal, tipo, situacao, dataDe, dataAte, pagina, tamanho);
 
         Map<Long, String> siglasFontes = new HashMap<>();
         fontes.findAll().forEach(item -> siglasFontes.put(item.getId(), item.getSigla()));
@@ -93,7 +95,7 @@ public class PrecedenteQueryService {
 
     Page<Precedente> buscarPagina(
             String termo,
-            String fonte,
+            Collection<String> siglasFonte,
             String tribunal,
             String tipo,
             String situacao,
@@ -103,7 +105,7 @@ public class PrecedenteQueryService {
             int tamanho) {
         validarPeriodo(dataDe, dataAte);
 
-        Long idFonte = buscarIdFonte(fonte);
+        List<Long> idsFonte = FiltroFontes.ids(fontes, siglasFonte);
         Long idTribunal = buscarIdTribunal(tribunal);
         // Tema apenas afetado ainda nao tem data de julgamento; nullsLast evita
         // que esses registros ocupem o topo da lista por causa do NULL.
@@ -111,13 +113,13 @@ public class PrecedenteQueryService {
                 Sort.Order.desc("dataJulgamento").nullsLast(),
                 Sort.Order.desc("id"));
         return precedentes.findAll(
-                filtro(termo, idFonte, idTribunal, tipo, situacao, dataDe, dataAte),
+                filtro(termo, idsFonte, idTribunal, tipo, situacao, dataDe, dataAte),
                 PageRequest.of(pagina, tamanho, ordenacao));
     }
 
     private Specification<Precedente> filtro(
             String termo,
-            Long idFonte,
+            Collection<Long> idsFonte,
             Long idTribunal,
             String tipo,
             String situacao,
@@ -127,8 +129,8 @@ public class PrecedenteQueryService {
             var restricoes = new ArrayList<Predicate>();
             restricoes.add(criteriaBuilder.isTrue(root.get("ativo")));
 
-            if (idFonte != null) {
-                restricoes.add(criteriaBuilder.equal(root.get("idFonte"), idFonte));
+            if (!idsFonte.isEmpty()) {
+                restricoes.add(root.get("idFonte").in(idsFonte));
             }
             if (idTribunal != null) {
                 restricoes.add(criteriaBuilder.equal(root.get("idTribunal"), idTribunal));
@@ -176,15 +178,6 @@ public class PrecedenteQueryService {
             String campo,
             String padrao) {
         return criteriaBuilder.like(criteriaBuilder.lower(root.get(campo)), padrao, '\\');
-    }
-
-    private Long buscarIdFonte(String fonte) {
-        if (fonte == null || fonte.isBlank()) {
-            return null;
-        }
-        return fontes.findBySigla(fonte.trim().toUpperCase(Locale.ROOT))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Fonte desconhecida"))
-                .getId();
     }
 
     private Long buscarIdTribunal(String tribunal) {

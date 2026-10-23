@@ -315,7 +315,11 @@ implementação.
 
 As migrations acrescentam `decisao_judicial`, `precedente`, `precedente_processo`, `documento_doutrinario` e a visão de leitura `vw_documentos_pesquisa`. Os endpoints administrativos são para desenvolvimento local; as portas do Compose ficam publicadas apenas em `127.0.0.1`.
 
-ETL/Data Warehouse, OpenSearch, pgvector e IA permanecem fora desta entrega.
+ETL/Data Warehouse e OpenSearch permanecem fora desta entrega.
+
+## Embeddings semânticos
+
+Os trechos do acervo recebem vetores de 1024 dimensões gerados pela Voyage AI (`voyage-4`) e guardados com pgvector, base para a busca por similaridade. A geração fica desligada até `WIKILAW_EMBEDDING_ENABLED=true` e `WIKILAW_EMBEDDING_API_KEY` serem definidos no `.env`. A busca por similaridade fica em `POST /api/pesquisas/semantica`, que recebe fatos, fundamentos, pedidos e/ou a descrição do caso. Consulte [o guia de embeddings](docs/EMBEDDINGS.md) para fluxo, status, configuração, contrato do endpoint e consultas de acompanhamento.
 
 ## Exportação em PDF
 

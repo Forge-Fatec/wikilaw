@@ -1,9 +1,12 @@
 package forge.wikilaw.backend.repository;
 
 import forge.wikilaw.backend.entity.DocumentoSemantico;
+import jakarta.persistence.LockModeType;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -47,5 +50,36 @@ public interface DocumentoSemanticoRepository extends JpaRepository<DocumentoSem
             order by d.id_documento limit :limite for update skip locked
             """, nativeQuery = true)
     List<Long> findDoutrinasPendentes(@Param("versao") String versao, @Param("limite") int limite);
+
+    /**
+     * Documentos preparados que precisam de vetores: pendentes, gerados com outro modelo,
+     * com erro elegivel a nova tentativa ou abandonados em PROCESSANDO.
+     */
+    @Query(value = """
+            select s.id_documento_semantico from documento_semantico s
+            where s.status = 'PRONTO' and (
+                s.status_embedding = 'PENDENTE'
+                or (s.status_embedding = 'PRONTO'
+                    and s.modelo_embedding is distinct from :modelo)
+                or (s.status_embedding = 'ERRO'
+                    and (s.tentativas_embedding < :maxTentativas
+                         or s.modelo_embedding is distinct from :modelo)
+                    and (s.embedding_atualizado_em is null
+                         or s.embedding_atualizado_em < :novaTentativaAntesDe))
+                or (s.status_embedding = 'PROCESSANDO'
+                    and (s.embedding_atualizado_em is null
+                         or s.embedding_atualizado_em < :abandonadoAntesDe))
+            )
+            order by s.id_documento_semantico limit :limite for update skip locked
+            """, nativeQuery = true)
+    List<Long> findEmbeddingPendentes(@Param("modelo") String modelo,
+            @Param("maxTentativas") int maxTentativas,
+            @Param("novaTentativaAntesDe") OffsetDateTime novaTentativaAntesDe,
+            @Param("abandonadoAntesDe") OffsetDateTime abandonadoAntesDe,
+            @Param("limite") int limite);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from DocumentoSemantico s where s.id = :id")
+    Optional<DocumentoSemantico> findByIdForUpdate(@Param("id") Long id);
 }
 

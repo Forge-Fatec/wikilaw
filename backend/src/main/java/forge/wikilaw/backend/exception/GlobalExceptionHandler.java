@@ -34,6 +34,18 @@ public class GlobalExceptionHandler {
         return response(status, reason, List.of());
     }
 
+    @ExceptionHandler(SemanticQueryException.class)
+    ResponseEntity<ApiErrorResponse> handleSemanticQuery(SemanticQueryException exception) {
+        return response(HttpStatus.BAD_REQUEST, "Consulta semântica inválida", List.of(exception.getMessage()));
+    }
+
+    /** Provedor desligado, sem chave, fora do ar ou no limite de requisições: a busca semântica fica indisponível. */
+    @ExceptionHandler(EmbeddingProviderException.class)
+    ResponseEntity<ApiErrorResponse> handleEmbeddingProvider(EmbeddingProviderException exception) {
+        HttpStatus status = exception.getStatusCode() == 429 ? HttpStatus.TOO_MANY_REQUESTS : HttpStatus.SERVICE_UNAVAILABLE;
+        return response(status, "Busca semântica indisponível", List.of(exception.getMessage()));
+    }
+
     private ResponseEntity<ApiErrorResponse> response(HttpStatus status, String error, List<String> details) {
         return ResponseEntity.status(status).body(new ApiErrorResponse(
                 OffsetDateTime.now(ZoneOffset.UTC), status.value(), error, details));
