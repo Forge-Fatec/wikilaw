@@ -150,7 +150,7 @@ The project's source code is publicly available, allowing developers, students, 
 
 ## Sprint 2
 
-| ID | User Story | Priority | Story Points |
+| Rank | User Story | Priority | Story Points |
 |----|------------|----------|--------------|
 | 11 | As a user, I want to view a dashboard with indicators and charts related to my researched case so that I can understand the results in a consolidated way. | High | 5 |
 | 12 | As a user, I want to interact with dashboard elements to dynamically filter the displayed indicators and results. | High | 3 |
