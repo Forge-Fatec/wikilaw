@@ -738,6 +738,16 @@ function App() {
     })
   }
 
+  // Sobe com suavidade até a busca do hero, com o painel de filtros aberto logo abaixo.
+  function abrirFiltrosNoHero() {
+    setFiltrosAbertos(true)
+    rolarSuavementeAte(() => {
+      const busca = buscaDestaqueRef.current
+      if (!busca) return 0
+      return Math.max(0, window.scrollY + busca.getBoundingClientRect().top - 24)
+    })
+  }
+
   // O contador do botão Filtros soma as fontes desmarcadas, que não viram chip:
   // elas só valem na próxima pesquisa.
   const totalFiltros = filtrosAtivos.length + (fontesDesmarcadas.length ? 1 : 0)
@@ -952,18 +962,18 @@ function App() {
                 </>
               )}
 
+              {/* O painel fica no hero: este botão sobe até ele e o abre. */}
               <button
                 type="button"
                 className="filters-toggle"
-                aria-expanded={filtrosAbertos}
-                aria-controls="painel-filtros"
-                onClick={() => setFiltrosAbertos((aberto) => !aberto)}
+                aria-label="Filtros: abrir o painel no topo da página"
+                onClick={abrirFiltrosNoHero}
               >
                 <span aria-hidden="true">▤</span> <span className="rotulo-filtros">Filtros</span>
                 {totalFiltros > 0 && (
                   <span className="filters-count">{totalFiltros}</span>
                 )}
-                <span className="chevron" aria-hidden="true">▾</span>
+                <span className="chevron" aria-hidden="true">▴</span>
               </button>
             </div>
           </section>
