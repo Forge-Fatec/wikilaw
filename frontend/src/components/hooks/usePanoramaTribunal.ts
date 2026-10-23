@@ -4,7 +4,7 @@ export function usePanoramaTribunal(tribunal: string | null) {
   const recorte: RecorteDashboard | null = tribunal
     ? {
         termo: '',
-        fonte: null,
+        fontes: [],
         tribunal,
         dataDe: '',
         dataAte: '',

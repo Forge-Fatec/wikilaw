@@ -4,6 +4,7 @@ import { API_BASE } from './api'
 import { paginasVisiveis, RETICENCIAS } from './paginacao'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
 import { ExportPdfDialog } from './components/ExportPdfDialog'
+import { FiltroFontes } from './components/FiltroFontes'
 import { PanoramaTribunal } from './components/PanoramaTribunal'
 import {
   useDashboard,
@@ -11,6 +12,7 @@ import {
   OUTROS,
   type DistribuicaoItem,
 } from './components/hooks/useDashboard'
+import { useFontes } from './components/hooks/useFontes'
 
 type DocType = 'jurisprudencia' | 'precedente' | 'doutrina'
 type Ordenacao = 'mais-recentes' | 'mais-antigos'
@@ -63,7 +65,6 @@ const BADGE_POR_TIPO: Record<DocType, string> = {
 
 const ITENS_POR_PAGINA = 10
 const ITENS_POR_PAGINA_API = 100
-const TODAS_AS_FONTES = 'Todas as fontes'
 const TODOS_OS_TRIBUNAIS = 'Todos os tribunais'
 
 const ERRO_CARREGAMENTO =
@@ -403,7 +404,12 @@ function App() {
     }
   }, [])
   const [tribunal, setTribunal] = useState(TODOS_OS_TRIBUNAIS)
-  const [fonte, setFonte] = useState(TODAS_AS_FONTES)
+  const fontesCadastradas = useFontes()
+  // Guarda as desmarcadas para que toda fonte comece marcada assim que a lista chega.
+  const [fontesDesmarcadas, setFontesDesmarcadas] = useState<string[]>([])
+  // Fontes aplicadas na última pesquisa (vazio = todas); mudar os checkboxes
+  // só vale a partir da próxima pesquisa.
+  const [fontesPesquisadas, setFontesPesquisadas] = useState<string[]>([])
   const [dataDe, setDataDe] = useState('')
   const [dataAte, setDataAte] = useState('')
   const [ordenacao, setOrdenacao] = useState<Ordenacao>('mais-recentes')
@@ -423,7 +429,7 @@ function App() {
     pesquisou && filtros.jurisprudencia
       ? {
           termo: termoPesquisado,
-          fonte: fonte === TODAS_AS_FONTES ? null : fonte,
+          fontes: fontesPesquisadas,
           tribunal: tribunal === TODOS_OS_TRIBUNAIS ? null : tribunal,
           dataDe,
           dataAte,
@@ -439,22 +445,29 @@ function App() {
       return
     }
 
-    // Pesquisar não espera a carga em andamento (a inicial demora): ela é
-    // cancelada e só o resultado desta pesquisa chega à tela.
+    // Pesquisar não espera a carga em andamento: ela é cancelada e só o
+    // resultado desta pesquisa chega à tela.
     cargaRef.current?.abort()
     const carga = new AbortController()
     cargaRef.current = carga
+
+    // Com todas marcadas (ou sem a lista de fontes) não há o que filtrar.
+    const marcadas = fontesCadastradas.fontes
+      .map((fonte) => fonte.sigla)
+      .filter((sigla) => !fontesDesmarcadas.includes(sigla))
+    const fontes = marcadas.length < fontesCadastradas.fontes.length ? marcadas : []
 
     setErroValidacao(null)
     setErroExportacao(null)
     setExportacaoConcluida(false)
     setTermoPesquisado(query.trim())
+    setFontesPesquisadas(fontes)
     setCarregando(true)
     setErro(null)
     setPaginaAtual(1)
     setDocumentoSelecionado(null)
     try {
-      const resultados = await carregarDocumentos(query, [], carga.signal)
+      const resultados = await carregarDocumentos(query, fontes, carga.signal)
       if (!carga.signal.aborted) setDocumentos(resultados)
     } catch {
       if (!carga.signal.aborted) {
@@ -464,7 +477,20 @@ function App() {
     } finally {
       if (!carga.signal.aborted) setCarregando(false)
     }
-  }, [query])
+  }, [query, fontesCadastradas.fontes, fontesDesmarcadas])
+
+  // Desmarcar a última fonte marcada é ignorado (o checkbox dela também fica travado).
+  function alternarFonte(sigla: string) {
+    setFontesDesmarcadas((desmarcadas) => {
+      if (desmarcadas.includes(sigla)) {
+        return desmarcadas.filter((item) => item !== sigla)
+      }
+      const restantes = fontesCadastradas.fontes.filter(
+        (fonte) => fonte.sigla !== sigla && !desmarcadas.includes(fonte.sigla),
+      )
+      return restantes.length ? [...desmarcadas, sigla] : desmarcadas
+    })
+  }
 
   // Ao sair da página, não deixa uma carga em andamento ocupando a rede.
   useEffect(() => () => cargaRef.current?.abort(), [])
@@ -493,18 +519,9 @@ function App() {
     return Array.from(siglas).sort()
   }, [documentos])
 
-  const fontesDisponiveis = useMemo(() => {
-    const siglas = new Set(documentos.map((d) => d.fonte).filter(Boolean))
-    return Array.from(siglas).sort()
-  }, [documentos])
-
   const resultados = useMemo(() => {
     const filtrados = documentos.filter((doc) => {
       if (!filtros[doc.type]) return false
-
-      if (fonte !== TODAS_AS_FONTES && doc.fonte !== fonte) {
-        return false
-      }
 
       if (tribunal !== TODOS_OS_TRIBUNAIS && doc.tribunal !== tribunal) {
         return false
@@ -547,7 +564,7 @@ function App() {
 
       return ordenacao === 'mais-recentes' ? dataB - dataA : dataA - dataB
     })
-  }, [documentos, filtros, fonte, tribunal, dataDe, dataAte, selecao, ordenacao])
+  }, [documentos, filtros, tribunal, dataDe, dataAte, selecao, ordenacao])
 
   async function exportarPdf(paginaDe: number, paginaAte: number) {
     if (carregando || exportando || erro || !resultados.length) return
@@ -568,7 +585,7 @@ function App() {
           termo: termoPesquisado,
           categorias: (Object.keys(filtros) as DocType[])
             .filter((tipo) => filtros[tipo]).map((tipo) => CATEGORIA_POR_TIPO[tipo]),
-          fonte: fonte === TODAS_AS_FONTES ? null : fonte,
+          fonte: fontesPesquisadas.length ? fontesPesquisadas.join(', ') : null,
           tribunal: tribunal === TODOS_OS_TRIBUNAIS ? null : tribunal,
           dataDe: dataDe || null,
           dataAte: dataAte || null,
@@ -653,7 +670,6 @@ function App() {
 
   function limparFiltros() {
     setFiltros(TODOS_OS_TIPOS)
-    setFonte(TODAS_AS_FONTES)
     setTribunal(TODOS_OS_TRIBUNAIS)
     setDataDe('')
     setDataAte('')
@@ -672,9 +688,6 @@ function App() {
         : 'Nenhum tipo',
       remover: () => setFiltros(TODOS_OS_TIPOS),
     })
-  }
-  if (fonte !== TODAS_AS_FONTES) {
-    filtrosAtivos.push({ chave: 'fonte', rotulo: `Fonte: ${fonte}`, remover: () => setFonte(TODAS_AS_FONTES) })
   }
   if (tribunal !== TODOS_OS_TRIBUNAIS) {
     filtrosAtivos.push({
@@ -776,6 +789,13 @@ function App() {
           inert={encaixe === 'barra'}
         >
           {formularioBusca('destaque')}
+          <FiltroFontes
+            fontes={fontesCadastradas.fontes}
+            desmarcadas={fontesDesmarcadas}
+            carregando={fontesCadastradas.carregando}
+            erro={fontesCadastradas.erro}
+            onAlternar={alternarFonte}
+          />
         </div>
       </section>
 
@@ -848,23 +868,6 @@ function App() {
                     ))}
                   </div>
                 </fieldset>
-
-                <div className="group">
-                  <label className="group-label" htmlFor="filtro-fonte">FONTE</label>
-                  <select
-                    id="filtro-fonte"
-                    value={fonte}
-                    onChange={(e) => {
-                      setFonte(e.target.value)
-                      voltarParaPrimeiraPagina()
-                    }}
-                  >
-                    <option>{TODAS_AS_FONTES}</option>
-                    {fontesDisponiveis.map((sigla) => (
-                      <option key={sigla}>{sigla}</option>
-                    ))}
-                  </select>
-                </div>
 
                 <div className="group">
                   <label className="group-label" htmlFor="filtro-tribunal">TRIBUNAL</label>

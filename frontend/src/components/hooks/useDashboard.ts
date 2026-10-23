@@ -22,7 +22,8 @@ export interface Dashboard {
 
 export interface RecorteDashboard {
   termo: string
-  fonte: string | null
+  // Siglas das fontes pesquisadas; vazio = todas.
+  fontes: string[]
   tribunal: string | null
   dataDe: string
   dataAte: string
@@ -48,7 +49,7 @@ const ERRO_DASHBOARD = 'Não foi possível carregar o dashboard da pesquisa.'
 function urlDoRecorte(recorte: RecorteDashboard): string {
   const params = new URLSearchParams()
   if (recorte.termo.trim()) params.set('termo', recorte.termo.trim())
-  if (recorte.fonte) params.set('fonte', recorte.fonte)
+  recorte.fontes.forEach((sigla) => params.append('fonte', sigla))
   if (recorte.tribunal) params.set('tribunal', recorte.tribunal)
   if (recorte.dataDe) params.set('dataDe', recorte.dataDe)
   if (recorte.dataAte) params.set('dataAte', recorte.dataAte)
