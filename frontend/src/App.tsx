@@ -487,11 +487,11 @@ function App() {
     }
   }, [query, fontesCadastradas.fontes, fontesDesmarcadas])
 
-  // Depois de cada pesquisa, desce com suavidade até o primeiro registro (ou
-  // até a mensagem de vazio/erro), logo abaixo da barra fixa.
+  // Depois de cada pesquisa, desce com suavidade até o título "Resultados da
+  // pesquisa" (que também aparece com lista vazia ou erro), logo abaixo da barra fixa.
   useEffect(() => {
     if (!pesquisasConcluidas) return
-    const alvo = resultadosRef.current?.querySelector<HTMLElement>('article.card, .empty')
+    const alvo = resultadosRef.current?.querySelector<HTMLElement>('.results-header')
     if (!alvo) return
 
     return rolarSuavementeAte(() => {
