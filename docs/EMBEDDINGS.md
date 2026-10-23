@@ -68,3 +68,29 @@ select count(*) from embedding_trecho;
 select id_documento_semantico, tentativas_embedding, erro_embedding
 from documento_semantico where status_embedding = 'ERRO';
 ```
+
+## Recuperação por similaridade
+
+`SemanticVectorRetrievalService.recuperar(vetor, categorias, limite)` devolve os documentos mais próximos de um vetor de consulta:
+
+1. `EmbeddingTrechoRepository.findSimilares` ordena por `vetor <=> :consulta` (distância de cosseno), o que usa o índice HNSW.
+   Só entram vetores do modelo atual (`embedding_trecho.modelo`) de documentos ativos (`documento_semantico.status = 'PRONTO'`) das categorias pedidas.
+2. Na mesma transação, `set_config(..., true)` aplica `hnsw.ef_search` e `hnsw.iterative_scan`, para que os filtros não reduzam a quantidade de resultados.
+3. Buscam-se `limite × candidate-multiplier` trechos, agrupados por documento: vale a similaridade do melhor trecho
+   (`1 - distância`, de 0 a 1), com desempate pela quantidade de trechos semelhantes. O melhor trecho volta como justificativa.
+
+| Propriedade | Padrão | Uso |
+| --- | --- | --- |
+| `WIKILAW_SEMANTIC_SEARCH_EF_SEARCH` | `100` | Candidatos examinados pelo HNSW |
+| `WIKILAW_SEMANTIC_SEARCH_ITERATIVE_SCAN` | `relaxed_order` | `off`, `strict_order` ou `relaxed_order` |
+| `WIKILAW_SEMANTIC_SEARCH_CANDIDATE_MULTIPLIER` | `5` | Trechos buscados por documento pedido |
+| `WIKILAW_SEMANTIC_SEARCH_MAX_RESULTS` | `50` | Limite máximo por consulta |
+
+Conferir no banco os vizinhos de um trecho já indexado:
+
+```sql
+with alvo as (select vetor from embedding_trecho order by id_trecho_semantico limit 1)
+select t.secao, left(t.texto, 100), round((1 - (e.vetor <=> a.vetor))::numeric, 3) as similaridade
+from alvo a, embedding_trecho e join trecho_semantico t using (id_trecho_semantico)
+order by e.vetor <=> a.vetor limit 5;
+```
