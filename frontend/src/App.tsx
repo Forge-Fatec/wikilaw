@@ -744,7 +744,7 @@ function App() {
         />
         {/* Fica habilitado durante a carga: uma nova pesquisa substitui a anterior. */}
         <button type="submit" aria-busy={carregando}>
-          PESQUISAR
+          {carregando ? 'PESQUISANDO...' : 'PESQUISAR'}
         </button>
       </div>
       {erroValidacao && (

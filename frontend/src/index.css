@@ -161,6 +161,8 @@ nav a.active {
   font-weight: 700;
   letter-spacing: 1px;
   cursor: pointer;
+  /* Cabe "PESQUISANDO...": o botão não muda de largura ao trocar o texto. */
+  min-width: 172px;
 }
 .search-box button:hover {
   background: var(--terracotta-dark);
@@ -378,6 +380,7 @@ nav a.active {
 .toolbar .search-box button {
   padding: 0 18px;
   font-size: 12px;
+  min-width: 152px;
 }
 .toolbar .search-error {
   color: var(--terracotta-dark);
@@ -1190,6 +1193,11 @@ select,
     overflow: hidden;
     clip: rect(0 0 0 0);
     white-space: nowrap;
+  }
+  /* Em tela estreita o campo vale mais que a largura fixa do botão. */
+  .search-box button,
+  .toolbar .search-box button {
+    min-width: 0;
   }
   .toolbar .search-box button {
     padding: 0 12px;
