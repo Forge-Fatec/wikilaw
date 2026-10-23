@@ -94,7 +94,7 @@ test.describe('tela inicial e rolagem até os resultados', () => {
     printStep(cenario, 'Resultados chegam: a lista aparece')
     api.liberar()
     await expect(page.locator('.layout')).toBeVisible()
-    await expect(page.locator('article.card').first()).toBeInViewport()
+    await expect(page.getByRole('heading', { name: 'Resultados da pesquisa' })).toBeInViewport()
   })
 
   test('da segunda pesquisa em diante a lista anterior continua à vista', async ({ page }) => {
@@ -128,7 +128,7 @@ test.describe('tela inicial e rolagem até os resultados', () => {
     await expect(page.getByText('10 documentos encontrados')).toBeVisible()
   })
 
-  test('depois de pesquisar, desce com suavidade até o primeiro registro', async ({ page }) => {
+  test('depois de pesquisar, desce com suavidade até o título dos resultados', async ({ page }) => {
     const cenario = 'rolagem suave'
     const api = await mockarApi(page)
     await abrirFrontend(page)
@@ -143,10 +143,10 @@ test.describe('tela inicial e rolagem até os resultados', () => {
     api.liberar()
     await expect(page.getByText('10 documentos encontrados')).toBeVisible()
 
-    printStep(cenario, 'Validando que o primeiro card para logo abaixo da barra')
-    await expect.poll(() => folgaAbaixoDaBarra(page, 'article.card'), { timeout: 5_000 })
+    printStep(cenario, 'Validando que o título dos resultados para logo abaixo da barra')
+    await expect.poll(() => folgaAbaixoDaBarra(page, '.results-header'), { timeout: 5_000 })
       .toBe(16)
-    await expect(page.locator('article.card').first()).toBeInViewport()
+    await expect(page.getByRole('heading', { name: 'Resultados da pesquisa' })).toBeInViewport()
 
     printStep(cenario, 'Validando que a descida passou por várias posições')
     const posicoes = await page.evaluate(
@@ -156,16 +156,18 @@ test.describe('tela inicial e rolagem até os resultados', () => {
     expect(new Set(posicoes).size).toBeGreaterThan(2)
   })
 
-  test('sem resultados, desce até o aviso de lista vazia', async ({ page }) => {
+  test('sem resultados, também para no título dos resultados', async ({ page }) => {
     const api = await mockarApi(page, [])
     await abrirFrontend(page)
     await pesquisar(page)
     api.liberar()
+    // A página curta não deixa o título subir até a barra: rola o quanto dá.
+    await expect(page.getByRole('heading', { name: 'Resultados da pesquisa' })).toBeInViewport()
     await expect(page.getByText('Nenhum documento encontrado com os filtros selecionados.'))
       .toBeInViewport()
   })
 
-  test('com movimento reduzido, vai direto ao primeiro registro', async ({ page }) => {
+  test('com movimento reduzido, vai direto ao título dos resultados', async ({ page }) => {
     const cenario = 'movimento reduzido'
     await page.emulateMedia({ reducedMotion: 'reduce' })
     const api = await mockarApi(page)
@@ -179,7 +181,7 @@ test.describe('tela inicial e rolagem até os resultados', () => {
     })
     await pesquisar(page)
     api.liberar()
-    await expect.poll(() => folgaAbaixoDaBarra(page, 'article.card')).toBe(16)
+    await expect.poll(() => folgaAbaixoDaBarra(page, '.results-header')).toBe(16)
     const posicoes = await page.evaluate(
       () => (window as unknown as { posicoes: number[] }).posicoes,
     )
