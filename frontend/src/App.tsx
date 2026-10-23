@@ -738,6 +738,10 @@ function App() {
     })
   }
 
+  // O contador do botão Filtros soma as fontes desmarcadas, que não viram chip:
+  // elas só valem na próxima pesquisa.
+  const totalFiltros = filtrosAtivos.length + (fontesDesmarcadas.length ? 1 : 0)
+
   // A mesma busca aparece no hero e na barra fixa (as duas compartilham o
   // texto digitado); os ids mudam para não repetir no DOM durante a transição.
   const formularioBusca = (origem: 'destaque' | 'barra') => (
@@ -812,13 +816,99 @@ function App() {
             inert={encaixe === 'barra'}
           >
             {formularioBusca('destaque')}
-            <FiltroFontes
-              fontes={fontesCadastradas.fontes}
-              desmarcadas={fontesDesmarcadas}
-              carregando={fontesCadastradas.carregando}
-              erro={fontesCadastradas.erro}
-              onAlternar={alternarFonte}
-            />
+            <div className="filtros-hero">
+              <button
+                type="button"
+                className="filters-toggle"
+                aria-expanded={filtrosAbertos}
+                aria-controls="painel-filtros"
+                onClick={() => setFiltrosAbertos((aberto) => !aberto)}
+              >
+                <span aria-hidden="true">▤</span> <span className="rotulo-filtros">Filtros</span>
+                {totalFiltros > 0 && <span className="filters-count">{totalFiltros}</span>}
+                <span className="chevron" aria-hidden="true">▾</span>
+              </button>
+            </div>
+            {/* Sempre montado para a altura animar de 0 até o conteúdo; fechado,
+                sai do foco e dos leitores de tela. */}
+            <div id="painel-filtros" className="painel-filtros" data-aberto={filtrosAbertos || undefined}>
+              <div className="painel-filtros-conteudo" inert={!filtrosAbertos}>
+                <div className="filters">
+                  <FiltroFontes
+                    fontes={fontesCadastradas.fontes}
+                    desmarcadas={fontesDesmarcadas}
+                    carregando={fontesCadastradas.carregando}
+                    erro={fontesCadastradas.erro}
+                    onAlternar={alternarFonte}
+                  />
+
+                  <fieldset className="group doc-types">
+                    <legend className="group-label">TIPO DE DOCUMENTO</legend>
+                    <div className="check-row">
+                      {(Object.keys(ROTULO_POR_TIPO) as DocType[]).map((tipo) => (
+                        <label className="check" key={tipo}>
+                          <input
+                            type="checkbox"
+                            checked={filtros[tipo]}
+                            onChange={() => toggleFiltro(tipo)}
+                          />
+                          {ROTULO_POR_TIPO[tipo]}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+
+                  <div className="group">
+                    <label className="group-label" htmlFor="filtro-tribunal">TRIBUNAL</label>
+                    <select
+                      id="filtro-tribunal"
+                      value={tribunal}
+                      onChange={(e) => {
+                        setTribunal(e.target.value)
+                        voltarParaPrimeiraPagina()
+                      }}
+                    >
+                      <option>{TODOS_OS_TRIBUNAIS}</option>
+                      {tribunaisDisponiveis.map((sigla) => (
+                        <option key={sigla}>{sigla}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <fieldset className="group">
+                    <legend className="group-label">PERÍODO</legend>
+                    <div className="date-row">
+                      <div>
+                        <label htmlFor="filtro-data-de">De</label>
+                        <input
+                          id="filtro-data-de"
+                          className="date-input"
+                          type="date"
+                          value={dataDe}
+                          onChange={(e) => {
+                            setDataDe(e.target.value)
+                            voltarParaPrimeiraPagina()
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="filtro-data-ate">Até</label>
+                        <input
+                          id="filtro-data-ate"
+                          className="date-input"
+                          type="date"
+                          value={dataAte}
+                          onChange={(e) => {
+                            setDataAte(e.target.value)
+                            voltarParaPrimeiraPagina()
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </fieldset>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
       </div>
@@ -870,81 +960,12 @@ function App() {
                 onClick={() => setFiltrosAbertos((aberto) => !aberto)}
               >
                 <span aria-hidden="true">▤</span> <span className="rotulo-filtros">Filtros</span>
-                {filtrosAtivos.length > 0 && (
-                  <span className="filters-count">{filtrosAtivos.length}</span>
+                {totalFiltros > 0 && (
+                  <span className="filters-count">{totalFiltros}</span>
                 )}
                 <span className="chevron" aria-hidden="true">▾</span>
               </button>
             </div>
-
-            {filtrosAbertos && (
-              <div id="painel-filtros" className="filters">
-                <fieldset className="group doc-types">
-                  <legend className="group-label">TIPO DE DOCUMENTO</legend>
-                  <div className="check-row">
-                    {(Object.keys(ROTULO_POR_TIPO) as DocType[]).map((tipo) => (
-                      <label className="check" key={tipo}>
-                        <input
-                          type="checkbox"
-                          checked={filtros[tipo]}
-                          onChange={() => toggleFiltro(tipo)}
-                        />
-                        {ROTULO_POR_TIPO[tipo]}
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-
-                <div className="group">
-                  <label className="group-label" htmlFor="filtro-tribunal">TRIBUNAL</label>
-                  <select
-                    id="filtro-tribunal"
-                    value={tribunal}
-                    onChange={(e) => {
-                      setTribunal(e.target.value)
-                      voltarParaPrimeiraPagina()
-                    }}
-                  >
-                    <option>{TODOS_OS_TRIBUNAIS}</option>
-                    {tribunaisDisponiveis.map((sigla) => (
-                      <option key={sigla}>{sigla}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <fieldset className="group">
-                  <legend className="group-label">PERÍODO</legend>
-                  <div className="date-row">
-                    <div>
-                      <label htmlFor="filtro-data-de">De</label>
-                      <input
-                        id="filtro-data-de"
-                        className="date-input"
-                        type="date"
-                        value={dataDe}
-                        onChange={(e) => {
-                          setDataDe(e.target.value)
-                          voltarParaPrimeiraPagina()
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="filtro-data-ate">Até</label>
-                      <input
-                        id="filtro-data-ate"
-                        className="date-input"
-                        type="date"
-                        value={dataAte}
-                        onChange={(e) => {
-                          setDataAte(e.target.value)
-                          voltarParaPrimeiraPagina()
-                        }}
-                      />
-                    </div>
-                  </div>
-                </fieldset>
-              </div>
-            )}
           </section>
         </div>
 
