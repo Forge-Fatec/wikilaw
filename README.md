@@ -133,6 +133,21 @@ The project's source code is publicly available, allowing developers, students, 
 ---
 # Sprint Backlog
 
+## Sprint 1
+
+| Rank | User Story | Priority | Story Points |
+|------|------------|----------|--------------|
+| 1 | As a user, I want to find case law, legal precedents, and legal doctrine related to my case so that I can understand judicial interpretations relevant to my situation. | High | 13 |
+| 2 | As a user, I want to submit a description of my case to search for related legal content. | High | 3 |
+| 3 | As a user, I want to view the search results so that I can explore legal content related to my case. | High | 5 |
+| 4 | As a user, I want to view the source of each result so that I can identify where the information displayed by the system was obtained. | Medium | 5 |
+| 5 | As a user, I want to access the original source of a result so that I can directly verify the content displayed by the system. | Medium | 3 |
+| 8 | As a user, I want to identify the court or judicial body responsible for the retrieved content so that I can understand its origin. | Medium | 3 |
+| 6 | As a user, I want to sort search results from newest to oldest so that I can prioritize more recent legal content. | Low | 3 |
+| 7 | As a user, I want to view the case number associated with a result, when available, so that I can identify it. | Low | 2 |
+| 9 | As a user, I want to preview a summary of each result so that I can understand its content before accessing the full source. | Low | 3 |
+| 10 | As a user, I want to filter results by date range, court, case law, precedent, or legal doctrine so that I can explore content published or decided within a specific period. | Low | 3 |
+
 ## Sprint 2
 
 | ID | User Story | Priority | Story Points |
