@@ -17,7 +17,7 @@ import {
 import { useFontes } from './components/hooks/useFontes'
 
 type DocType = 'jurisprudencia' | 'precedente' | 'doutrina'
-type Ordenacao = 'mais-recentes' | 'mais-antigos'
+type Ordenacao = 'mais-recentes' | 'mais-antigos' | 'mais-similares'
 type EscopoPainel = 'pesquisa' | 'panorama'
 type ModoBusca = 'palavras' | 'ia'
 
@@ -70,6 +70,17 @@ const ITENS_POR_PAGINA = 10
 const ITENS_POR_PAGINA_API = 100
 const MINIMO_CARACTERES_IA = 20
 const LIMITE_RESULTADOS_IA = 50
+const LIMITE_BAIXA_SIMILARIDADE = 50
+const ROTULO_POR_SECAO: Record<string, string> = {
+  EMENTA: 'Ementa',
+  DECISAO: 'Decisão',
+  INTEIRO_TEOR: 'Inteiro teor',
+  QUESTAO_JURIDICA: 'Questão jurídica',
+  TESE: 'Tese',
+  RESUMO: 'Resumo',
+  PALAVRAS_CHAVE: 'Palavras-chave',
+  TITULO: 'Título',
+}
 const TODOS_OS_TRIBUNAIS = 'Todos os tribunais'
 
 const ERRO_CARREGAMENTO =
@@ -555,6 +566,9 @@ function App({
     setTermoPesquisado(query.trim())
     setFontesPesquisadas(fontes)
     setModoPesquisado(modoBusca)
+    setOrdenacao((atual) =>
+      modoBusca === 'ia' ? 'mais-similares' : atual === 'mais-similares' ? 'mais-recentes' : atual,
+    )
     setCarregando(true)
     setErro(null)
     setPaginaAtual(1)
@@ -670,6 +684,9 @@ function App({
 
       return true
     })
+
+    if (ordenacao === 'mais-similares') return filtrados
+
 
     return filtrados.sort((a, b) => {
       const dataAValor = dataDoDocumento(a)
@@ -1227,8 +1244,22 @@ function App({
               </div>
               <div className="results-actions" role="group" aria-label="Ações dos resultados">
                 <div className="sort-control" role="group" aria-label="Ordenar resultados por data de publicação">
-                  <span className="sort-label">ORDENAR POR DATA</span>
+                                    <span className="sort-label">
+                    {modoPesquisado === 'ia' ? 'ORDENAR POR' : 'ORDENAR POR DATA'}
+                  </span>
                   <div className="sort-options">
+                    {modoPesquisado === 'ia' && (
+                      <button
+                        type="button"
+                        aria-pressed={ordenacao === 'mais-similares'}
+                        onClick={() => {
+                          setOrdenacao('mais-similares')
+                          voltarParaPrimeiraPagina()
+                        }}
+                      >
+                        Mais similares
+                      </button>
+                    )}
                     <button
                       type="button"
                       aria-pressed={ordenacao === 'mais-recentes'}
@@ -1278,9 +1309,15 @@ function App({
             {!erro &&
               resultadosPaginados.map((doc) => {
                 const chave = `${doc.type}-${doc.id}`
+                const similaridade = doc.similaridade
+                const baixaSimilaridade =
+                  similaridade !== undefined && similaridade.percentual < LIMITE_BAIXA_SIMILARIDADE
 
                 return (
-                  <article className="card" key={chave}>
+                  <article
+                    className={'card' + (baixaSimilaridade ? ' baixa-similaridade' : '')}
+                    key={chave}
+                  >
                     <div className="card-top">
                       <span
                         className={
@@ -1292,7 +1329,13 @@ function App({
                         {doc.badge}
                       </span>
                       <span className="proc-num">{doc.fonte}</span>
+                      {similaridade && (
+                        <span className="similaridade-selo">{similaridade.percentual}% similar</span>
+                      )}
                     </div>
+                    {baixaSimilaridade && (
+                      <p className="aviso-baixa-similaridade">Baixa similaridade com o caso descrito</p>
+                    )}
                     <h3>{doc.title}</h3>
                     {doc.type === 'jurisprudencia' && (
                       <div className="decision-highlight">
@@ -1306,6 +1349,15 @@ function App({
                       <h4>Ementa</h4>
                       <p className="ementa">{doc.text}</p>
                     </div>
+                    {similaridade && (
+                      <div className="trecho-similar">
+                        <span className="trecho-similar-secao">
+                          {ROTULO_POR_SECAO[similaridade.secao] ?? 'Conteúdo'}
+                        </span>
+                        <p className="trecho-similar-justificativa">{similaridade.justificativa}</p>
+                        <blockquote>{similaridade.trecho}</blockquote>
+                      </div>
+                    )}
                     <button
                       type="button"
                       className="details-toggle"

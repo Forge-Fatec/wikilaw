@@ -13,7 +13,7 @@ public record PesquisaPdfRequest(
         @Size(max = 100) String tribunal,
         LocalDate dataDe,
         LocalDate dataAte,
-        @NotNull @Pattern(regexp = "mais-recentes|mais-antigos") String ordenacao,
+        @NotNull @Pattern(regexp = "mais-recentes|mais-antigos|mais-similares")String ordenacao,
         @NotEmpty @Size(max = 5000) List<@NotNull @Valid DocumentoReferencia> resultados,
         @Valid IntervaloPaginas intervaloPaginas) {
 

@@ -43,8 +43,11 @@ public class PesquisaPdfRenderer {
                 page.field("Tribunal", blank(request.tribunal()) ? "Todos os tribunais" : request.tribunal());
                 page.field("Período", (request.dataDe() == null ? "Sem início definido" : DATE.format(request.dataDe()))
                         + " até " + (request.dataAte() == null ? "sem fim definido" : DATE.format(request.dataAte())));
-                page.field("Ordenação", "mais-antigos".equals(request.ordenacao()) ? "Mais antigos primeiro" : "Mais recentes primeiro");
-                page.field("Resultados exportados", String.valueOf(results.size()));
+                page.field("Ordenação", switch (request.ordenacao()) {
+                    case "mais-antigos" -> "Mais antigos primeiro";
+                    case "mais-similares" -> "Mais similares ao caso primeiro";
+                    default -> "Mais recentes primeiro";
+                });                page.field("Resultados exportados", String.valueOf(results.size()));
                 var range = request.intervaloPaginas();
                 if (range != null) {
                     page.field("Páginas da pesquisa", range.de() + " a " + range.ate()
