@@ -1,12 +1,16 @@
 package forge.wikilaw.backend.config;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.data.domain.Score;
 import org.springframework.validation.annotation.Validated;
 
 /** Recuperacao de vetores por similaridade (pgvector/HNSW). */
@@ -40,6 +44,11 @@ public class SemanticSearchProperties {
     @NotNull
     private Query query = new Query();
 
+
+    @Valid
+    @NotNull
+    private Score score = new Score();
+
     /** Descricao do caso pesquisado que vira o vetor de consulta. */
     @Getter
     @Setter
@@ -59,5 +68,25 @@ public class SemanticSearchProperties {
         @Min(0)
         @Max(10_000)
         private int cacheSize = 200;
+    }
+
+    @Getter
+    @Setter
+    public static class Score {
+
+        /** Similaridade que vale 0%. */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double minimum = 0.2;
+
+        /** Similaridade que vale 100%. */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double maximum = 0.7;
+
+        @AssertTrue(message = "maximum deve ser maior que minimum")
+        public boolean isRangeValid() {
+            return maximum > minimum;
+        }
     }
 }
