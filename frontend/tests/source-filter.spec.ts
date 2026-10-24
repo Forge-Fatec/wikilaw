@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { abrirFiltros, abrirFrontend, FRONTEND_URL, pesquisar, simularSessao } from './helpers/test-helper'
+import { abrirFiltros, abrirFrontend, entrarComoAdmin, FRONTEND_URL, pesquisar, simularSessao } from './helpers/test-helper'
 
 const DOCUMENTOS = [
   { id: 1, fonte: 'STJ', titulo: 'Acórdão do STJ' },
@@ -144,6 +144,7 @@ test.describe('filtro de fontes da tela inicial', () => {
     await simularSessao(page)
     await page.route('**/api/fontes', (route) => route.fulfill({ status: 500 }))
     await page.goto(FRONTEND_URL, { waitUntil: 'domcontentloaded' })
+    await entrarComoAdmin(page)
     await abrirFiltros(page)
 
     printStep(cenario, 'Validando o aviso')

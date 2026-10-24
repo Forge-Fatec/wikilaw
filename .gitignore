@@ -1,3 +1,5 @@
 .env
 .m2-cache/
 backend/target/
+__pycache__/
+.pytest_cache/

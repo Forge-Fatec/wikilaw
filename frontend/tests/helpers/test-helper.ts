@@ -18,16 +18,47 @@ export const TERMO_PADRAO = 'dano moral'
 
 export const USUARIO_PADRAO = {
   id: 1,
-  login: 'admin',
+  login: 'Admin',
   perfil: 'ADMIN',
   ativo: true,
   criadoEm: '2026-01-01T00:00:00Z',
 }
 
-// Sem back no CI: a sessão vem do mock para a tela abrir já autenticada.
+const SENHA_ADMIN = 'Admin 123'
+
+// Sem back no CI: o formulário de login usa respostas simuladas da API.
 export async function simularSessao(page: Page): Promise<void> {
-  await page.route('**/api/auth/me', (route) => route.fulfill({ json: USUARIO_PADRAO }))
+  // Tests can override this context-level default with a page route.
+  await page.context().route('**/api/pesquisas/similaridade/status', route => route.fulfill({
+    json: { habilitada: false, indexados: 0, pendentes: 0 },
+  }))
+  // Testes sem mock próprio de dashboard ainda fazem essa consulta após a busca.
+  // A rota no contexto é substituída pelas rotas específicas registradas na página.
+  await page.context().route('**/api/dashboard?*', (route) => route.fulfill({ json: {
+    indicadores: { totalDecisoes: 0, classificadas: 0, favoraveis: 0, aderencia: null },
+    distribuicaoMerito: [],
+    distribuicaoCamaraTurma: [],
+    distribuicaoTribunal: [],
+    evolucaoAnual: [],
+  } }))
+  await page.route('**/api/auth/me', (route) => route.fulfill({ status: 401 }))
   await page.route('**/api/auth/csrf', (route) => route.fulfill({ json: { token: 'csrf-teste' } }))
+  await page.route('**/api/auth/login', async (route) => {
+    const { login, senha } = route.request().postDataJSON() as { login: string; senha: string }
+    if (login !== USUARIO_PADRAO.login || senha !== SENHA_ADMIN) {
+      await route.fulfill({ status: 401, json: { detail: 'Login ou senha inválidos.' } })
+      return
+    }
+    await route.fulfill({ json: USUARIO_PADRAO })
+  })
+}
+
+export async function entrarComoAdmin(page: Page): Promise<void> {
+  await expect(page.getByRole('heading', { name: 'Bem-vindo de volta.' })).toBeVisible()
+  await page.getByLabel('Login', { exact: true }).fill(USUARIO_PADRAO.login)
+  await page.getByLabel('Senha').fill(SENHA_ADMIN)
+  await page.getByRole('button', { name: 'ENTRAR' }).click()
+  await expect(page.getByRole('heading', { name: 'Bem-vindo de volta.' })).toHaveCount(0)
 }
 
 // A lista de fontes vem sempre do mock: o teste não depende do cadastro do back.
@@ -38,6 +69,7 @@ export async function abrirFrontend(
   await simularSessao(page)
   await page.route('**/api/fontes', (route) => route.fulfill({ json: fontes }))
   await page.goto(FRONTEND_URL, { waitUntil: 'domcontentloaded' })
+  await entrarComoAdmin(page)
 }
 
 // Espera a rolagem automática até a lista terminar (posição estável).
