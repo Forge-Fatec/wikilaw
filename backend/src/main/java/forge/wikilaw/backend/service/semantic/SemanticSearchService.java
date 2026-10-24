@@ -21,12 +21,14 @@ public class SemanticSearchService {
     private final SemanticCaseRepresentationService representation;
     private final SemanticVectorRetrievalService retrieval;
     private final DocumentQueryService documents;
+    private final SimilarityScorer scorer;
 
     public SemanticSearchService(SemanticCaseRepresentationService representation,
-            SemanticVectorRetrievalService retrieval, DocumentQueryService documents) {
+            SemanticVectorRetrievalService retrieval, DocumentQueryService documents, SimilarityScorer scorer) {
         this.representation = representation;
         this.retrieval = retrieval;
         this.documents = documents;
+        this.scorer = scorer;
     }
 
     public SemanticSearchResult buscar(SemanticCaseQuery query, Collection<Categoria> categories, int limit) {
@@ -45,8 +47,10 @@ public class SemanticSearchService {
             // Documento retirado da fonte depois de indexado nao tem resumo exibivel e fica de fora.
             Summary summary = summaries.get(key(document.categoria(), sourceId(document)));
             if (summary == null) continue;
-            items.add(new SemanticSearchItem(summary, document.similaridade(), document.trechosSemelhantes(),
-                    new RelevantChunk(document.secaoRelevante(), document.trechoRelevante())));
+            items.add(new SemanticSearchItem(summary, document.similaridade(),
+                    scorer.percentual(document.similaridade()), document.trechosSemelhantes(),
+                    new RelevantChunk(document.secaoRelevante(), document.trechoRelevante()),
+                    scorer.justificativa(document.secaoRelevante(), document.trechosSemelhantes())));
         }
         return new SemanticSearchResult(caseRepresentation.modelo(), List.copyOf(items));
     }
@@ -83,8 +87,9 @@ public class SemanticSearchService {
 
     public record RelevantChunk(String secao, String texto) {}
 
-    public record SemanticSearchItem(Summary documento, double similaridade, int trechosSemelhantes,
-            RelevantChunk trechoRelevante) {}
+    /** {@code percentual} e a similaridade calibrada de 0 a 100, a que a tela exibe e usa no limite de 50%. */
+    public record SemanticSearchItem(Summary documento, double similaridade, int percentual, int trechosSemelhantes,
+            RelevantChunk trechoRelevante, String justificativa) {}
 
     public record SemanticSearchResult(String modelo, List<SemanticSearchItem> resultados) {}
 }

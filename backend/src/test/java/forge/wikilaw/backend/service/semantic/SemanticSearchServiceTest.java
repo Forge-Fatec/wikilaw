@@ -11,6 +11,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import forge.wikilaw.backend.config.SemanticSearchProperties;
 import forge.wikilaw.backend.entity.DocumentoSemantico.Categoria;
 import forge.wikilaw.backend.service.DocumentQueryService;
 import forge.wikilaw.backend.service.DocumentQueryService.Summary;
@@ -33,7 +34,8 @@ class SemanticSearchServiceTest {
         retrieval = mock(SemanticVectorRetrievalService.class);
         documents = mock(DocumentQueryService.class);
         when(representation.representar(query)).thenReturn(new CaseRepresentation("texto", vector, "voyage-4"));
-        service = new SemanticSearchService(representation, retrieval, documents);
+        var scorer = new SimilarityScorer(new SemanticSearchProperties());
+        service = new SemanticSearchService(representation, retrieval, documents, scorer);
     }
 
     @Test
@@ -55,6 +57,8 @@ class SemanticSearchServiceTest {
         assertThat(first.documento().categoria()).isEqualTo("precedentes");
         assertThat(first.trechoRelevante().secao()).isEqualTo("QUESTAO_JURIDICA");
         assertThat(first.trechoRelevante().texto()).isEqualTo("emprestimo consignado");
+        assertThat(first.percentual()).isEqualTo(78);
+        assertThat(first.justificativa()).isEqualTo("A questão jurídica deste documento se aproxima do caso descrito.");
     }
 
     @Test

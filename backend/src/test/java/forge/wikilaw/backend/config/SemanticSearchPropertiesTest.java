@@ -49,6 +49,19 @@ class SemanticSearchPropertiesTest {
         assertThat(configured.getQuery().getCacheSize()).isZero();
     }
 
+    @Test
+    void bindsSimilarityScoreRange() {
+        SemanticSearchProperties defaults = bind(Map.of());
+        assertThat(defaults.getScore().getMinimum()).isEqualTo(0.2);
+        assertThat(defaults.getScore().getMaximum()).isEqualTo(0.7);
+        assertThat(defaults.getScore().isRangeValid()).isTrue();
+
+        SemanticSearchProperties inverted = bind(Map.of(
+                "wikilaw.semantic.search.score.minimum", "0.6",
+                "wikilaw.semantic.search.score.maximum", "0.3"));
+        assertThat(inverted.getScore().isRangeValid()).isFalse();
+    }
+
     private SemanticSearchProperties bind(Map<String, String> values) {
         return new Binder(new MapConfigurationPropertySource(values))
                 .bindOrCreate("wikilaw.semantic.search", SemanticSearchProperties.class);

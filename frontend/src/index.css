@@ -73,9 +73,6 @@ a {
 .hero .search-mode { color: #e8e4f1; }
 .layout[data-similarity-enabled='true'] .toolbar-row { min-height: 112px; }
 .similarity-notice { font-size: 13px; line-height: 1.6; color: var(--muted); margin: 0 0 18px; }
-.similarity-excerpt { font-size: 13px; line-height: 1.6; margin: 12px 0; }
-.similarity-excerpt summary { color: var(--terracotta-dark); cursor: pointer; }
-.similarity-excerpt p { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; background: var(--cream); border-radius: 6px; }
 
 .header {
   background: var(--navy);
@@ -270,9 +267,6 @@ nav a.active {
   cursor: pointer;
   /* Cabe "PESQUISANDO...": o botão não muda de largura ao trocar o texto. */
   min-width: 172px;
-}
-.search-box button:hover {
-  background: var(--terracotta-dark);
 }
 
 .search-error {
@@ -960,6 +954,65 @@ select,
   margin-bottom: 10px;
   flex-wrap: wrap;
 }
+
+/* Pesquisa com IA: o quanto o resultado se parece com o caso e o trecho que mais se parece. */
+.similaridade-selo {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fcf5ef;
+  color: var(--terracotta-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+.card.baixa-similaridade {
+  opacity: 0.6;
+}
+.card.baixa-similaridade .similaridade-selo {
+  background: #f1efeb;
+  color: var(--muted);
+}
+.aviso-baixa-similaridade {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.trecho-similar {
+  margin: 14px 0 4px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--terracotta);
+  border-radius: 0 8px 8px 0;
+  background: var(--cream);
+}
+.trecho-similar-secao {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.trecho-similar-justificativa {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.trecho-similar blockquote {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 13.5px;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
 .badge {
   background: var(--navy);
   color: #fff;

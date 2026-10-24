@@ -71,6 +71,20 @@ const BADGE_POR_TIPO: Record<DocType, string> = {
 
 const ITENS_POR_PAGINA = 10
 const ITENS_POR_PAGINA_API = 100
+// Abaixo deste percentual o resultado aparece esmaecido, como pouco parecido com o caso.
+const LIMITE_BAIXA_SIMILARIDADE = 50
+
+// Seções dos trechos do acervo (LegalDocumentAssembler, no back).
+const ROTULO_POR_SECAO: Record<string, string> = {
+  EMENTA: 'Ementa',
+  DECISAO: 'Decisão',
+  INTEIRO_TEOR: 'Inteiro teor',
+  QUESTAO_JURIDICA: 'Questão jurídica',
+  TESE: 'Tese',
+  RESUMO: 'Resumo',
+  PALAVRAS_CHAVE: 'Palavras-chave',
+  TITULO: 'Título',
+}
 const TODOS_OS_TRIBUNAIS = 'Todos os tribunais'
 
 const ERRO_CARREGAMENTO =
@@ -109,6 +123,8 @@ interface ApiResult {
 
 interface Documento {
   trechoSimilar?: string
+  // Só nos resultados da busca por similaridade.
+  similaridade?: { percentual: number; secao: string; justificativa: string }
   id: number
   type: DocType
   badge: string
@@ -520,7 +536,7 @@ function App({
         const response = await buscarSimilares<ApiSummary>(query.trim(), contexto.documento?.texto, carga.signal)
         if (carga.signal.aborted) return
         const tipos: Record<string, DocType> = { decisoes: 'jurisprudencia', precedentes: 'precedente', doutrina: 'doutrina' }
-        setDocumentos(response.itens.map(item => ({ ...toDocumento(tipos[item.documento.categoria], item.documento), trechoSimilar: item.trecho })))
+        setDocumentos(response.itens.map(item => ({ ...toDocumento(tipos[item.documento.categoria], item.documento), trechoSimilar: item.trecho, similaridade: { percentual: item.percentual, secao: item.secao, justificativa: item.justificativa } })))
         setTermoPesquisado(query.trim())
         setConsultaPesquisada('')
         setDocumentoUsado(contexto.documento?.nome ?? null)
@@ -1252,9 +1268,15 @@ function App({
             {!erro &&
               resultadosPaginados.map((doc) => {
                 const chave = `${doc.type}-${doc.id}`
+                const similaridade = doc.similaridade
+                const baixaSimilaridade =
+                  similaridade !== undefined && similaridade.percentual < LIMITE_BAIXA_SIMILARIDADE
 
                 return (
-                  <article className="card" key={chave}>
+                  <article
+                    className={'card' + (baixaSimilaridade ? ' baixa-similaridade' : '')}
+                    key={chave}
+                  >
                     <div className="card-top">
                       <span
                         className={
@@ -1266,9 +1288,27 @@ function App({
                         {doc.badge}
                       </span>
                       <span className="proc-num">{doc.fonte}</span>
+                      {similaridade && (
+                        <span className="similaridade-selo">{similaridade.percentual}% similar</span>
+                      )}
                     </div>
-                  <h3>{doc.title}</h3>
-                  {doc.trechoSimilar && <details className="similarity-excerpt"><summary>Ver trecho relacionado</summary><p>{doc.trechoSimilar}</p></details>}
+                    {baixaSimilaridade && (
+                      <p className="aviso-baixa-similaridade">Baixa similaridade com o caso descrito</p>
+                    )}
+                    <h3>{doc.title}</h3>
+                    {doc.trechoSimilar && (
+                      <div className="trecho-similar">
+                        {similaridade && (
+                          <>
+                            <span className="trecho-similar-secao">
+                              {ROTULO_POR_SECAO[similaridade.secao] ?? 'Conteúdo'}
+                            </span>
+                            <p className="trecho-similar-justificativa">{similaridade.justificativa}</p>
+                          </>
+                        )}
+                        <blockquote>{doc.trechoSimilar}</blockquote>
+                      </div>
+                    )}
                     {doc.type === 'jurisprudencia' && (
                       <div className="decision-highlight">
                         <span className="decision-label">DECISÃO</span>

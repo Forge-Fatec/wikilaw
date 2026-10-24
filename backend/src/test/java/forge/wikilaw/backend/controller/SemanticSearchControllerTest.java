@@ -40,7 +40,8 @@ class SemanticSearchControllerTest {
                 "Devolucao em dobro.");
         when(service.buscar(eq(query), eq(List.of(Categoria.PRECEDENTE, Categoria.JURISPRUDENCIA)), eq(5)))
                 .thenReturn(new SemanticSearchResult("voyage-4", List.of(new SemanticSearchItem(
-                        summary(), 0.588, 2, new RelevantChunk("QUESTAO_JURIDICA", "Teses do IRDR do TJMA")))));
+                summary(), 0.588, 78, 2, new RelevantChunk("QUESTAO_JURIDICA", "Teses do IRDR do TJMA"),
+                "A questão jurídica deste documento se aproxima do caso descrito (2 trechos semelhantes)."))));
 
         mvc.perform(post("/api/pesquisas/semantica").contentType(MediaType.APPLICATION_JSON).content("""
                         {"fatos":"Desconto de emprestimo nao contratado.","fundamentos":"CDC, art. 14.",
