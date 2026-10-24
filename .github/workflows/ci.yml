@@ -14,6 +14,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  embedding-service-tests:
+    name: Embedding service contract tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install lightweight test dependencies
+        run: pip install fastapi==0.157.0 pytest==9.1.1 httpx==0.28.1
+      - name: Test service without downloading model weights
+        working-directory: embeddings
+        run: python -m pytest tests -q
+
   backend-tests:
     name: Backend unit tests
     runs-on: ubuntu-24.04

@@ -44,6 +44,8 @@ public class SearchTermProcessor {
         return List.copyOf(tokens);
     }
 
+    public boolean isStopWord(String token) { return STOP_WORDS.contains(token); }
+
     /** Cria um padrão de contenção e escapa metacaracteres de SQL LIKE. */
     public String containsPattern(String token) {
         return "%" + token

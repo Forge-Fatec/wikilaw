@@ -28,6 +28,10 @@ const SENHA_ADMIN = 'Admin 123'
 
 // Sem back no CI: o formulário de login usa respostas simuladas da API.
 export async function simularSessao(page: Page): Promise<void> {
+  // Tests can override this context-level default with a page route.
+  await page.context().route('**/api/pesquisas/similaridade/status', route => route.fulfill({
+    json: { habilitada: false, indexados: 0, pendentes: 0 },
+  }))
   // Testes sem mock próprio de dashboard ainda fazem essa consulta após a busca.
   // A rota no contexto é substituída pelas rotas específicas registradas na página.
   await page.context().route('**/api/dashboard?*', (route) => route.fulfill({ json: {
