@@ -19,6 +19,7 @@ import { useFontes } from './components/hooks/useFontes'
 type DocType = 'jurisprudencia' | 'precedente' | 'doutrina'
 type Ordenacao = 'mais-recentes' | 'mais-antigos'
 type EscopoPainel = 'pesquisa' | 'panorama'
+type ModoBusca = 'palavras' | 'ia'
 
 // Categoria escolhida em cada gráfico do dashboard; null = sem filtro.
 interface SelecaoGraficos {
@@ -67,6 +68,8 @@ const BADGE_POR_TIPO: Record<DocType, string> = {
 
 const ITENS_POR_PAGINA = 10
 const ITENS_POR_PAGINA_API = 100
+const MINIMO_CARACTERES_IA = 20
+const LIMITE_RESULTADOS_IA = 50
 const TODOS_OS_TRIBUNAIS = 'Todos os tribunais'
 
 const ERRO_CARREGAMENTO =
@@ -121,7 +124,32 @@ interface Documento {
   dataPublicacao: string | null
   dataOriginal: string | null
   urlOriginal: string | null
+  similaridade?: Similaridade
 }
+
+interface Similaridade {
+  percentual: number
+  justificativa: string
+  secao: string
+  trecho: string
+  trechosSemelhantes: number
+}
+
+interface ItemBuscaSemantica {
+  documento: ApiSummary
+  percentual: number
+  trechosSemelhantes: number
+  trechoRelevante: { secao: string; texto: string }
+  justificativa: string
+}
+
+const TIPO_POR_CATEGORIA = Object.fromEntries(
+  Object.entries(CATEGORIA_POR_TIPO).map(([tipo, categoria]) => [categoria, tipo]),
+) as Record<string, DocType>
+
+// Erro que já traz a mensagem para o usuário (limite da IA, serviço fora do ar...).
+class ErroPesquisaIa extends Error {}
+
 
 // Mesma normalização do back ao agrupar o gráfico de órgão julgador.
 function orgaoDoGrafico(orgaoJulgador: string | null): string {
@@ -333,6 +361,51 @@ async function carregarDocumentos(
   return documentos
 }
 
+// A IA devolve os documentos mais parecidos com a descrição, do mais ao menos similar.
+async function carregarBuscaSemantica(
+  descricao: string,
+  tipos: DocType[],
+  signal: AbortSignal,
+): Promise<Documento[]> {
+  const res = await apiFetch(`${API_BASE}/api/pesquisas/semantica`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      descricao,
+      categorias: tipos.map((tipo) => CATEGORIA_POR_TIPO[tipo]),
+      limite: LIMITE_RESULTADOS_IA,
+    }),
+    signal,
+  })
+  if (res.status === 429) {
+    throw new ErroPesquisaIa('A IA recebeu muitas pesquisas agora. Tente de novo em alguns segundos.')
+  }
+  if (res.status === 503) {
+    throw new ErroPesquisaIa('A pesquisa com IA está indisponível no momento. Use a busca por palavras-chave.')
+  }
+  if (res.status === 400) {
+    throw new ErroPesquisaIa('Descreva o caso com mais detalhes para pesquisar com IA.')
+  }
+  if (!res.ok) throw new Error(`Erro na pesquisa com IA (status ${res.status})`)
+
+  const corpo = (await res.json()) as { resultados: ItemBuscaSemantica[] }
+  return corpo.resultados.flatMap((item) => {
+    const tipo = TIPO_POR_CATEGORIA[item.documento.categoria]
+    if (!tipo) return []
+    return [{
+      ...toDocumento(tipo, item.documento),
+      similaridade: {
+        percentual: item.percentual,
+        justificativa: item.justificativa,
+        secao: item.trechoRelevante.secao,
+        trecho: item.trechoRelevante.texto,
+        trechosSemelhantes: item.trechosSemelhantes,
+      },
+    }]
+  })
+}
+
+
 function App({
   user,
   onLogout,
@@ -429,6 +502,8 @@ function App({
   const [ordenacao, setOrdenacao] = useState<Ordenacao>('mais-recentes')
   const [selecao, setSelecao] = useState<SelecaoGraficos>(SEM_SELECAO)
   const [escopo, setEscopo] = useState<EscopoPainel>('pesquisa')
+  const [modoBusca, setModoBusca] = useState<ModoBusca>('palavras')
+  const [modoPesquisado, setModoPesquisado] = useState<ModoBusca>('palavras')
 
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [carregando, setCarregando] = useState(false)
@@ -440,7 +515,7 @@ function App({
   // O dashboard é calculado no back com o mesmo recorte da lista. Só
   // jurisprudência entra na conta, então sem ela não há o que consultar.
   const dashboard = useDashboard(
-    pesquisou && filtros.jurisprudencia
+  pesquisou && modoPesquisado === 'palavras' && filtros.jurisprudencia
       ? {
           termo: termoPesquisado,
           fontes: fontesPesquisadas,
@@ -454,13 +529,16 @@ function App({
   const indicadores = dashboard.dados?.indicadores
 
   const buscar = useCallback(async () => {
-    if (!query.trim()) {
+        if (!query.trim()) {
       setErroValidacao('Informe a descrição do caso para realizar a pesquisa.')
       return
     }
-
-    // Pesquisar não espera a carga em andamento: ela é cancelada e só o
-    // resultado desta pesquisa chega à tela.
+    if (modoBusca === 'ia' && query.trim().length < MINIMO_CARACTERES_IA) {
+      setErroValidacao(
+        `Para pesquisar com IA, descreva o caso com pelo menos ${MINIMO_CARACTERES_IA} caracteres.`,
+      )
+      return
+    }
     cargaRef.current?.abort()
     const carga = new AbortController()
     cargaRef.current = carga
@@ -476,16 +554,21 @@ function App({
     setExportacaoConcluida(false)
     setTermoPesquisado(query.trim())
     setFontesPesquisadas(fontes)
+    setModoPesquisado(modoBusca)
     setCarregando(true)
     setErro(null)
     setPaginaAtual(1)
     setDocumentoSelecionado(null)
     try {
-      const resultados = await carregarDocumentos(query, fontes, carga.signal)
+      const tiposMarcados = (Object.keys(filtros) as DocType[]).filter((tipo) => filtros[tipo])
+      const resultados =
+        modoBusca === 'ia'
+          ? await carregarBuscaSemantica(query.trim(), tiposMarcados, carga.signal)
+          : await carregarDocumentos(query, fontes, carga.signal)
       if (!carga.signal.aborted) setDocumentos(resultados)
-    } catch {
+    } catch (falha) {
       if (!carga.signal.aborted) {
-        setErro(ERRO_CARREGAMENTO)
+        setErro(falha instanceof ErroPesquisaIa ? falha.message : ERRO_CARREGAMENTO)
         setDocumentos([])
       }
     } finally {
@@ -494,7 +577,7 @@ function App({
         setPesquisasConcluidas((total) => total + 1)
       }
     }
-  }, [query, fontesCadastradas.fontes, fontesDesmarcadas])
+    }, [query, fontesCadastradas.fontes, fontesDesmarcadas, modoBusca, filtros])
 
   // Depois de cada pesquisa, desce com suavidade até o título "Resultados da
   // pesquisa" (que também aparece com lista vazia ou erro), logo abaixo da barra fixa.
@@ -557,6 +640,14 @@ function App({
         return false
       }
 
+      if (
+        modoPesquisado === 'ia' &&
+        fontesPesquisadas.length &&
+        !fontesPesquisadas.includes(doc.fonte)
+      ) {
+        return false
+      }
+
       // Resultado e órgão julgador só existem em decisões: com uma barra
       // selecionada, precedentes e doutrina saem da lista.
       if (selecao.resultado || selecao.orgaoJulgador) {
@@ -594,7 +685,7 @@ function App({
 
       return ordenacao === 'mais-recentes' ? dataB - dataA : dataA - dataB
     })
-  }, [documentos, filtros, tribunal, dataDe, dataAte, selecao, ordenacao])
+    }, [documentos, filtros, tribunal, dataDe, dataAte, selecao, ordenacao, modoPesquisado, fontesPesquisadas])
 
   async function exportarPdf(paginaDe: number, paginaAte: number) {
     if (carregando || exportando || erro || !resultados.length) return
@@ -772,10 +863,10 @@ function App({
         void buscar()
       }}
     >
-      <div className="search-box">
+            <div className="search-box">
         <input
           type="text"
-          maxLength={300}
+          maxLength={modoBusca === 'ia' ? 2000 : 300}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value)
@@ -784,8 +875,25 @@ function App({
           aria-label="Descrição do caso"
           aria-invalid={Boolean(erroValidacao)}
           aria-describedby={erroValidacao ? `search-error-${origem}` : undefined}
-          placeholder="Ex.: dano moral por negativação indevida do nome do consumidor..."
+          placeholder={
+            modoBusca === 'ia'
+              ? 'Ex.: o banco descontou da minha aposentadoria parcelas de um empréstimo que eu não contratei...'
+              : 'Ex.: dano moral por negativação indevida do nome do consumidor...'
+          }
         />
+        {/* Desligado, a busca é por palavras-chave. Só no hero, para não apertar a
+            barra fixa; o modo escolhido vale para as duas. */}
+        {origem === 'destaque' && (
+          <button
+            type="button"
+            className="modo-ia"
+            aria-pressed={modoBusca === 'ia'}
+            title="Encontra documentos de sentido parecido com o caso, mesmo sem as mesmas palavras."
+            onClick={() => setModoBusca((modo) => (modo === 'ia' ? 'palavras' : 'ia'))}
+          >
+            <span aria-hidden="true">✦ </span>Com IA
+          </button>
+        )}
         {/* Fica habilitado durante a carga: uma nova pesquisa substitui a anterior. */}
         <button type="submit" aria-busy={carregando}>
           {carregando ? 'PESQUISANDO...' : 'PESQUISAR'}
@@ -1034,14 +1142,19 @@ function App({
               <strong>
                 {escopo === 'pesquisa'
                   ? termoPesquisado
-                    ? `Pesquisa: “${termoPesquisado}”`
+                  ? `${modoPesquisado === 'ia' ? 'Pesquisa com IA' : 'Pesquisa'}: “${termoPesquisado}”`
                     : 'Pesquisa: todos os documentos'
                   : tribunal !== TODOS_OS_TRIBUNAIS
                     ? `Panorama geral do ${tribunal}`
                     : 'Panorama geral: nenhum tribunal selecionado'}
               </strong>
             </p>
-            {escopo === 'pesquisa' ? (
+                        {escopo === 'pesquisa' && modoPesquisado === 'ia' ? (
+              <p className="painel-aviso">
+                Os indicadores e gráficos acompanham a busca por palavras-chave. Na pesquisa com IA,
+                cada resultado mostra o quanto se parece com o caso descrito.
+              </p>
+            ) : escopo === 'pesquisa' ? (
               <>
                 {!erro && !carregando && indicadores && (
                   <section className="indicadores" aria-label="Indicadores da pesquisa">
