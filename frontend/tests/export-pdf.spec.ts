@@ -1,6 +1,6 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page, type TestInfo } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
-import { abrirFrontend } from './helpers/test-helper'
+import { abrirFiltros, abrirFrontend, campoDeBusca, pesquisar } from './helpers/test-helper'
 
 function pdfFixture(): Buffer {
   const objects = [
@@ -28,15 +28,21 @@ const DOCUMENTS = Array.from({ length: 12 }, (_, index) => ({
 }))
 
 async function prepare(page: Page, documents = DOCUMENTS) {
-  await page.route('**/api/documentos/**', (route) => route.fulfill({
-    json: { itens: route.request().url().includes('/decisoes') ? documents : [], pagina: 0, tamanho: 100, total: documents.length, totalPaginas: 1 },
-  }))
+  await page.route('**/api/documentos/**', (route) => {
+    const url = new URL(route.request().url())
+    const fontes = url.searchParams.getAll('fonte')
+    const itens = url.pathname.endsWith('/decisoes')
+      ? documents.filter((document) => !fontes.length || fontes.includes(document.fonte))
+      : []
+    return route.fulfill({ json: { itens, pagina: 0, tamanho: 100, total: itens.length, totalPaginas: 1 } })
+  })
   await page.route('**/api/dashboard**', (route) => route.fulfill({ json: {
     indicadores: { totalDecisoes: documents.length, classificadas: 0, favoraveis: 0, aderencia: null },
     distribuicaoMerito: [], distribuicaoCamaraTurma: [],
   } }))
   await abrirFrontend(page)
   await expect(page.getByRole('button', { name: /^pesquisar$/i })).toBeEnabled()
+  await pesquisar(page)
 }
 
 const PDF_HEADERS = { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="wikilaw-pesquisa-teste.pdf"', 'Access-Control-Expose-Headers': 'Content-Disposition' }
@@ -50,7 +56,13 @@ async function confirmExport(page: Page) {
   await page.getByRole('dialog').getByRole('button', { name: 'Gerar e baixar PDF' }).click()
 }
 
-test('downloads a PDF for every filtered result, including other UI pages', async ({ page }, testInfo) => {
+async function screenshot(page: Page, testInfo: TestInfo, name: string) {
+  const path = testInfo.outputPath(`${name}.png`)
+  await page.screenshot({ path })
+  await testInfo.attach(name, { path, contentType: 'image/png' })
+}
+
+test('CA01 e CA03: gera o PDF da pesquisa e disponibiliza o download', async ({ page }, testInfo) => {
   let payload: { resultados: { id: number }[], termo: string } | undefined
   await page.route('**/api/pesquisas/exportacoes/pdf', (route) => {
     payload = route.request().postDataJSON()
@@ -58,46 +70,59 @@ test('downloads a PDF for every filtered result, including other UI pages', asyn
     return route.fulfill({ headers: PDF_HEADERS, body: PDF })
   })
   await prepare(page)
-  await page.getByRole('textbox', { name: 'Descrição do caso' }).fill('negativação indevida')
-  await page.getByRole('button', { name: /^pesquisar$/i }).click()
+  await pesquisar(page, 'negativação indevida')
   await expect(page.getByText('12 documentos encontrados', { exact: false })).toBeVisible()
+  await screenshot(page, testInfo, 'ca01-resultados-da-pesquisa')
   // Editing the input without submitting a new search must not relabel old results.
-  await page.getByRole('textbox', { name: 'Descrição do caso' }).fill('outro caso ainda não pesquisado')
+  await (await campoDeBusca(page)).fill('outro caso ainda não pesquisado')
   const downloadPromise = page.waitForEvent('download')
   await openExport(page)
+  await screenshot(page, testInfo, 'ca01-opcao-de-exportacao')
   await confirmExport(page)
   const download = await downloadPromise
   expect(download.suggestedFilename()).toBe('wikilaw-pesquisa-teste.pdf')
   const path = testInfo.outputPath('pesquisa.pdf')
   await download.saveAs(path)
-  expect((await readFile(path)).subarray(0, 5).toString()).toBe('%PDF-')
+  const downloadedPdf = await readFile(path)
+  expect(downloadedPdf.subarray(0, 5).toString()).toBe('%PDF-')
+  expect(downloadedPdf).toEqual(PDF)
   expect(payload?.resultados.map((row) => row.id)).toEqual([12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1])
   expect(payload?.termo).toBe('negativação indevida')
   await expect(page.getByRole('status')).toHaveText('PDF gerado. O download foi iniciado.')
-  await page.locator('.results-header').screenshot({ path: testInfo.outputPath('export-button.png') })
+  await screenshot(page, testInfo, 'ca03-download-disponibilizado')
 })
 
-test('exports the applied category, source, tribunal, period and order', async ({ page }) => {
+// The rendered PDF text is verified by PesquisaPdfIntegrationTest in the backend.
+test('CA02: envia os dados principais e todos os resultados filtrados para o PDF', async ({ page }, testInfo) => {
   let payload: Record<string, unknown> | undefined
   await page.route('**/api/pesquisas/exportacoes/pdf', (route) => {
     payload = route.request().postDataJSON()
     return route.fulfill({ headers: PDF_HEADERS, body: PDF })
   })
   await prepare(page)
-  // O painel de filtros começa fechado.
-  await page.getByRole('button', { name: 'Filtros', expanded: false }).click()
+  // Só a fonte TJDFT: a pesquisa precisa ser refeita para valer.
+  await abrirFiltros(page)
+  await page.getByRole('checkbox', { name: 'STJ', exact: true }).uncheck()
+  await page.getByRole('checkbox', { name: 'BDJUR', exact: true }).uncheck()
+  await pesquisar(page)
+  await expect(page.getByText('6 documentos encontrados', { exact: false })).toBeVisible()
+  // O painel continua aberto depois da pesquisa.
+  await abrirFiltros(page)
   await page.getByLabel('Precedente', { exact: true }).uncheck()
   await page.getByLabel('Doutrina', { exact: true }).uncheck()
-  await page.locator('select').nth(0).selectOption('TJDFT')
-  await page.locator('select').nth(1).selectOption('TJDFT')
+  await page.locator('#filtro-tribunal').selectOption('TJDFT')
   await page.locator('.date-input').nth(0).fill('2025-01-03')
   await page.locator('.date-input').nth(1).fill('2025-01-06')
   await page.getByRole('button', { name: 'Mais antigos', exact: true }).click()
+  await expect(page.getByText('4 documentos encontrados', { exact: false })).toBeVisible()
+  await screenshot(page, testInfo, 'ca02-dados-e-resultados-filtrados')
   const download = page.waitForEvent('download')
   await openExport(page)
+  await expect(page.getByText('4 documentos serão incluídos no PDF.', { exact: true })).toBeVisible()
+  await screenshot(page, testInfo, 'ca02-resumo-da-exportacao')
   await confirmExport(page)
   await download
-  expect(payload).toMatchObject({ termo: '', categorias: ['decisoes'], fonte: 'TJDFT', tribunal: 'TJDFT', dataDe: '2025-01-03', dataAte: '2025-01-06', ordenacao: 'mais-antigos', resultados: [
+  expect(payload).toMatchObject({ termo: 'dano moral', categorias: ['decisoes'], fonte: 'TJDFT', tribunal: 'TJDFT', dataDe: '2025-01-03', dataAte: '2025-01-06', ordenacao: 'mais-antigos', resultados: [
     { categoria: 'decisoes', id: 3 }, { categoria: 'decisoes', id: 4 }, { categoria: 'decisoes', id: 5 }, { categoria: 'decisoes', id: 6 },
   ] })
 })
@@ -107,7 +132,7 @@ test('disables export when there are no results', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Exportar PDF' })).toBeDisabled()
 })
 
-test('shows generation progress and prevents duplicate requests', async ({ page }) => {
+test('CA03: mostra o processamento e impede pedidos duplicados até liberar o arquivo', async ({ page }, testInfo) => {
   let release!: () => void
   const pending = new Promise<void>((resolve) => { release = resolve })
   let requests = 0
@@ -120,7 +145,9 @@ test('shows generation progress and prevents duplicate requests', async ({ page 
   await openExport(page)
   await confirmExport(page)
   await expect(page.getByRole('button', { name: 'Gerando PDF...' })).toBeDisabled()
+  await expect(page.getByRole('status')).toHaveText('Gerando seu relatório. O download começará automaticamente.')
   await expect.poll(() => requests).toBe(1)
+  await screenshot(page, testInfo, 'ca03-processamento-do-pdf')
   const download = page.waitForEvent('download')
   release()
   await download

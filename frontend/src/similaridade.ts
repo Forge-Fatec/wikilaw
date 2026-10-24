@@ -1,4 +1,5 @@
 import { API_BASE } from './api'
+import { apiFetch } from './auth'
 import { apiError } from './caseDocument'
 
 export interface SimilaridadeStatus { habilitada: boolean; indexados: number; pendentes: number }
@@ -10,7 +11,7 @@ export interface SimilaridadeResults<T> {
 }
 
 export async function buscarSimilares<T>(termo: string, texto: string | undefined, signal: AbortSignal): Promise<SimilaridadeResults<T>> {
-  const response = await fetch(`${API_BASE}/api/pesquisas/similaridade`, {
+  const response = await apiFetch(`${API_BASE}/api/pesquisas/similaridade`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, signal,
     body: JSON.stringify({ termo, texto, limite: 200 }),
   })

@@ -9,7 +9,9 @@ O navegador envia a descrição e/ou o texto extraído do arquivo ao backend. O 
 3. Abra `http://localhost:3000`. Na primeira execução, o serviço baixa o modelo; o cache permanece no volume `embedding_models`. O backend pode iniciar a importação antes de o modelo estar pronto.
 4. Para outros PCs, configure `WIKILAW_BIND_ADDRESS=0.0.0.0`, recrie o frontend e acesse `http://IP-DO-SERVIDOR:3000`. A API usa o mesmo endereço do site. Modelo, banco e backend não precisam de portas públicas. O nginx não encaminha as rotas administrativas `/api/integrations/`; elas continuam disponíveis na porta local 8080 para administração.
 
-O PostgreSQL permanece na versão 16, com a imagem `pgvector/pgvector:0.8.7-pg16`. O volume `postgres_data` é preservado; Flyway V11 acrescenta a extensão, a tabela e os índices. Instalações PostgreSQL fora do Compose precisam disponibilizar a extensão `vector` antes de aplicar V11, mesmo com inferência desativada. Não há geração de embeddings durante builds ou migrations.
+O PostgreSQL permanece na versão 16, com a imagem `pgvector/pgvector:pg16-trixie`. O volume `postgres_data` é preservado; Flyway V15 acrescenta as tabelas e os índices da busca vetorial local, sem alterar os vetores de 1024 dimensões da integração externa. Instalações PostgreSQL fora do Compose precisam disponibilizar a extensão `vector` antes de aplicar as migrations. Não há geração de embeddings durante builds ou migrations.
+
+If a development database already applied the branch-only `V11__embeddings_vetoriais.sql`, back it up and reconcile its Flyway history before updating. That version conflicted with develop's V11 and is now V15. Do not delete volumes or run Flyway repair blindly; databases that only ran develop's migrations can apply V15 normally.
 
 | Variável | Padrão no Compose | Efeito |
 | --- | --- | --- |

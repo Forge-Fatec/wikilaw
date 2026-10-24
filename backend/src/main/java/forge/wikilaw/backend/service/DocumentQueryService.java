@@ -36,9 +36,9 @@ public class DocumentQueryService {
         this.searchTerms=searchTerms;
     }
     public Result list(String category,String source,String term,int page,int size) {
-        return list(category,source,term,null,null,null,page,size);
+        return list(category,FiltroFontes.uma(source),term,null,null,null,page,size);
     }
-    public Result list(String category,String source,String term,String tribunal,
+    public Result list(String category,Collection<String> sourceSiglas,String term,String tribunal,
             LocalDate dateFrom,LocalDate dateTo,int page,int size) {
         Map<Long,String> sourceNames=new HashMap<>();
         sources.findAll().forEach(f -> sourceNames.put(f.getId(),f.getSigla()));
@@ -47,10 +47,10 @@ public class DocumentQueryService {
         Pageable paging=PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"id"));
         Page<? extends DocumentoBase> result=switch(category) {
             case "decisoes" -> jurisprudence.buscarPagina(
-                    term,source,tribunal,dateFrom,dateTo,page,size);
+                    term,sourceSiglas,tribunal,dateFrom,dateTo,page,size);
             case "precedentes" -> precedentSearch.buscarPagina(
-                    term,source,tribunal,null,null,dateFrom,dateTo,page,size);
-            case "doutrina" -> doctrine.findAll(filter(sourceId(source),term,"resumo","autores","palavrasChave"),paging);
+                    term,sourceSiglas,tribunal,null,null,dateFrom,dateTo,page,size);
+            case "doutrina" -> doctrine.findAll(filter(FiltroFontes.ids(sources,sourceSiglas),term,"resumo","autores","palavrasChave"),paging);
             default -> throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         };
         var rows=result.getContent().stream()
@@ -102,11 +102,6 @@ public class DocumentQueryService {
      */
     private String textoOuNulo(String valor) {
         return valor==null || valor.isBlank()?null:valor;
-    }
-    private Long sourceId(String source) {
-        if (source==null) return null;
-        return sources.findBySigla(source.toUpperCase(Locale.ROOT))
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,"Fonte desconhecida")).getId();
     }
     public DocumentoDetalheResponse detail(String category,Long id) {
         var d=buscarAtivo(category,id);
@@ -205,11 +200,11 @@ public class DocumentQueryService {
         if (d instanceof DecisaoJudicial j) return j.getOrgaoJulgador();
         return null;
     }
-    private <T extends DocumentoBase> Specification<T> filter(Long source,String term,String... fields) {
+    private <T extends DocumentoBase> Specification<T> filter(Collection<Long> sourceIds,String term,String... fields) {
         return (root,query,cb) -> {
             var restrictions=new ArrayList<jakarta.persistence.criteria.Predicate>();
             restrictions.add(cb.isTrue(root.get("ativo")));
-            if (source!=null) restrictions.add(cb.equal(root.get("idFonte"),source));
+            if (!sourceIds.isEmpty()) restrictions.add(root.get("idFonte").in(sourceIds));
             if (term!=null && !term.isBlank()) {
                 var alternatives=new ArrayList<jakarta.persistence.criteria.Predicate>();
                 for (String token : searchTerms.tokenize(term)) {

@@ -1,4 +1,5 @@
 import { API_BASE } from './api'
+import { apiFetch } from './auth'
 
 export interface CaseDocument {
   nome: string
@@ -22,7 +23,7 @@ export async function apiError(response: Response, fallback: string): Promise<Er
 export async function uploadCaseDocument(file: File, signal: AbortSignal): Promise<CaseDocument> {
   const form = new FormData()
   form.append('arquivo', file)
-  const response = await fetch(`${API_BASE}/api/pesquisas/documentos`, { method: 'POST', body: form, signal })
+  const response = await apiFetch(`${API_BASE}/api/pesquisas/documentos`, { method: 'POST', body: form, signal })
   if (!response.ok) throw await apiError(response, 'Não foi possível processar o documento. Tente novamente.')
   const data = await response.json()
   if (typeof data.texto !== 'string' || !data.texto.trim() || data.texto.length > 100000
@@ -33,7 +34,7 @@ export async function uploadCaseDocument(file: File, signal: AbortSignal): Promi
 }
 
 export async function prepareSearchContext(termo: string, texto: string, signal: AbortSignal): Promise<string> {
-  const response = await fetch(`${API_BASE}/api/pesquisas/contexto`, {
+  const response = await apiFetch(`${API_BASE}/api/pesquisas/contexto`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, signal,
     body: JSON.stringify({ termo, texto }),
   })

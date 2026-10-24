@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { abrirFrontend } from './helpers/test-helper'
+import { abrirEPesquisar, abrirFiltros, pesquisar } from './helpers/test-helper'
 
 const EMPTY_RESPONSE = {
   itens: [],
@@ -97,9 +97,6 @@ function valor(page: Page, rotulo: string) {
 }
 
 // O painel de filtros começa fechado.
-async function abrirFiltros(page: Page) {
-  await page.getByRole('button', { name: 'Filtros', expanded: false }).click()
-}
 
 function grafico(page: Page, titulo: string) {
   return page.locator('.chart-container').filter({ hasText: titulo })
@@ -107,13 +104,13 @@ function grafico(page: Page, titulo: string) {
 
 test.describe('dashboard integrado à pesquisa ativa', () => {
   test('exibe os indicadores e gráficos calculados pelo back', async ({ page }) => {
-    const cenario = 'carga inicial'
+    const cenario = 'pesquisa inicial'
 
     printStep(cenario, 'Configurando mock da API')
     await mockarApi(page)
 
-    printStep(cenario, 'Abrindo o frontend')
-    await abrirFrontend(page)
+    printStep(cenario, 'Abrindo o frontend e pesquisando')
+    await abrirEPesquisar(page)
 
     printStep(cenario, 'Validando os indicadores')
     await expect(valor(page, 'ADERÊNCIA')).toHaveText('50%')
@@ -139,10 +136,9 @@ test.describe('dashboard integrado à pesquisa ativa', () => {
     const consultas = await mockarApi(page)
 
     printStep(cenario, 'Pesquisando')
-    await abrirFrontend(page)
+    await abrirEPesquisar(page, 'outro caso')
     await expect(valor(page, 'ADERÊNCIA')).toHaveText('50%')
-    await page.getByLabel('Descrição do caso').fill('dano moral')
-    await page.getByRole('button', { name: 'PESQUISAR' }).click()
+    await pesquisar(page, 'dano moral')
 
     printStep(cenario, 'Validando a consulta enviada')
     await expect
@@ -156,24 +152,24 @@ test.describe('dashboard integrado à pesquisa ativa', () => {
     printStep(cenario, 'Configurando mock da API')
     const consultas = await mockarApi(page)
 
-    printStep(cenario, 'Abrindo o frontend')
-    await abrirFrontend(page)
+    printStep(cenario, 'Abrindo o frontend e pesquisando')
+    await abrirEPesquisar(page)
     await expect(valor(page, 'ADERÊNCIA')).toHaveText('50%')
 
     printStep(cenario, 'Filtrando por TJRJ')
     await abrirFiltros(page)
-    await page.locator('.filters select').nth(1).selectOption('TJRJ')
+    await page.locator('#filtro-tribunal').selectOption('TJRJ')
     await expect(valor(page, 'ADERÊNCIA')).toHaveText('0%')
     await expect(valor(page, 'DECISÕES ANALISADAS')).toHaveText('2')
 
     printStep(cenario, 'Filtrando por TJSP e período')
-    await page.locator('.filters select').nth(1).selectOption('TJSP')
+    await page.locator('#filtro-tribunal').selectOption('TJSP')
     await page.locator('.date-input').first().fill('2024-01-01')
     await expect(valor(page, 'ADERÊNCIA')).toHaveText('100%')
     await expect(valor(page, 'DECISÕES ANALISADAS')).toHaveText('4')
     await expect
       .poll(() => consultas.at(-1)?.toString())
-      .toBe('tribunal=TJSP&dataDe=2024-01-01')
+      .toBe('termo=dano+moral&tribunal=TJSP&dataDe=2024-01-01')
   })
 
   test('indica ausência de decisões sem consultar o back', async ({ page }) => {
@@ -182,8 +178,8 @@ test.describe('dashboard integrado à pesquisa ativa', () => {
     printStep(cenario, 'Configurando mock da API')
     const consultas = await mockarApi(page)
 
-    printStep(cenario, 'Abrindo o frontend')
-    await abrirFrontend(page)
+    printStep(cenario, 'Abrindo o frontend e pesquisando')
+    await abrirEPesquisar(page)
     await expect(valor(page, 'ADERÊNCIA')).toHaveText('50%')
     const consultasAntes = consultas.length
 
@@ -210,8 +206,8 @@ test.describe('dashboard integrado à pesquisa ativa', () => {
     await mockarApi(page)
     await page.route('**/api/dashboard*', (route) => route.fulfill({ status: 500 }))
 
-    printStep(cenario, 'Abrindo o frontend')
-    await abrirFrontend(page)
+    printStep(cenario, 'Abrindo o frontend e pesquisando')
+    await abrirEPesquisar(page)
 
     printStep(cenario, 'Validando a mensagem de erro')
     await expect(grafico(page, 'Resultado dos recursos')).toContainText(
@@ -227,16 +223,15 @@ test.describe('dashboard integrado à pesquisa ativa', () => {
     const consultas = await mockarApi(page)
 
     printStep(cenario, 'Abrindo o frontend e alternando para o panorama')
-    await abrirFrontend(page)
+    await abrirEPesquisar(page)
     await page.getByRole('button', { name: 'Panorama do tribunal' }).click()
     const panorama = page.getByRole('region', { name: 'Panorama geral do tribunal' })
     await expect(panorama).toContainText('Selecione um tribunal nos filtros')
 
     printStep(cenario, 'Pesquisando e filtrando por TJSP')
-    await page.getByLabel('Descrição do caso').fill('dano moral')
-    await page.getByRole('button', { name: 'PESQUISAR' }).click()
+    await pesquisar(page, 'dano moral')
     await abrirFiltros(page)
-    await page.locator('.filters select').nth(1).selectOption('TJSP')
+    await page.locator('#filtro-tribunal').selectOption('TJSP')
 
     printStep(cenario, 'Validando o panorama exibido')
     await expect(panorama.getByRole('heading', { name: 'TJSP' })).toBeVisible()

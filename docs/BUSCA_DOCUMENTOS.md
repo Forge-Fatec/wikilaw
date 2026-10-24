@@ -41,12 +41,16 @@ Campos pesquisados:
 
 Filtros opcionais:
 
-- `fonte`;
+- `fonte` (pode se repetir: `fonte=STJ&fonte=TJDFT` traz as duas; sem `fonte`, todas);
 - `tribunal`;
 - `dataDe`;
 - `dataAte`;
 - `pagina`;
 - `tamanho`.
+
+O parâmetro `fonte` repetível vale para as três categorias e para
+`GET /api/dashboard`. Na listagem, uma sigla fora do cadastro responde 400; no
+dashboard, siglas desconhecidas são ignoradas.
 
 Os resultados são ordenados pela data de julgamento mais recente e, como
 desempate, pelo identificador mais recente.
@@ -54,8 +58,16 @@ desempate, pelo identificador mais recente.
 Exemplo:
 
 ```http
-GET /api/documentos/decisoes?termo=dano%20moral&fonte=TJDFT&tribunal=TJDFT&dataDe=2025-01-01&dataAte=2025-12-31&pagina=0&tamanho=20
+GET /api/documentos/decisoes?termo=dano%20moral&fonte=TJDFT&fonte=STJ&tribunal=TJDFT&dataDe=2025-01-01&dataAte=2025-12-31&pagina=0&tamanho=20
 ```
+
+### Fontes disponíveis para o filtro
+
+`GET /api/fontes` lista as fontes ativas que geram documentos (`sigla` e `nome`,
+em ordem de nome). A fonte processual (DataJud) fica de fora, porque só alimenta
+processos. A tela inicial usa essa lista para montar um checkbox por fonte,
+todos marcados, e só pesquisa quando o usuário envia a busca. Pelo menos uma
+fonte fica sempre marcada; com todas marcadas, a busca vai sem `fonte`.
 
 O endpoint `GET /api/jurisprudencias` continua disponível por compatibilidade e
 possui um formato de resposta específico. Os dois endpoints compartilham a mesma
