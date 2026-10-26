@@ -27,8 +27,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  /* Keep browser resource use low on local machines and CI. */
+  workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
@@ -37,6 +37,9 @@ export default defineConfig({
     baseURL: FRONTEND_URL,
 
     viewport,
+    // Animations (auto-scroll, filters panel) finish instantly so tests don't
+    // wait for them; specs that check an animation turn motion back on.
+    contextOptions: { reducedMotion: 'reduce' },
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
     screenshot: 'only-on-failure',

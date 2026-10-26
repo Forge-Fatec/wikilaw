@@ -18,7 +18,8 @@ public class DocumentQueryController {
     public DocumentQueryController(DocumentQueryService service) { this.service=service; }
     @GetMapping("/{categoria}")
     public DocumentQueryService.Result listar(@PathVariable String categoria,
-            @RequestParam(required=false) String fonte,@RequestParam(required=false) @Size(max=300) String termo,
+            @RequestParam(required=false) @Size(max=20) List<@Size(max=30) String> fonte,
+            @RequestParam(required=false) @Size(max=300) String termo,
             @RequestParam(required=false) @Size(max=20) String tribunal,
             @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate dataDe,
             @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate dataAte,

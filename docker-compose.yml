@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg16-trixie
     container_name: wikilaw-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-wikilaw}
@@ -26,6 +26,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-wikilaw}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-wikilaw}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
+      WIKILAW_VECTOR_ENABLED: ${WIKILAW_VECTOR_ENABLED:-true}
+      WIKILAW_EMBEDDING_URL: http://embeddings:8000
       DATAJUD_API_KEY: ${DATAJUD_API_KEY:-}
       DATAJUD_BASE_URL: ${DATAJUD_BASE_URL:-https://api-publica.datajud.cnj.jus.br}
       WIKILAW_IMPORT_WORKER_ENABLED: ${WIKILAW_IMPORT_WORKER_ENABLED:-true}
@@ -36,16 +38,37 @@ services:
       WIKILAW_BOOTSTRAP_JURISPRUDENCIA_PAGINAS: ${WIKILAW_BOOTSTRAP_JURISPRUDENCIA_PAGINAS:-3}
       WIKILAW_BOOTSTRAP_JURISPRUDENCIA_TAMANHO_PAGINA: ${WIKILAW_BOOTSTRAP_JURISPRUDENCIA_TAMANHO_PAGINA:-20}
       WIKILAW_BOOTSTRAP_JURISPRUDENCIA_SOMENTE_SE_VAZIO: ${WIKILAW_BOOTSTRAP_JURISPRUDENCIA_SOMENTE_SE_VAZIO:-false}
+      WIKILAW_EMBEDDING_ENABLED: ${WIKILAW_EMBEDDING_ENABLED:-false}
+      WIKILAW_EMBEDDING_BASE_URL: ${WIKILAW_EMBEDDING_BASE_URL:-https://api.voyageai.com}
+      WIKILAW_EMBEDDING_API_KEY: ${WIKILAW_EMBEDDING_API_KEY:-}
+      WIKILAW_EMBEDDING_MODEL: ${WIKILAW_EMBEDDING_MODEL:-voyage-4}
+      WIKILAW_EMBEDDING_DIMENSIONS: ${WIKILAW_EMBEDDING_DIMENSIONS:-1024}
+      WIKILAW_EMBEDDING_SEND_INPUT_TYPE: ${WIKILAW_EMBEDDING_SEND_INPUT_TYPE:-true}
+      WIKILAW_EMBEDDING_BATCH_SIZE: ${WIKILAW_EMBEDDING_BATCH_SIZE:-128}
+      WIKILAW_EMBEDDING_WORKER_DOCUMENTS_PER_BATCH: ${WIKILAW_EMBEDDING_WORKER_DOCUMENTS_PER_BATCH:-50}
+      WIKILAW_EMBEDDING_WORKER_POLL_DELAY: ${WIKILAW_EMBEDDING_WORKER_POLL_DELAY:-20000}
     depends_on:
       postgres:
         condition: service_healthy
+      embeddings:
+        condition: service_started
+
+  embeddings:
+    build:
+      context: ./embeddings
+    container_name: wikilaw-embeddings
+    environment:
+      EMBEDDING_THREADS: ${WIKILAW_EMBEDDING_THREADS:-2}
+    volumes:
+      - embedding_models:/models
+    restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
     container_name: wikilaw-frontend
     ports:
-      - "127.0.0.1:3000:80"
+      - "${WIKILAW_BIND_ADDRESS:-127.0.0.1}:3000:80"
     depends_on:
       - backend
 
@@ -110,6 +133,7 @@ services:
       - sonar:sonar
 
 volumes:
+  embedding_models:
   postgres_data:
   sonarqube_db_data:
   sonarqube_data:

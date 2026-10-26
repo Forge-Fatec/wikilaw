@@ -1,6 +1,7 @@
 package forge.wikilaw.backend.controller;
 
 import forge.wikilaw.backend.dto.DashboardFiltro;
+import forge.wikilaw.backend.dto.DashboardResultadosRequest;
 import forge.wikilaw.backend.dto.DashboardResponse;
 import forge.wikilaw.backend.dto.DashboardResponse.DistribuicaoItem;
 import forge.wikilaw.backend.dto.DashboardResponse.Indicadores;
@@ -10,6 +11,8 @@ import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 /**
  * Todos os endpoints recebem os filtros da pesquisa (termo, fonte, tribunal,
@@ -29,6 +32,11 @@ public class DashboardController {
     @GetMapping
     public DashboardResponse resumir(@Valid DashboardFiltro filtro) {
         return service.resumir(filtro);
+    }
+
+    @PostMapping("/resultados")
+    public DashboardResponse resultados(@Valid @RequestBody DashboardResultadosRequest request) {
+        return service.resumirIds(request.idsDecisoes(),request.resultado(),request.orgaoJulgador());
     }
 
     @GetMapping("/indicadores")
