@@ -14,9 +14,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  embedding-service-tests:
+    name: Embedding service contract tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install lightweight test dependencies
+        run: pip install fastapi==0.157.0 pytest==9.1.1 httpx==0.28.1
+      - name: Test service without downloading model weights
+        working-directory: embeddings
+        run: python -m pytest tests -q
+
   backend-tests:
     name: Backend unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -38,7 +53,7 @@ jobs:
 
   frontend-checks:
     name: Frontend checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     defaults:
       run:
@@ -64,11 +79,23 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+  # One job per browser, in parallel: total time is the slowest browser
+  # instead of the sum of all three.
+  # The official image already ships the browsers and their system packages,
+  # so the job doesn't depend on apt mirrors. Keep its tag in sync with
+  # @playwright/test in frontend/package-lock.json.
   playwright-tests:
-    name: Playwright end-to-end tests
-    runs-on: ubuntu-latest
+    name: Playwright (${{ matrix.browser }})
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --user 1001
     continue-on-error: true
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     defaults:
       run:
         working-directory: frontend
@@ -87,23 +114,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
-
       - name: Run Playwright tests
-        run: npm run test:e2e
+        run: npm run test:e2e -- --project=${{ matrix.browser }}
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.browser }}
           path: frontend/playwright-report/
           retention-days: 7
 
   docker-build:
     name: Build Docker images
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: [backend-tests, frontend-checks, playwright-tests]
     env:

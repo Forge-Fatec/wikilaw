@@ -20,6 +20,7 @@ import org.hibernate.type.SqlTypes;
 public class DocumentoSemantico {
     public enum Categoria { JURISPRUDENCIA, PRECEDENTE, DOUTRINA }
     public enum Status { PENDENTE, PROCESSANDO, PRONTO, ERRO, INATIVO }
+    public enum StatusEmbedding { PENDENTE, PROCESSANDO, PRONTO, ERRO }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -61,5 +62,30 @@ public class DocumentoSemantico {
 
     @Column(name = "atualizado_em", nullable = false)
     private OffsetDateTime atualizadoEm;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status_embedding", nullable = false, length = 20)
+    private StatusEmbedding statusEmbedding = StatusEmbedding.PENDENTE;
+
+    @Column(name = "modelo_embedding", length = 120)
+    private String modeloEmbedding;
+
+    @Column(name = "tentativas_embedding", nullable = false)
+    private int tentativasEmbedding;
+
+    @Column(name = "erro_embedding", columnDefinition = "text")
+    private String erroEmbedding;
+
+    @Column(name = "embedding_atualizado_em")
+    private OffsetDateTime embeddingAtualizadoEm;
+
+    /** Os trechos foram recriados, entao os vetores anteriores deixam de valer. */
+    public void marcarEmbeddingPendente() {
+        statusEmbedding = StatusEmbedding.PENDENTE;
+        modeloEmbedding = null;
+        tentativasEmbedding = 0;
+        erroEmbedding = null;
+        embeddingAtualizadoEm = null;
+    }
 }
 

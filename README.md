@@ -131,6 +131,35 @@ The project's source code is publicly available, allowing developers, students, 
 | 22 | As a user, I want to view the main facts and legal arguments identified by AI in the uploaded documents so that I can verify the information that will be used in the similarity search. | Low | 3 |
 | 23 | As a user, I want to export my search results and information as a PDF so that I can consult or share them later. | Low | 3 |
 ---
+# Sprint Backlog
+
+## Sprint 1
+
+| Rank | User Story | Priority | Story Points |
+|------|------------|----------|--------------|
+| 1 | As a user, I want to find case law, legal precedents, and legal doctrine related to my case so that I can understand judicial interpretations relevant to my situation. | High | 13 |
+| 2 | As a user, I want to submit a description of my case to search for related legal content. | High | 3 |
+| 3 | As a user, I want to view the search results so that I can explore legal content related to my case. | High | 5 |
+| 4 | As a user, I want to view the source of each result so that I can identify where the information displayed by the system was obtained. | Medium | 5 |
+| 5 | As a user, I want to access the original source of a result so that I can directly verify the content displayed by the system. | Medium | 3 |
+| 8 | As a user, I want to identify the court or judicial body responsible for the retrieved content so that I can understand its origin. | Medium | 3 |
+| 6 | As a user, I want to sort search results from newest to oldest so that I can prioritize more recent legal content. | Low | 3 |
+| 7 | As a user, I want to view the case number associated with a result, when available, so that I can identify it. | Low | 2 |
+| 9 | As a user, I want to preview a summary of each result so that I can understand its content before accessing the full source. | Low | 3 |
+| 10 | As a user, I want to filter results by date range, court, case law, precedent, or legal doctrine so that I can explore content published or decided within a specific period. | Low | 3 |
+
+## Sprint 2
+
+| Rank | User Story | Priority | Story Points |
+|----|------------|----------|--------------|
+| 11 | As a user, I want to view a dashboard with indicators and charts related to my researched case so that I can understand the results in a consolidated way. | High | 5 |
+| 12 | As a user, I want to interact with dashboard elements to dynamically filter the displayed indicators and results. | High | 3 |
+| 13 | As a user, I want to compare my case data with the court's overall statistics so that I can understand how my research results relate to the broader set of decisions. | Medium | 3 |
+| 14 | As a user, I want AI to interpret the context of my case to find legally similar content, even when different terms are used in the documents. | Medium | 8 |
+| 15 | As a user, I want to view results ranked by similarity, including a similarity percentage and an explanation, so that I can understand which content is most relevant to my case. | Medium | 5 |
+| 17 | As a user, I want to view the main facts and legal arguments identified by AI in the submitted documents so that I can verify the information used for similarity searches. | Low | 3 |
+| 18 | As a user, I want to export my research results and information as a PDF so that I can review or share them later. | Low | 3 |
+| 19 | As a user, I want to log into the system with a role-based access profile (Administrator or Regular User), allowing administrators to create user accounts and manage their roles and permissions. | Low | 5 |
 
 # Definition of Ready (DoR)
 

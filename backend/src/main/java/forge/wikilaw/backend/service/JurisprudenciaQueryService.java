@@ -10,7 +10,9 @@ import forge.wikilaw.backend.service.search.SearchTermProcessor;
 import jakarta.persistence.criteria.Predicate;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -56,7 +58,7 @@ public class JurisprudenciaQueryService {
             int pagina,
             int tamanho) {
         var resultado = buscarPagina(
-                termo, fonte, tribunal, dataDe, dataAte, pagina, tamanho);
+                termo, FiltroFontes.uma(fonte), tribunal, dataDe, dataAte, pagina, tamanho);
 
         Map<Long, String> siglasFontes = new HashMap<>();
         fontes.findAll().forEach(item -> siglasFontes.put(item.getId(), item.getSigla()));
@@ -77,7 +79,7 @@ public class JurisprudenciaQueryService {
 
     Page<DecisaoJudicial> buscarPagina(
             String termo,
-            String fonte,
+            Collection<String> siglasFonte,
             String tribunal,
             LocalDate dataDe,
             LocalDate dataAte,
@@ -85,13 +87,13 @@ public class JurisprudenciaQueryService {
             int tamanho) {
         validarPeriodo(dataDe, dataAte);
 
-        Long idFonte = buscarIdFonte(fonte);
+        List<Long> idsFonte = FiltroFontes.ids(fontes, siglasFonte);
         Long idTribunal = buscarIdTribunal(tribunal);
         var ordenacao = Sort.by(
                 Sort.Order.desc("dataJulgamento").nullsLast(),
                 Sort.Order.desc("id"));
         return decisoes.findAll(
-                filtro(termo, idFonte, idTribunal, dataDe, dataAte),
+                filtro(termo, idsFonte, idTribunal, dataDe, dataAte),
                 PageRequest.of(pagina, tamanho, ordenacao));
     }
 
@@ -99,23 +101,20 @@ public class JurisprudenciaQueryService {
      * Mesmo recorte da listagem, para quem precisa agregar em vez de paginar.
      * Fonte ou tribunal fora do cadastro resultam em recorte vazio, não em erro:
      * a tela monta essas opções a partir dos documentos de todas as categorias,
-     * então pode citar uma fonte ou tribunal que não tem decisões.
+     * então pode citar uma fonte ou tribunal que não tem decisões. Entre várias
+     * fontes, as desconhecidas são ignoradas; só sem nenhuma conhecida o recorte fica vazio.
      */
     Optional<Specification<DecisaoJudicial>> recorte(
             String termo,
-            String fonte,
+            Collection<String> siglasFonte,
             String tribunal,
             LocalDate dataDe,
             LocalDate dataAte) {
         validarPeriodo(dataDe, dataAte);
 
-        Long idFonte = null;
-        if (fonte != null && !fonte.isBlank()) {
-            var encontrada = fontes.findBySigla(fonte.trim().toUpperCase(Locale.ROOT));
-            if (encontrada.isEmpty()) {
-                return Optional.empty();
-            }
-            idFonte = encontrada.get().getId();
+        List<Long> idsFonte = FiltroFontes.idsConhecidos(fontes, siglasFonte);
+        if (idsFonte.isEmpty() && !FiltroFontes.normalizar(siglasFonte).isEmpty()) {
+            return Optional.empty();
         }
 
         Long idTribunal = null;
@@ -127,12 +126,12 @@ public class JurisprudenciaQueryService {
             idTribunal = encontrado.get().getId();
         }
 
-        return Optional.of(filtro(termo, idFonte, idTribunal, dataDe, dataAte));
+        return Optional.of(filtro(termo, idsFonte, idTribunal, dataDe, dataAte));
     }
 
     private Specification<DecisaoJudicial> filtro(
             String termo,
-            Long idFonte,
+            Collection<Long> idsFonte,
             Long idTribunal,
             LocalDate dataDe,
             LocalDate dataAte) {
@@ -140,8 +139,8 @@ public class JurisprudenciaQueryService {
             var restricoes = new ArrayList<Predicate>();
             restricoes.add(criteriaBuilder.isTrue(root.get("ativo")));
 
-            if (idFonte != null) {
-                restricoes.add(criteriaBuilder.equal(root.get("idFonte"), idFonte));
+            if (!idsFonte.isEmpty()) {
+                restricoes.add(root.get("idFonte").in(idsFonte));
             }
             if (idTribunal != null) {
                 restricoes.add(criteriaBuilder.equal(root.get("idTribunal"), idTribunal));
@@ -173,15 +172,6 @@ public class JurisprudenciaQueryService {
             String campo,
             String padrao) {
         return criteriaBuilder.like(criteriaBuilder.lower(root.get(campo)), padrao, '\\');
-    }
-
-    private Long buscarIdFonte(String fonte) {
-        if (fonte == null || fonte.isBlank()) {
-            return null;
-        }
-        return fontes.findBySigla(fonte.trim().toUpperCase(Locale.ROOT))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Fonte desconhecida"))
-                .getId();
     }
 
     private Long buscarIdTribunal(String tribunal) {
