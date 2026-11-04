@@ -39,6 +39,7 @@ O WikiLaw é uma plataforma de pesquisa jurídica desenvolvida como projeto acad
 - busca semântica por similaridade de vetores (pgvector + embeddings da Voyage AI);
 - dashboard com indicadores e gráficos sobre os resultados;
 - exportação dos resultados em PDF;
+- análise jurídica dos resultados gerada com auxílio de IA (Google Gemini);
 - login com perfis `ADMIN` e `USER` e administração de usuários.
 
 O acervo é carregado por coletores que consultam APIs e portais públicos (DataJud/CNJ, STJ, TJDFT, BDJur, BDTD, SciELO, Pangea/BNP). A carga roda em segundo plano dentro do próprio backend, com progresso persistido no banco.
@@ -64,6 +65,7 @@ flowchart LR
     B -->|JDBC| P[(PostgreSQL 16<br/>+ pgvector)]
     B -->|HTTPS| EXT[Fontes públicas<br/>DataJud, STJ, TJDFT,<br/>BDJur, BDTD, SciELO, Pangea]
     B -->|HTTPS| V[Voyage AI<br/>embeddings]
+    B -->|HTTPS| G[Google Gemini<br/>análise jurídica]
 ```
 
 Pontos importantes para infraestrutura:
@@ -289,6 +291,21 @@ Como o valor é resolvido no build, **cada ambiente precisa de um build próprio
 
 Existem outros ajustes finos (chunking, timeouts, retries, parâmetros do HNSW, cache de consultas) com padrões sensatos; a lista completa está em `application.properties` e em `docs/EMBEDDINGS.md`.
 
+### 6.6.1 Análise jurídica com IA (Google Gemini)
+
+| Variável | Padrão no código | Padrão no Compose | Uso |
+| --- | --- | --- | --- |
+| `WIKILAW_GEMINI_ENABLED` | `false` | `false` | Libera a análise jurídica com IA |
+| `WIKILAW_GEMINI_API_KEY` | vazio | vazio | Chave do Google AI Studio (segredo) |
+| `WIKILAW_GEMINI_MODEL` | `gemini-2.5-flash` | `gemini-2.5-flash` | Modelo usado na análise |
+| `WIKILAW_GEMINI_TEMPERATURE` | `0.2` | — | Criatividade do modelo (baixa = mais fiel aos documentos) |
+| `WIKILAW_GEMINI_MAX_OUTPUT_TOKENS` | `8192` | — | Limite da resposta, incluindo o raciocínio do modelo |
+| `WIKILAW_GEMINI_THINKING_BUDGET` | `2048` | — | Teto do raciocínio, para sobrarem ao menos 6.144 tokens para a análise; `-1` deixa o modelo decidir |
+| `WIKILAW_GEMINI_READ_TIMEOUT` | `90s` | — | Tempo máximo de espera pela resposta |
+| `WIKILAW_GEMINI_MAX_RETRIES` | `1` | — | Novas tentativas em HTTP 429 e 5xx |
+
+Detalhes em `docs/ANALISE_IA.md`.
+
 ### 6.7 SonarQube
 
 | Variável | Uso |
@@ -394,6 +411,7 @@ A especificação completa fica no Swagger (`/swagger-ui/index.html`). Resumo:
 | `GET /api/dashboard` e `/api/dashboard/*` | Indicadores e distribuições | Autenticado |
 | `POST /api/pesquisas/semantica` | Busca semântica por fatos, fundamentos e pedidos | Autenticado |
 | `POST /api/pesquisas/exportacoes/pdf` | Gera o PDF dos resultados | Autenticado |
+| `POST /api/pesquisas/analises` | Análise jurídica dos resultados com IA (Gemini) | Autenticado |
 | `GET/POST/PATCH/DELETE /api/admin/usuarios` | Gestão de usuários | ADMIN |
 | `POST /api/integrations/datajud/import` | Enfileira importação do DataJud (HTTP 202) | ADMIN |
 | `POST /api/integrations/documentos/{fonte}/import` | Enfileira importação de outra fonte | ADMIN |
@@ -436,6 +454,7 @@ Detalhes: `docs/IMPORTACAO_ASSINCRONA.md` e `docs/EMBEDDINGS.md`.
 | SciELO | Artigos (ArticleMeta) | Não | |
 | Pangea/BNP | Precedentes, questões e teses | Não | |
 | Voyage AI | Embeddings | Sim (paga) | Desligada por padrão |
+| Google Gemini | Análise jurídica com IA | Sim (Google AI Studio) | Desligada por padrão; chamada só quando o usuário pede a análise |
 
 Requisitos de rede para um ambiente hospedado: o backend precisa de **saída HTTPS** para esses domínios. Cada resposta recebida é guardada em `registro_bruto` para auditoria. Detalhes em `docs/INTEGRACOES.md`, `docs/PANGEA.md` e `docs/VALIDACAO_FONTES.md`.
 
@@ -686,7 +705,7 @@ Hoje não existe ambiente hospedado. Para levar o WikiLaw a staging/produção, 
 | 1 | URL do backend no frontend | Fixada no build (`VITE_API_BASE_URL`), sem valor passado no Dockerfile | Passar como `ARG` no build por ambiente **ou** servir frontend e API no mesmo domínio com proxy reverso (`/api` → backend), o que também elimina o CORS |
 | 2 | CORS | Só origens `localhost` por padrão | Definir `WIKILAW_CORS_ALLOWED_ORIGINS` com o domínio real (e repassar no Compose/manifesto) |
 | 3 | Admin inicial | Senha padrão pública | Injetar `WIKILAW_INITIAL_ADMIN_*` via secret |
-| 4 | Segredos | `.env` local | Usar um cofre (GitHub Secrets, secrets do orquestrador). Segredos: `POSTGRES_PASSWORD`, `DATAJUD_API_KEY`, `WIKILAW_EMBEDDING_API_KEY`, `WIKILAW_INITIAL_ADMIN_PASSWORD`, `SONAR_TOKEN` |
+| 4 | Segredos | `.env` local | Usar um cofre (GitHub Secrets, secrets do orquestrador). Segredos: `POSTGRES_PASSWORD`, `DATAJUD_API_KEY`, `WIKILAW_EMBEDDING_API_KEY`, `WIKILAW_GEMINI_API_KEY`, `WIKILAW_INITIAL_ADMIN_PASSWORD`, `SONAR_TOKEN` |
 | 5 | HTTPS | Inexistente | Terminar TLS no proxy/ingress. Os cookies de sessão precisam de HTTPS para uso seguro em domínio público |
 | 6 | Health check do backend | Não há Spring Boot Actuator | Adicionar `spring-boot-starter-actuator` e expor `/actuator/health` (liveness/readiness) |
 | 7 | Registry e versionamento | Imagens só construídas no CI | Publicar no GHCR com tag do commit e da versão (`vX.Y.Z`) a partir de `main` |
@@ -773,6 +792,7 @@ Documentos técnicos no repositório da aplicação (`docs/`):
 
 | Documento | Assunto |
 | --- | --- |
+| `ANALISE_IA.md` | Análise jurídica com IA (Gemini): configuração, contrato e limites |
 | `BUSCA_DOCUMENTOS.md` | Busca de documentos, campos e arquitetura recomendada |
 | `DASHBOARD.md` | Endpoints, filtros e regras de cálculo do dashboard |
 | `EMBEDDINGS.md` | Geração de embeddings, busca semântica e acompanhamento |
@@ -787,6 +807,8 @@ Links externos:
 
 - DataJud, acesso à API pública: https://datajud-wiki.cnj.jus.br/api-publica/acesso/
 - Voyage AI: https://dashboard.voyageai.com
+- Google AI Studio (chave do Gemini): https://aistudio.google.com/apikey
+- API do Gemini, saída estruturada: https://ai.google.dev/gemini-api/docs/structured-output
 - pgvector: https://github.com/pgvector/pgvector
 - Flyway: https://documentation.red-gate.com/flyway
 - Playwright: https://playwright.dev
