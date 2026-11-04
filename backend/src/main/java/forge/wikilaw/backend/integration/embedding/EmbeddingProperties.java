@@ -4,20 +4,32 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import java.time.Duration;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
-/** Provedor de embeddings compativel com a API {@code /v1/embeddings} (Ollama, LM Studio, OpenAI). */
+/**
+ * Provedor de embeddings: Google Gemini ({@code gemini}) ou uma API compativel com {@code /v1/embeddings}
+ * ({@code openai-compatible}: Voyage AI, Ollama, LM Studio, OpenAI).
+ */
 @Validated
 @ConfigurationProperties(prefix = "wikilaw.semantic.embedding")
 @Getter
 @Setter
 public class EmbeddingProperties {
 
+    public static final String PROVIDER_GEMINI = "gemini";
+    public static final String PROVIDER_OPENAI_COMPATIBLE = "openai-compatible";
+
     private boolean enabled;
+
+    /** Trocar de provedor (ou de modelo) faz o worker gerar de novo os vetores de todo o acervo. */
+    @NotNull
+    @Pattern(regexp = PROVIDER_GEMINI + "|" + PROVIDER_OPENAI_COMPATIBLE)
+    private String provider = PROVIDER_OPENAI_COMPATIBLE;
 
     @NotNull
     private String baseUrl = "";
