@@ -6,6 +6,8 @@ import { paginasVisiveis, RETICENCIAS } from './paginacao'
 import { rolarSuavementeAte } from './rolagemSuave'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
 import { ExportPdfDialog } from './components/ExportPdfDialog'
+import { AnaliseIaPanel } from './components/AnaliseIaPanel'
+import { MAX_DOCUMENTOS_ANALISE } from './analiseIa'
 import { FiltroFontes } from './components/FiltroFontes'
 import { PanoramaTribunal } from './components/PanoramaTribunal'
 import { CaseDocumentUpload } from './components/CaseDocumentUpload'
@@ -753,6 +755,15 @@ function App({
     (paginaExibida - 1) * ITENS_POR_PAGINA,
     paginaExibida * ITENS_POR_PAGINA,
   )
+  // A análise com IA cobre os primeiros resultados na ordem atual; mudar pesquisa,
+  // filtros ou ordenação muda esse conjunto e descarta a análise anterior.
+  const referenciasAnalise = useMemo(
+    () => resultados.slice(0, MAX_DOCUMENTOS_ANALISE)
+      .map((doc) => ({ categoria: CATEGORIA_POR_TIPO[doc.type], id: doc.id })),
+    [resultados],
+  )
+  const chaveAnalise = `${termoPesquisado}|${consultaPesquisada}|`
+    + referenciasAnalise.map((ref) => `${ref.categoria}:${ref.id}`).join(',')
 
   function voltarParaPrimeiraPagina() {
     setPaginaAtual(1)
@@ -1257,6 +1268,17 @@ function App({
             {notaSimilar && !erro && !carregando && <p className="similarity-notice" role="status">{notaSimilar}</p>}
 
             {documentoUsado && !carregando && !erro && <p className="case-document-applied">Contexto utilizado: <strong>{documentoUsado}</strong></p>}
+            {pesquisou && !erro && !carregando && resultados.length > 0 && (
+              <AnaliseIaPanel
+                key={chaveAnalise}
+                resultados={referenciasAnalise}
+                termo={termoPesquisado || consultaPesquisada}
+                onAbrirDocumento={(ref) => {
+                  const doc = resultados.find((d) => d.id === ref.id && CATEGORIA_POR_TIPO[d.type] === ref.categoria)
+                  if (doc) setDocumentoSelecionado(doc)
+                }}
+              />
+            )}
             {!erro && !carregando && resultados.length === 0 && (
               <div className="empty">
                 {similaridadeStatus?.habilitada && !pesquisou
