@@ -57,6 +57,13 @@ public class GlobalExceptionHandler {
         return response(status, "Busca semântica indisponível", List.of(exception.getMessage()));
     }
 
+    /** IA desligada, sem chave, fora do ar, no limite de requisicoes ou com resposta inutilizavel: o usuario pode tentar de novo. */
+    @ExceptionHandler(AiProviderException.class)
+    ResponseEntity<ApiErrorResponse> handleAiProvider(AiProviderException exception) {
+        HttpStatus status = exception.getStatusCode() == 429 ? HttpStatus.TOO_MANY_REQUESTS : HttpStatus.SERVICE_UNAVAILABLE;
+        return response(status, "Análise por IA indisponível", List.of(exception.getMessage()));
+    }
+
     private ResponseEntity<ApiErrorResponse> response(HttpStatus status, String error, List<String> details) {
         return ResponseEntity.status(status).body(new ApiErrorResponse(
                 OffsetDateTime.now(ZoneOffset.UTC), status.value(), error, details));
