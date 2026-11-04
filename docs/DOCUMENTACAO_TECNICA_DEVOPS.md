@@ -36,7 +36,7 @@ Documento de referência do projeto **WikiLaw** para o time de DevOps: arquitetu
 O WikiLaw é uma plataforma de pesquisa jurídica desenvolvida como projeto acadêmico da FATEC São José dos Campos. Ele reúne **jurisprudência, precedentes e doutrina** de fontes públicas num banco único e oferece:
 
 - busca textual por categoria (decisões, precedentes, doutrina) com filtros e paginação;
-- busca semântica por similaridade de vetores (pgvector + embeddings da Voyage AI);
+- busca semântica por similaridade de vetores (pgvector + embeddings do Google Gemini);
 - dashboard com indicadores e gráficos sobre os resultados;
 - exportação dos resultados em PDF;
 - análise jurídica dos resultados gerada com auxílio de IA (Google Gemini);
@@ -64,8 +64,7 @@ flowchart LR
     U -->|fetch com cookies<br/>HTTP :8080| B[backend<br/>Spring Boot]
     B -->|JDBC| P[(PostgreSQL 16<br/>+ pgvector)]
     B -->|HTTPS| EXT[Fontes públicas<br/>DataJud, STJ, TJDFT,<br/>BDJur, BDTD, SciELO, Pangea]
-    B -->|HTTPS| V[Voyage AI<br/>embeddings]
-    B -->|HTTPS| G[Google Gemini<br/>análise jurídica]
+    B -->|HTTPS| G[Google Gemini<br/>embeddings e análise jurídica]
 ```
 
 Pontos importantes para infraestrutura:
@@ -280,11 +279,12 @@ Como o valor é resolvido no build, **cada ambiente precisa de um build próprio
 | Variável | Padrão no código | Padrão no Compose | Uso |
 | --- | --- | --- | --- |
 | `WIKILAW_EMBEDDING_ENABLED` | `false` | `false` | Liga a geração de vetores |
-| `WIKILAW_EMBEDDING_API_KEY` | vazio | vazio | Chave da Voyage AI (segredo) |
-| `WIKILAW_EMBEDDING_BASE_URL` | vazio | `https://api.voyageai.com` | Endpoint compatível com `/v1/embeddings` |
-| `WIKILAW_EMBEDDING_MODEL` | vazio | `voyage-4` | Modelo |
-| `WIKILAW_EMBEDDING_DIMENSIONS` | `0` | `1024` | Dimensão dos vetores (deve bater com a coluna do banco) |
-| `WIKILAW_EMBEDDING_BATCH_SIZE` | `32` | `128` | Textos por chamada ao provedor |
+| `WIKILAW_EMBEDDING_PROVIDER` | `gemini` | `gemini` | `gemini` (usa `WIKILAW_GEMINI_API_KEY`) ou `openai-compatible` (Voyage, Ollama, OpenAI) |
+| `WIKILAW_EMBEDDING_MODEL` | `gemini-embedding-001` | `gemini-embedding-001` | Modelo; trocar regera todo o acervo |
+| `WIKILAW_EMBEDDING_DIMENSIONS` | `0` (usa 1024) | `1024` | Dimensão dos vetores (deve bater com a coluna do banco) |
+| `WIKILAW_EMBEDDING_BATCH_SIZE` | `32` | `100` | Textos por chamada ao provedor (o Gemini aceita até 100) |
+| `WIKILAW_EMBEDDING_API_KEY` | vazio | vazio | Só no `openai-compatible`: chave do provedor (segredo) |
+| `WIKILAW_EMBEDDING_BASE_URL` | vazio | vazio | Só no `openai-compatible`: endpoint de `/v1/embeddings` |
 | `WIKILAW_EMBEDDING_WORKER_DOCUMENTS_PER_BATCH` | `10` | `50` | Documentos por ciclo do worker |
 | `WIKILAW_EMBEDDING_WORKER_POLL_DELAY` | `5000` | `20000` | Intervalo do worker (ms) |
 | `WIKILAW_SEMANTIC_BACKFILL_ENABLED` | `true` | — | Prepara (normaliza e divide em trechos) o acervo existente |
@@ -435,7 +435,7 @@ Implicações operacionais:
 
 - O worker de importação usa `SELECT … FOR UPDATE SKIP LOCKED`, então **várias réplicas podem rodar ao mesmo tempo** sem processar a mesma tarefa.
 - A carga completa gera tráfego contínuo para as fontes públicas e crescimento do banco. Em ambientes de teste, prefira `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_COMPLETO=false`.
-- Os embeddings têm **custo por uso** na Voyage AI. Deixe desligado onde não for necessário.
+- Os embeddings consomem a **cota da chave do Gemini**, a mesma da análise jurídica. Deixe desligado onde não for necessário.
 - Se for preciso separar API e workers, o mesmo artefato pode subir em dois deployments: um com os workers desligados (API) e outro com eles ligados.
 
 Detalhes: `docs/IMPORTACAO_ASSINCRONA.md` e `docs/EMBEDDINGS.md`.
@@ -453,8 +453,8 @@ Detalhes: `docs/IMPORTACAO_ASSINCRONA.md` e `docs/EMBEDDINGS.md`.
 | BDTD | Teses e dissertações (OAI-PMH) | Não | Coleta real bloqueada pela verificação de navegador do serviço |
 | SciELO | Artigos (ArticleMeta) | Não | |
 | Pangea/BNP | Precedentes, questões e teses | Não | |
-| Voyage AI | Embeddings | Sim (paga) | Desligada por padrão |
-| Google Gemini | Análise jurídica com IA | Sim (Google AI Studio) | Desligada por padrão; chamada só quando o usuário pede a análise |
+| Google Gemini | Embeddings e análise jurídica com IA | Sim (Google AI Studio) | Desligado por padrão; uma chave para os dois usos |
+| Voyage AI | Embeddings (alternativa) | Sim (paga) | Só com `WIKILAW_EMBEDDING_PROVIDER=openai-compatible` |
 
 Requisitos de rede para um ambiente hospedado: o backend precisa de **saída HTTPS** para esses domínios. Cada resposta recebida é guardada em `registro_bruto` para auditoria. Detalhes em `docs/INTEGRACOES.md`, `docs/PANGEA.md` e `docs/VALIDACAO_FONTES.md`.
 
@@ -806,8 +806,8 @@ Documentos técnicos no repositório da aplicação (`docs/`):
 Links externos:
 
 - DataJud, acesso à API pública: https://datajud-wiki.cnj.jus.br/api-publica/acesso/
-- Voyage AI: https://dashboard.voyageai.com
 - Google AI Studio (chave do Gemini): https://aistudio.google.com/apikey
+- Embeddings do Gemini: https://ai.google.dev/gemini-api/docs/embeddings
 - API do Gemini, saída estruturada: https://ai.google.dev/gemini-api/docs/structured-output
 - pgvector: https://github.com/pgvector/pgvector
 - Flyway: https://documentation.red-gate.com/flyway
