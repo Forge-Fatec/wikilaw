@@ -18,7 +18,7 @@ const ANALISE = {
   limitacoes: ['A análise considera apenas os 10 primeiros resultados.'],
   geradaPorIa: true,
   aviso: 'Análise gerada com auxílio de inteligência artificial a partir dos documentos selecionados.',
-  modelo: 'gemini-2.5-flash',
+  modelo: 'gemini-3.5-flash',
   geradaEm: '2026-11-03T21:00:00-03:00',
   documentosAnalisados: 10,
 }
@@ -59,7 +59,7 @@ test('CA01, CA02 e CA04: gera a análise dos primeiros resultados e a identifica
 
   // CA04: o conteúdo é identificado como gerado por IA.
   await expect(painel(page).getByRole('note')).toContainText('Conteúdo gerado por inteligência artificial.')
-  await expect(painel(page)).toContainText('Gerada com auxílio de IA pelo modelo gemini-2.5-flash')
+  await expect(painel(page)).toContainText('Gerada com auxílio de IA pelo modelo gemini-3.5-flash')
 
   await painel(page).getByRole('button', { name: 'Acórdão 2' }).click()
   await expect(page.getByRole('dialog')).toContainText('Acórdão 2')
