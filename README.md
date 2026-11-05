@@ -161,6 +161,21 @@ The project's source code is publicly available, allowing developers, students, 
 | 18 | As a user, I want to export my research results and information as a PDF so that I can review or share them later. | Low | 3 |
 | 19 | As a user, I want to log into the system with a role-based access profile (Administrator or Regular User), allowing administrators to create user accounts and manage their roles and permissions. | Low | 5 |
 
+## Sprint 3
+
+| Rank | User Story | Priority | Story Points |
+|----|------------|----------|--------------|
+| 1 | As a user, I want to receive an AI-assisted analysis of my case so that I can better understand the legal information related to my situation. | High | 13 |
+| 2 | As a user, I want AI to consider the results obtained by the search when analyzing my case so that the analysis is connected to the information found by the system. | High | 8 |
+| 3 | As a user, I want to understand which information and sources were used as the basis for the AI-generated analysis so that I can evaluate its conclusions. | High | 5 |
+| 4 | As a user, I want to interact with the generated analysis so that I can obtain clarification and explore specific aspects of my case. | Medium | 8 |
+| 5 | As a user, I want to keep track of relevant information related to my case so that I can identify possible changes or new elements that may impact its analysis. | Medium | 8 |
+| 6 | As a user, I want an improved dashboard so that I can visualize and understand legal information more easily. | Medium | 3 |
+| 7 | As a user, I want improved search functionalities so that I can find relevant legal information more efficiently. | Medium | 3 |
+| 8 | As a user, I want my account and personal information to be protected by appropriate access permissions so that I can use the system securely. | Medium | 3 |
+| 9 | As a user, I want to clear all applied search filters with a single button so that I can easily start a new search. | Low | 1 |
+| 10 | As a user, I want to switch between light and dark mode so that I can customize the interface according to my preferences. | Low | 5 |
+
 # Definition of Ready (DoR)
 
 A User Story will be considered **ready for development** when:
