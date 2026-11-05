@@ -233,6 +233,7 @@ backend-tests:
 - `./mvnw` é o Maven Wrapper: usa a versão do Maven definida no projeto, sem depender do que está instalado na máquina.
 - `--batch-mode` deixa o Maven não interativo e com log limpo, próprio para CI.
 - `verify` executa as fases do Maven em ordem: compilar, compilar os testes, rodar os testes (Surefire), empacotar o `.jar` e verificar.
+- O **JaCoCo** acompanha os testes e gera o relatório de cobertura em `backend/target/site/jacoco/` (o mesmo que o SonarQube lê). No CI ele não tem limite mínimo e não é publicado como artefato.
 - `timeout-minutes: 15` mata o job se ele travar, para não consumir horas de máquina.
 
 ### 4.5 Job 3: Frontend checks
@@ -535,7 +536,7 @@ O SonarQube aponta bugs, vulnerabilidades, code smells, duplicação e cobertura
 | API simulada no Playwright | Interface testada sem backend | Adicionar poucos E2E reais com `docker compose up` e testes de contrato |
 | IA sempre simulada | Nenhum teste chama o Gemini de verdade | Teste manual com chave real; um smoke test opcional com secret no GitHub |
 | Sem testes unitários no front | Lógica do front testada só pela interface | Adicionar Vitest + Testing Library |
-| Sem cobertura medida | Não há relatório de cobertura no CI | JaCoCo no backend, cobertura do Vitest no front |
+| Cobertura sem limite | O JaCoCo mede a cobertura do backend, mas o relatório não é publicado e não há mínimo exigido | Publicar o relatório como artefato, definir um mínimo e medir o front com Vitest |
 | Sonar fora do CI | Análise só local | SonarCloud com quality gate no PR |
 | Sem CD | Imagens são construídas, mas não publicadas | Publicar no GitHub Container Registry e fazer deploy em homologação |
 
@@ -546,7 +547,7 @@ O SonarQube aponta bugs, vulnerabilidades, code smells, duplicação e cobertura
 1. **Proteção de branch** em `develop` (a `main` já exige PR): exigir os checks verdes e uma revisão para o merge.
 2. **Playwright obrigatório**: remover `continue-on-error` quando os testes estiverem estáveis.
 3. **Ajustes no workflow**: fixar `ubuntu-24.04` no job de embeddings e incluí-lo no `needs` do build Docker.
-4. **Cobertura de testes** com JaCoCo e quality gate do SonarCloud no PR.
+4. **Cobertura de testes**: publicar o relatório do JaCoCo, exigir um mínimo e ligar o quality gate do SonarCloud no PR.
 5. **Segurança**: Dependabot para dependências e scan de vulnerabilidades nas imagens (por exemplo, Trivy).
 6. **Release**: ao criar uma tag `v*`, publicar as imagens versionadas no GitHub Container Registry.
 7. **Continuous Delivery**: deploy automático em homologação; produção com aprovação manual (GitHub Environments).
@@ -764,5 +765,5 @@ Os jobs paralelos levam o tempo do mais lento; depois entra o build Docker. O to
 <details>
 <summary><b>28. Se o pipeline passa, o sistema está livre de bugs?</b></summary>
 
-Não. O CI só garante o que os testes cobrem. Por isso a qualidade do CI depende da qualidade e da cobertura dos testes; medir a cobertura é um dos próximos passos.
+Não. O CI só garante o que os testes cobrem. Por isso a qualidade do CI depende da qualidade e da cobertura dos testes. O JaCoCo já mede a cobertura do backend; exigir um mínimo é um dos próximos passos.
 </details>
