@@ -28,20 +28,20 @@ public class GeminiProperties {
     private String apiKey = "";
 
     @NotNull
-    private String model = "gemini-2.5-flash";
+    private String model = "gemini-3.5-flash";
 
     /** Valores baixos deixam a analise mais fiel aos documentos e menos criativa. */
     @DecimalMin("0.0")
     @DecimalMax("2.0")
     private double temperature = 0.2;
 
-    /** Inclui os tokens de raciocinio dos modelos 2.5; valores baixos podem cortar a resposta. */
+    /** Inclui os tokens de raciocinio do modelo; valores baixos podem cortar a resposta. */
     @Min(256)
     @Max(65_536)
     private int maxOutputTokens = 8192;
 
     /**
-     * Teto de tokens de raciocinio dos modelos 2.5, descontado de {@link #maxOutputTokens}.
+     * Teto de tokens de raciocinio do modelo, descontado de {@link #maxOutputTokens}.
      * Com 2048 sobram ao menos 6144 tokens para a analise. Use -1 para o modelo decidir sozinho.
      */
     @Min(-1)
