@@ -282,11 +282,11 @@ Como o valor é resolvido no build, **cada ambiente precisa de um build próprio
 | `WIKILAW_EMBEDDING_PROVIDER` | `gemini` | `gemini` | `gemini` (usa `WIKILAW_GEMINI_API_KEY`) ou `openai-compatible` (Voyage, Ollama, OpenAI) |
 | `WIKILAW_EMBEDDING_MODEL` | `gemini-embedding-001` | `gemini-embedding-001` | Modelo; trocar regera todo o acervo |
 | `WIKILAW_EMBEDDING_DIMENSIONS` | `0` (usa 1024) | `1024` | Dimensão dos vetores (deve bater com a coluna do banco) |
-| `WIKILAW_EMBEDDING_BATCH_SIZE` | `32` | `100` | Textos por chamada ao provedor (o Gemini aceita até 100) |
+| `WIKILAW_EMBEDDING_BATCH_SIZE` | `32` | `50` | Textos por chamada ao provedor (o Gemini aceita até 100) |
 | `WIKILAW_EMBEDDING_API_KEY` | vazio | vazio | Só no `openai-compatible`: chave do provedor (segredo) |
 | `WIKILAW_EMBEDDING_BASE_URL` | vazio | vazio | Só no `openai-compatible`: endpoint de `/v1/embeddings` |
-| `WIKILAW_EMBEDDING_WORKER_DOCUMENTS_PER_BATCH` | `10` | `50` | Documentos por ciclo do worker |
-| `WIKILAW_EMBEDDING_WORKER_POLL_DELAY` | `5000` | `20000` | Intervalo do worker (ms) |
+| `WIKILAW_EMBEDDING_WORKER_DOCUMENTS_PER_BATCH` | `10` | `30` | Documentos por ciclo do worker (~47 trechos, abaixo do limite gratuito de 100 por minuto) |
+| `WIKILAW_EMBEDDING_WORKER_POLL_DELAY` | `5000` | `60000` | Intervalo do worker (ms) |
 | `WIKILAW_SEMANTIC_BACKFILL_ENABLED` | `true` | — | Prepara (normaliza e divide em trechos) o acervo existente |
 
 Existem outros ajustes finos (chunking, timeouts, retries, parâmetros do HNSW, cache de consultas) com padrões sensatos; a lista completa está em `application.properties` e em `docs/EMBEDDINGS.md`.
@@ -297,7 +297,7 @@ Existem outros ajustes finos (chunking, timeouts, retries, parâmetros do HNSW, 
 | --- | --- | --- | --- |
 | `WIKILAW_GEMINI_ENABLED` | `false` | `false` | Libera a análise jurídica com IA |
 | `WIKILAW_GEMINI_API_KEY` | vazio | vazio | Chave do Google AI Studio (segredo) |
-| `WIKILAW_GEMINI_MODEL` | `gemini-2.5-flash` | `gemini-2.5-flash` | Modelo usado na análise |
+| `WIKILAW_GEMINI_MODEL` | `gemini-3.5-flash` | `gemini-3.5-flash` | Modelo usado na análise (o `gemini-2.5-flash` não está mais disponível para contas novas) |
 | `WIKILAW_GEMINI_TEMPERATURE` | `0.2` | — | Criatividade do modelo (baixa = mais fiel aos documentos) |
 | `WIKILAW_GEMINI_MAX_OUTPUT_TOKENS` | `8192` | — | Limite da resposta, incluindo o raciocínio do modelo |
 | `WIKILAW_GEMINI_THINKING_BUDGET` | `2048` | — | Teto do raciocínio, para sobrarem ao menos 6.144 tokens para a análise; `-1` deixa o modelo decidir |

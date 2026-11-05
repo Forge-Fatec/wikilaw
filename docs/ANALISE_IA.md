@@ -10,7 +10,7 @@ Depois de uma pesquisa com resultados, o usuário pode pedir uma **análise jur�
    ```env
    WIKILAW_GEMINI_ENABLED=true
    WIKILAW_GEMINI_API_KEY=sua-chave
-   WIKILAW_GEMINI_MODEL=gemini-2.5-flash
+   WIKILAW_GEMINI_MODEL=gemini-3.5-flash
    ```
 
 3. Suba de novo o backend: `docker compose up -d --build backend`.
@@ -45,11 +45,11 @@ sequenceDiagram
 
 | Parte | Tamanho | Limite |
 | --- | --- | --- |
-| Entrada (instruções + até 10 documentos) | Cerca de 15 a 20 mil tokens no pior caso | ~1 milhão de tokens no `gemini-2.5-flash` |
+| Entrada (instruções + até 10 documentos) | Cerca de 15 a 20 mil tokens no pior caso | ~1 milhão de tokens no `gemini-3.5-flash` |
 | Raciocínio do modelo | Até 2.048 tokens (`WIKILAW_GEMINI_THINKING_BUDGET`) | Descontado do limite de saída |
 | Análise (JSON) | Cerca de 1 a 2 mil tokens | Sobram ao menos 6.144 dos 8.192 de `WIKILAW_GEMINI_MAX_OUTPUT_TOKENS` |
 
-Sem o teto de raciocínio, os modelos 2.5 podem gastar o limite de saída pensando e cortar o JSON. Se isso ainda acontecer (`finishReason` `MAX_TOKENS`), a tela mostra a indisponibilidade e o usuário pode tentar de novo; aumente `WIKILAW_GEMINI_MAX_OUTPUT_TOKENS`. O backend recusa um teto de raciocínio maior ou igual ao limite de saída.
+Sem o teto de raciocínio, o modelo pode gastar o limite de saída pensando e cortar o JSON. Se isso ainda acontecer (`finishReason` `MAX_TOKENS`), a tela mostra a indisponibilidade e o usuário pode tentar de novo; aumente `WIKILAW_GEMINI_MAX_OUTPUT_TOKENS`. O backend recusa um teto de raciocínio maior ou igual ao limite de saída.
 
 ## Contrato
 
@@ -84,7 +84,7 @@ Resposta `200`:
   "limitacoes": ["…"],
   "geradaPorIa": true,
   "aviso": "Análise gerada com auxílio de inteligência artificial…",
-  "modelo": "gemini-2.5-flash",
+  "modelo": "gemini-3.5-flash",
   "geradaEm": "2026-11-03T21:00:00-03:00",
   "documentosAnalisados": 2
 }
@@ -118,4 +118,4 @@ Uma nova pesquisa, ou outro filtro ou ordenação, muda o conjunto analisado e d
 | Tela | `frontend/src/components/AnaliseIaPanel.tsx`, `frontend/src/analiseIa.ts` |
 | Testes | `GeminiClientTest`, `AnaliseJuridicaServiceTest`, `AnaliseJuridicaControllerTest`, `frontend/tests/scrum-256-analise-ia.spec.ts` |
 
-Para trocar de modelo (por exemplo, um Gemini mais novo ou o `gemini-2.5-pro`), basta mudar `WIKILAW_GEMINI_MODEL`. Para trocar de provedor, implemente a interface `GenerativeAiProvider`.
+Para trocar de modelo (por exemplo, um Gemini mais novo ou o `gemini-pro-latest`). O `gemini-2.5-flash` não está mais disponível para contas novas, basta mudar `WIKILAW_GEMINI_MODEL`. Para trocar de provedor, implemente a interface `GenerativeAiProvider`.

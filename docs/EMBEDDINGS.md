@@ -11,7 +11,7 @@ documento importado
                                             documento_semantico.status_embedding = PENDENTE
 SemanticEmbeddingWorker (@Scheduled)
   1. reserva documentos (SKIP LOCKED)    → status_embedding = PROCESSANDO
-  2. envia os trechos ao Gemini          → fora de transação, em lotes de até 100
+  2. envia os trechos ao Gemini          → fora de transação, em lotes de até 50
   3. grava os vetores                    → embedding_trecho, status_embedding = PRONTO
 ```
 
@@ -44,7 +44,7 @@ WIKILAW_EMBEDDING_ENABLED=true
 docker compose up -d --build postgres backend
 ```
 
-O Compose já define `provider=gemini`, `model=gemini-embedding-001`, `dimensions=1024` e `batch-size=100`.
+O Compose já define `provider=gemini`, `model=gemini-embedding-001`, `dimensions=1024`, `batch-size=50`, `documents-per-batch=30` e `poll-delay=60000`.
 O `GeminiEmbeddingClient` chama `models/gemini-embedding-001:batchEmbedContents` com `outputDimensionality=1024`,
 envia os trechos como `RETRIEVAL_DOCUMENT` e a consulta como `RETRIEVAL_QUERY`, e normaliza os vetores
 (o Gemini só normaliza sozinho com 3072 dimensões). Não há migration: a coluna continua `vector(1024)`.
@@ -53,9 +53,15 @@ envia os trechos como `RETRIEVAL_DOCUMENT` e a consulta como `RETRIEVAL_QUERY`, 
 voltam para a fila e são gerados de novo. Durante a reindexação, a busca semântica só encontra os documentos já
 reprocessados. A chave antiga em `WIKILAW_EMBEDDING_API_KEY` é ignorada pelo provedor `gemini` e pode ser apagada.
 
-A conta gratuita do Gemini tem limite de requisições e de tokens por minuto e por dia; a primeira carga é lenta,
-mas o `429` não consome tentativas e os documentos voltam para a fila sozinhos. Aumente
-`WIKILAW_EMBEDDING_WORKER_POLL_DELAY` se o worker estourar o limite com frequência.
+A conta gratuita do Gemini aceita **100 textos por minuto** e **30 mil tokens por minuto** no `gemini-embedding-001`
+(medido em 05/11/2026). Cada trecho do lote conta como um texto, então lotes de 50 ou 100 documentos estouram o
+limite logo de cara. Com os valores do Compose (~47 trechos por minuto), os ~130 mil trechos do acervo levam cerca
+de dois dias para ser reindexados, se não houver também um limite diário. O `429` não consome tentativas e os
+documentos voltam para a fila sozinhos. Aumente `WIKILAW_EMBEDDING_WORKER_POLL_DELAY` se o worker estourar o
+limite com frequência.
+
+Sem `WIKILAW_GEMINI_API_KEY`, o worker não gera vetores e registra um aviso no log, em vez de marcar cada
+documento como erro.
 
 ### Outros provedores
 
