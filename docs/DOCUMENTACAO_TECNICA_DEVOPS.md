@@ -607,7 +607,7 @@ Observações:
 
 ## 14. Integração contínua (CI)
 
-Arquivo: `.github/workflows/ci.yml`. Documentação detalhada do pipeline, com diagramas, no documento de CI do time.
+Arquivo: `.github/workflows/ci.yml`. Documentação detalhada do pipeline, com diagramas, testes e perguntas frequentes, em [`docs/CI.md`](CI.md).
 
 ### 14.1 Gatilhos
 
@@ -621,7 +621,8 @@ Execuções antigas da mesma branch são canceladas quando chega um novo push (`
 
 ```mermaid
 flowchart LR
-    T[push / PR] --> A[backend-tests<br/>Java 25 · mvnw verify]
+    T[push / PR] --> E[embedding-service-tests<br/>Python 3.12 · pytest]
+    T --> A[backend-tests<br/>Java 25 · mvnw verify]
     T --> B[frontend-checks<br/>Node 22 · lint + build]
     T --> C1[Playwright chromium]
     T --> C2[Playwright firefox]
@@ -635,10 +636,13 @@ flowchart LR
 
 | Job | Runner | Timeout | O que faz |
 | --- | --- | --- | --- |
+| `embedding-service-tests` | `ubuntu-latest` | 5 min | Python 3.12; testes de contrato do serviço `embeddings/` com encoder simulado, sem baixar o modelo |
 | `backend-tests` | `ubuntu-24.04` | 15 min | Java 25 (Temurin) com cache Maven; `./mvnw --batch-mode verify` (testes + JaCoCo) |
 | `frontend-checks` | `ubuntu-24.04` | 10 min | Node 22 com cache npm; `npm ci`, `npm run lint`, `npm run build` |
 | `playwright-tests` | container `mcr.microsoft.com/playwright:v1.62.1-noble` | 15 min | Matriz de 3 navegadores em paralelo; publica `playwright-report-<browser>` (7 dias) |
-| `docker-build` | `ubuntu-24.04` | 20 min | Depois dos três anteriores: `docker compose config --quiet` e `docker compose build backend frontend` |
+| `docker-build` | `ubuntu-24.04` | 20 min | Depois de backend, frontend e Playwright: `docker compose config --quiet` e `docker compose build backend frontend` |
+
+No PR aparecem **7 checks**: 4 jobs comuns e 3 cópias do Playwright, uma por navegador. O CI não usa nenhuma chave de API: o Gemini, o DataJud e as demais fontes são simulados nos testes.
 
 ### 14.3 Manutenção do pipeline
 
@@ -794,6 +798,7 @@ Documentos técnicos no repositório da aplicação (`docs/`):
 | --- | --- |
 | `ANALISE_IA.md` | Análise jurídica com IA (Gemini): configuração, contrato e limites |
 | `BUSCA_DOCUMENTOS.md` | Busca de documentos, campos e arquitetura recomendada |
+| `CI.md` | Pipeline de integração contínua: jobs, testes, limitações e manutenção |
 | `DASHBOARD.md` | Endpoints, filtros e regras de cálculo do dashboard |
 | `EMBEDDINGS.md` | Geração de embeddings, busca semântica e acompanhamento |
 | `EXPORTACAO_PDF.md` | Contrato e limites da exportação em PDF |
