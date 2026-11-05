@@ -174,7 +174,7 @@ The project's source code is publicly available, allowing developers, students, 
 | 7 | As a user, I want improved search functionalities so that I can find relevant legal information more efficiently. | Medium | 3 |
 | 8 | As a user, I want my account and personal information to be protected by appropriate access permissions so that I can use the system securely. | Medium | 3 |
 | 9 | As a user, I want to clear all applied search filters with a single button so that I can easily start a new search. | Low | 1 |
-| 10 | As a user, I want to switch between light and dark mode so that I can customize the interface according to my preferences. | Low | 5 |
+| 10 | As a user, I want to switch between light and dark mode so that I can customize the interface according to my preferences. | Low | 1 |
 
 # Definition of Ready (DoR)
 
