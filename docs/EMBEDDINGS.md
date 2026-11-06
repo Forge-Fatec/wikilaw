@@ -11,7 +11,7 @@ documento importado
                                             documento_semantico.status_embedding = PENDENTE
 SemanticEmbeddingWorker (@Scheduled)
   1. reserva documentos (SKIP LOCKED)    → status_embedding = PROCESSANDO
-  2. envia os trechos à Voyage AI        → fora de transação, em lotes
+  2. envia os trechos ao Gemini          → fora de transação, em lotes de até 50
   3. grava os vetores                    → embedding_trecho, status_embedding = PRONTO
 ```
 
@@ -23,18 +23,19 @@ SemanticEmbeddingWorker (@Scheduled)
 | `ERRO` | Falha registrada em `erro_embedding`; nova tentativa após `retry-backoff`, até `max-attempts` |
 
 - Quando a preparação recria os trechos, o `ON DELETE CASCADE` remove os vetores antigos e o documento volta a `PENDENTE`.
-- Trocar `WIKILAW_EMBEDDING_MODEL` regera todo o acervo automaticamente.
+- Trocar `WIKILAW_EMBEDDING_MODEL` ou `WIKILAW_EMBEDDING_PROVIDER` regera todo o acervo automaticamente. Enquanto isso, a busca só usa os documentos que já têm vetor do modelo atual.
 - HTTP 429 (limite de requisições) não consome tentativas.
 - Os vetores são normalizados; o índice HNSW usa distância de cosseno (`vector_cosine_ops`).
 
-## Configuração (Voyage AI)
+## Configuração (Google Gemini)
 
-1. Crie uma chave em <https://dashboard.voyageai.com>. Ela fica **somente** no `.env`, que é ignorado pelo Git.
+1. Crie uma chave em <https://aistudio.google.com/apikey>. Ela fica **somente** no `.env`, que é ignorado pelo Git.
+   É a mesma chave da [análise jurídica com IA](ANALISE_IA.md).
 2. No `.env`:
 
 ```dotenv
+WIKILAW_GEMINI_API_KEY=<sua-chave>
 WIKILAW_EMBEDDING_ENABLED=true
-WIKILAW_EMBEDDING_API_KEY=<sua-chave>
 ```
 
 3. Recrie o backend:
@@ -43,14 +44,31 @@ WIKILAW_EMBEDDING_API_KEY=<sua-chave>
 docker compose up -d --build postgres backend
 ```
 
-O Compose já define `base-url=https://api.voyageai.com`, `model=voyage-4`, `dimensions=1024`
-e `send-input-type=true` (trechos como `document`, consultas como `query`).
-Sem cartão cadastrado, a conta gratuita tem limite baixo de requisições por minuto; a primeira carga é lenta,
-mas os documentos voltam para a fila sozinhos.
+O Compose já define `provider=gemini`, `model=gemini-embedding-001`, `dimensions=1024`, `batch-size=50`, `documents-per-batch=30` e `poll-delay=60000`.
+O `GeminiEmbeddingClient` chama `models/gemini-embedding-001:batchEmbedContents` com `outputDimensionality=1024`,
+envia os trechos como `RETRIEVAL_DOCUMENT` e a consulta como `RETRIEVAL_QUERY`, e normaliza os vetores
+(o Gemini só normaliza sozinho com 3072 dimensões). Não há migration: a coluna continua `vector(1024)`.
 
-O cliente usa `POST /v1/embeddings`, então Ollama, LM Studio ou OpenAI também funcionam trocando
-`BASE_URL`, `MODEL` e `SEND_INPUT_TYPE=false`, desde que o modelo produza 1024 dimensões
-(a coluna `embedding_trecho.vetor` é `vector(1024)`; o backend não sobe com outro valor).
+**Migração da Voyage:** ao subir com o Gemini, todos os documentos com vetor da Voyage (`modelo_embedding = 'voyage-4'`)
+voltam para a fila e são gerados de novo. Durante a reindexação, a busca semântica só encontra os documentos já
+reprocessados. A chave antiga em `WIKILAW_EMBEDDING_API_KEY` é ignorada pelo provedor `gemini` e pode ser apagada.
+
+A conta gratuita do Gemini aceita **100 textos por minuto** e **30 mil tokens por minuto** no `gemini-embedding-001`
+(medido em 05/11/2026). Cada trecho do lote conta como um texto, então lotes de 50 ou 100 documentos estouram o
+limite logo de cara. Com os valores do Compose (~47 trechos por minuto), os ~130 mil trechos do acervo levam cerca
+de dois dias para ser reindexados, se não houver também um limite diário. O `429` não consome tentativas e os
+documentos voltam para a fila sozinhos. Aumente `WIKILAW_EMBEDDING_WORKER_POLL_DELAY` se o worker estourar o
+limite com frequência.
+
+Sem `WIKILAW_GEMINI_API_KEY`, o worker não gera vetores e registra um aviso no log, em vez de marcar cada
+documento como erro.
+
+### Outros provedores
+
+Com `WIKILAW_EMBEDDING_PROVIDER=openai-compatible`, o cliente usa `POST /v1/embeddings` (Voyage AI, Ollama, LM Studio,
+OpenAI) com `BASE_URL`, `API_KEY`, `MODEL` e `SEND_INPUT_TYPE` (`true` só na Voyage), desde que o modelo produza
+1024 dimensões (a coluna `embedding_trecho.vetor` é `vector(1024)`; o backend não sobe com outro valor). Para voltar
+à Voyage: `BASE_URL=https://api.voyageai.com`, `MODEL=voyage-4`, `SEND_INPUT_TYPE=true` e a chave da Voyage.
 
 ## Acompanhar
 
@@ -102,7 +120,7 @@ order by e.vetor <=> a.vetor limit 5;
 1. Aplica a mesma normalização do acervo (`LegalTextNormalizer`: remove HTML, espaços e caracteres de controle).
 2. Valida o tamanho: descrições vazias ou com menos de `min-characters` não carregam contexto suficiente; acima de
    `max-characters` são recusadas. Os dois casos lançam `SemanticQueryException`, sem chamar o provedor.
-3. Gera o vetor com `embedQuery`, que envia `input_type=query` à Voyage AI, no mesmo espaço vetorial dos trechos (`document`).
+3. Gera o vetor com `embedQuery`, que envia `taskType=RETRIEVAL_QUERY` ao Gemini, no mesmo espaço vetorial dos trechos (`RETRIEVAL_DOCUMENT`).
 4. Guarda o vetor em um cache LRU em memória (chave = modelo + texto normalizado). Repetir a pesquisa, trocar de
    página ou de filtro não gasta nova requisição, o que importa com o limite por minuto da conta gratuita.
 
@@ -111,7 +129,7 @@ O resultado (`texto`, `vetor`, `modelo`) é a entrada de `SemanticVectorRetrieva
 | Propriedade | Padrão | Uso |
 | --- | --- | --- |
 | `WIKILAW_SEMANTIC_QUERY_MIN_CHARACTERS` | `20` | Tamanho mínimo da descrição |
-| `WIKILAW_SEMANTIC_QUERY_MAX_CHARACTERS` | `20000` | Tamanho máximo (cerca de 5 mil tokens; o `voyage-4` aceita 32 mil) |
+| `WIKILAW_SEMANTIC_QUERY_MAX_CHARACTERS` | `20000` | Tamanho máximo aceito. O `gemini-embedding-001` lê até 2.048 tokens, então o cliente envia só os primeiros 7.000 caracteres |
 | `WIKILAW_SEMANTIC_QUERY_CACHE_SIZE` | `200` | Descrições guardadas no cache; `0` desliga |
 
 Exemplo validado com o acervo real: a descrição *"Comprei um imóvel e moro nele há mais de quinze anos de forma
@@ -168,7 +186,7 @@ similaridade (0 a 1), quantos trechos do documento ficaram próximos e o trecho 
 
 ```json
 {
-  "modelo": "voyage-4",
+  "modelo": "gemini-embedding-001",
   "resultados": [
     {
       "documento": { "id": 149, "categoria": "precedentes", "titulo": "STJ — Controvérsia 149", "tribunal": "STJ", "...": "..." },
@@ -184,12 +202,12 @@ similaridade (0 a 1), quantos trechos do documento ficaram próximos e o trecho 
 | --- | --- |
 | `200` | Busca realizada (lista vazia se nada estiver indexado ainda) |
 | `400` | Campos inválidos (`Requisição inválida`) ou descrição vazia/curta/longa (`Consulta semântica inválida`) |
-| `429` | A Voyage AI recusou pelo limite de requisições; tente de novo em alguns segundos |
+| `429` | O Gemini recusou pelo limite de requisições; tente de novo em alguns segundos |
 | `503` | Embeddings desligados, sem chave ou provedor fora do ar (`Busca semântica indisponível`) |
 
-Na conta gratuita da Voyage, o worker de embeddings e as buscas disputam o mesmo limite por minuto, então a busca
-pode receber `429` enquanto o acervo ainda está sendo indexado. Cadastrar um cartão (os tokens gratuitos continuam
-valendo) elimina a disputa na prática.
+Na conta gratuita do Gemini, o worker de embeddings, as buscas e a análise jurídica usam a mesma chave e disputam o
+mesmo limite, então a busca pode receber `429` enquanto o acervo ainda está sendo indexado. Ativar o faturamento no
+Google AI Studio aumenta os limites.
 
 ```bash
 curl -X POST http://localhost:8080/api/pesquisas/semantica \

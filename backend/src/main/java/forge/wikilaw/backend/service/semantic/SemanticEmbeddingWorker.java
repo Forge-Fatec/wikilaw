@@ -1,6 +1,8 @@
 package forge.wikilaw.backend.service.semantic;
 
+import forge.wikilaw.backend.integration.ai.GeminiProperties;
 import forge.wikilaw.backend.integration.embedding.EmbeddingProperties;
+import forge.wikilaw.backend.integration.embedding.EmbeddingProvider;
 import forge.wikilaw.backend.repository.EmbeddingTrechoRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,20 +15,30 @@ import org.springframework.stereotype.Component;
 public class SemanticEmbeddingWorker {
     private static final Logger log = LoggerFactory.getLogger(SemanticEmbeddingWorker.class);
     private final SemanticEmbeddingService embeddings;
+    /** Sem chave do Gemini o worker fica parado, para nao gastar as tentativas de cada documento. */
+    private final boolean paused;
 
-    public SemanticEmbeddingWorker(SemanticEmbeddingService embeddings, EmbeddingProperties properties) {
-        if (properties.getModel().isBlank() || properties.getBaseUrl().isBlank())
+    public SemanticEmbeddingWorker(SemanticEmbeddingService embeddings, EmbeddingProperties properties,
+            EmbeddingProvider provider, GeminiProperties gemini) {
+        boolean usesGemini = EmbeddingProperties.PROVIDER_GEMINI.equals(properties.getProvider());
+        if (properties.getModel().isBlank())
+            throw new IllegalStateException("Embeddings habilitados sem WIKILAW_EMBEDDING_MODEL");
+        if (!usesGemini && properties.getBaseUrl().isBlank())
             throw new IllegalStateException(
                     "Embeddings habilitados sem WIKILAW_EMBEDDING_BASE_URL e WIKILAW_EMBEDDING_MODEL");
-        if (properties.getDimensions() != EmbeddingTrechoRepository.DIMENSIONS)
+        if (provider.dimensions() != EmbeddingTrechoRepository.DIMENSIONS)
             throw new IllegalStateException("WIKILAW_EMBEDDING_DIMENSIONS deve ser "
                     + EmbeddingTrechoRepository.DIMENSIONS + " para a coluna embedding_trecho.vetor");
         this.embeddings = embeddings;
+        this.paused = usesGemini && gemini.getApiKey().isBlank();
+        if (paused)
+            log.warn("Embeddings com o Gemini habilitados sem WIKILAW_GEMINI_API_KEY; o worker nao vai gerar vetores");
     }
 
     @Scheduled(initialDelayString = "${wikilaw.semantic.embedding.worker.initial-delay:10000}",
             fixedDelayString = "${wikilaw.semantic.embedding.worker.poll-delay:5000}")
     public void process() {
+        if (paused) return;
         try {
             var result = embeddings.processBatch();
             if (result.claimed() > 0)

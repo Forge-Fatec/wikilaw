@@ -59,7 +59,7 @@ public class SemanticSearchProperties {
         @Max(500)
         private int minCharacters = 20;
 
-        /** Cerca de 5 mil tokens, bem abaixo dos 32 mil aceitos pelo voyage-4. */
+        /** Cerca de 5 mil tokens; o cliente do Gemini envia so os primeiros 7 mil caracteres (limite de 2.048 tokens). */
         @Min(100)
         @Max(100_000)
         private int maxCharacters = 20_000;
