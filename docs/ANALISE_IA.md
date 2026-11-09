@@ -1,6 +1,6 @@
 # Análise jurídica com IA (SCRUM-256)
 
-Depois de uma pesquisa com resultados, o usuário pode pedir uma **análise jurídica gerada pelo Google Gemini**. A análise considera os **10 primeiros resultados** na ordem exibida (com os filtros e a ordenação atuais) e aparece num painel acima da lista.
+Depois de uma pesquisa com resultados, o usuário pode pedir uma **análise jurídica gerada pelo Google Gemini**. A análise fica vinculada à **pesquisa ativa** (termo, filtros, ordenação e recorte dos gráficos): o backend recebe os resultados exibidos, escolhe os mais relevantes que cabem no limite da IA e a análise aparece num painel acima da lista.
 
 ## Como ligar
 
@@ -28,9 +28,11 @@ sequenceDiagram
     participant B as Backend
     participant G as Gemini
     U->>F: Analisar com IA
-    F->>B: POST /api/pesquisas/analises (termo + referências)
-    B->>B: Carrega os documentos do acervo pelo id
-    B->>G: generateContent (instruções + documentos + schema JSON)
+    F->>B: POST /api/pesquisas/analises (termo + pesquisa ativa + referências)
+    B->>B: Recupera os resultados do acervo pelo id (PesquisaAtivaService)
+    B->>B: Seleciona os mais relevantes dentro do limite (SelecaoResultadosRelevantes)
+    B->>B: Monta o contexto jurídico (ContextoJuridicoBuilder)
+    B->>G: generateContent (instruções + pesquisa ativa + documentos + schema JSON)
     G-->>B: JSON estruturado
     B-->>F: Análise em seções + aviso de IA
 ```
@@ -43,7 +45,12 @@ sequenceDiagram
 
 ## Contexto jurídico (SCRUM-263)
 
-Os resultados da pesquisa são o contexto da análise. O `ContextoJuridicoBuilder` monta um `ContextoJuridico` com o termo pesquisado e um bloco por resultado, numerado na ordem da pesquisa (`[1]`, `[2]`…) e ligado à `categoria` e ao `id` do acervo.
+Os resultados da pesquisa ativa são o contexto da análise.
+
+1. **Recuperação** (`PesquisaAtivaService`): o front envia a descrição da pesquisa (`pesquisa`) e até 200 referências na ordem exibida. O backend lê cada documento do acervo e recusa referências repetidas ou fora das categorias pesquisadas (400) e documentos que saíram do acervo (409).
+2. **Seleção** (`SelecaoResultadosRelevantes`): na busca por similaridade ou na ordenação por relevância entram os primeiros. Com a lista ordenada por data, têm prioridade os resultados com mais palavras do termo (e da consulta montada a partir do documento anexado) no título, número, ementa, decisão ou palavras-chave; o empate fica com a posição.
+3. **Contexto** (`ContextoJuridicoBuilder`): um `ContextoJuridico` com o termo, a descrição da pesquisa ativa (`DescricaoPesquisa`: tipo de busca, documento anexado, categorias, fontes, tribunal, período, recorte dos gráficos, ordenação e total) e um bloco por resultado, numerado pela **posição na lista** (`[1]`, `[5]`…) e ligado à `categoria` e ao `id` do acervo.
+4. **Prompt** (`ContextoJuridicoPrompt`): a pesquisa vai em `<pesquisa_ativa>` e cada documento em `<documento numero="n">`; as instruções pedem que a análise respeite o recorte da pesquisa e registre em `limitacoes` quando os filtros limitarem a conclusão.
 
 | Limite | Variável | Padrão |
 | --- | --- | --- |
@@ -51,7 +58,7 @@ Os resultados da pesquisa são o contexto da análise. O `ContextoJuridicoBuilde
 | Caracteres do conteúdo, divididos igualmente entre os resultados | `WIKILAW_AI_CONTEXTO_MAX_CARACTERES` | 30.000 |
 | Caracteres por campo (ementa, decisão etc.) | `WIKILAW_AI_CONTEXTO_MAX_CARACTERES_CAMPO` | 2.500 |
 
-- Entram os resultados mais relevantes (os primeiros da pesquisa) até o limite de documentos; os demais vão em `resultadosOmitidos`.
+- Entram os resultados mais relevantes até o limite de documentos; os demais vão em `resultadosOmitidos`.
 - Os dados de identificação (categoria, título, tribunal, órgão julgador, processo ou tema, relator, datas, situação e resultado) sempre entram. A ementa e depois a decisão ocupam o que sobrar da cota de cada resultado; um trecho que caberia com menos de 200 caracteres fica de fora.
 - Quando algo é cortado ou omitido, o prompt avisa o modelo e a resposta traz `contextoResumido: true`.
 - As instruções pedem que a análise se relacione ao caso pesquisado e considere as decisões e os precedentes encontrados.
@@ -74,6 +81,20 @@ Sem o teto de raciocínio, o modelo pode gastar o limite de saída pensando e co
 ```json
 {
   "termo": "dano moral negativação indevida",
+  "pesquisa": {
+    "modo": "textual",
+    "consultaContextual": null,
+    "documentoContexto": null,
+    "categorias": ["decisoes", "precedentes"],
+    "fontes": [],
+    "tribunal": "STJ",
+    "dataDe": "2024-01-01",
+    "dataAte": null,
+    "ordenacao": "mais-recentes",
+    "resultadoDecisao": null,
+    "orgaoJulgador": null,
+    "totalResultados": 2
+  },
   "resultados": [
     { "categoria": "decisoes", "id": 7 },
     { "categoria": "precedentes", "id": 3 }
@@ -84,7 +105,8 @@ Sem o teto de raciocínio, o modelo pode gastar o limite de saída pensando e co
 | Campo | Regra |
 | --- | --- |
 | `termo` | Opcional, até 2.000 caracteres |
-| `resultados` | Até 50 referências, sem repetição, na ordem exibida; só as que cabem no contexto vão ao modelo |
+| `pesquisa` | Opcional; descreve a pesquisa ativa (todos os campos são opcionais) |
+| `resultados` | Até 200 referências, sem repetição, na ordem exibida e dentro de `pesquisa.categorias`; só as mais relevantes que cabem no contexto vão ao modelo |
 
 Resposta `200`:
 
@@ -103,18 +125,18 @@ Resposta `200`:
   "modelo": "gemini-3.5-flash",
   "geradaEm": "2026-11-03T21:00:00-03:00",
   "documentosAnalisados": 2,
-  "resultadosUtilizados": [{ "categoria": "decisoes", "id": 7 }, { "categoria": "precedentes", "id": 3 }],
+  "resultadosUtilizados": [{ "posicao": 1, "categoria": "decisoes", "id": 7 }, { "posicao": 2, "categoria": "precedentes", "id": 3 }],
   "resultadosOmitidos": [],
   "contextoResumido": false
 }
 ```
 
-`resultadosUtilizados` segue a numeração das citações: `[1]` é o primeiro item.
+`posicao` é a posição do resultado na lista exibida e o número das citações: `[2]` é o segundo resultado da pesquisa. A tela mostra essas posições e quantos resultados ficaram de fora.
 
 | Status | Quando | O que a tela mostra |
 | --- | --- | --- |
-| `400` | Mais de 50 referências ou repetidas | Pede para refazer a pesquisa |
-| `422` | Nenhum resultado para contextualizar a análise | Mensagem genérica (o botão só aparece com resultados) |
+| `400` | Mais de 200 referências, repetidas ou fora das categorias da pesquisa | Pede para refazer a pesquisa |
+| `422` | Nenhum resultado para contextualizar a análise | "Não existem resultados suficientes para contextualizar a análise" |
 | `409` | Um documento saiu do acervo | Pede para refazer a pesquisa |
 | `429` | Limite de uso do Gemini atingido | Mensagem de limite + "Tentar novamente" |
 | `503` | IA desligada, sem chave, fora do ar, resposta bloqueada, cortada ou inválida | Mensagem de indisponibilidade + "Tentar novamente" |
@@ -128,7 +150,7 @@ Resposta `200`:
 | CA03 — Indisponibilidade | 429/503 viram mensagem de erro com botão **Tentar novamente** |
 | CA04 — Identificação de IA | Selo "IA", aviso "Conteúdo gerado por inteligência artificial" e o modelo usado no rodapé; a API devolve `geradaPorIa`, `aviso` e `modelo` |
 
-Uma nova pesquisa, ou outro filtro ou ordenação, muda o conjunto analisado e descarta a análise anterior.
+Uma nova pesquisa, ou outro filtro, ordenação ou recorte de gráfico, muda a pesquisa ativa e descarta a análise anterior.
 
 ## Código
 
@@ -136,9 +158,10 @@ Uma nova pesquisa, ou outro filtro ou ordenação, muda o conjunto analisado e d
 | --- | --- |
 | Cliente Gemini | `backend/.../integration/ai/GeminiClient.java`, `GeminiProperties.java` |
 | Regra de negócio e instruções | `backend/.../service/AnaliseJuridicaService.java` |
-| Contexto jurídico | `backend/.../service/contexto/ContextoJuridicoBuilder.java`, `ContextoJuridicoPrompt.java`, `integration/ai/ContextoJuridicoProperties.java` |
+| Pesquisa ativa | `backend/.../dto/PesquisaAtivaRequest.java`, `service/pesquisa/PesquisaAtivaService.java`, `SelecaoResultadosRelevantes.java` |
+| Contexto jurídico | `backend/.../service/contexto/ContextoJuridicoBuilder.java`, `DescricaoPesquisa.java`, `ContextoJuridicoPrompt.java`, `integration/ai/ContextoJuridicoProperties.java` |
 | Endpoint | `backend/.../controller/AnaliseJuridicaController.java` |
 | Tela | `frontend/src/components/AnaliseIaPanel.tsx`, `frontend/src/analiseIa.ts` |
-| Testes | `GeminiClientTest`, `AnaliseJuridicaServiceTest`, `AnaliseJuridicaControllerTest`, `ContextoJuridicoBuilderTest`, `ContextoJuridicoPromptTest`, `frontend/tests/scrum-256-analise-ia.spec.ts` |
+| Testes | `GeminiClientTest`, `AnaliseJuridicaServiceTest`, `AnaliseJuridicaControllerTest`, `ContextoJuridicoBuilderTest`, `ContextoJuridicoPromptTest`, `DescricaoPesquisaTest`, `PesquisaAtivaServiceTest`, `SelecaoResultadosRelevantesTest`, `frontend/tests/scrum-256-analise-ia.spec.ts`, `frontend/tests/scrum-263-analise-contextualizada.spec.ts` |
 
 Para trocar de modelo (por exemplo, um Gemini mais novo ou o `gemini-pro-latest`). O `gemini-2.5-flash` não está mais disponível para contas novas, basta mudar `WIKILAW_GEMINI_MODEL`. Para trocar de provedor, implemente a interface `GenerativeAiProvider`.
