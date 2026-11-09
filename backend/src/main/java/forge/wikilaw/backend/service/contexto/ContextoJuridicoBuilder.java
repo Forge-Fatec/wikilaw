@@ -108,12 +108,12 @@ public class ContextoJuridicoBuilder {
     }
 
     /**
-     * Normaliza espacos e neutraliza a tag que delimita os documentos no prompt,
-     * para o texto do acervo nao conseguir fechar o proprio bloco e se passar por instrucao.
+     * Normaliza espacos e neutraliza tags de fechamento (como as que delimitam os documentos e a pesquisa no prompt),
+     * para o texto do acervo ou da pesquisa nao conseguir fechar o proprio bloco e se passar por instrucao.
      */
     static String limpar(String valor) {
         if (valor == null) return null;
-        String texto = valor.replace("</documento", "</ documento").replaceAll("\\s+", " ").strip();
+        String texto = valor.replace("</", "</ ").replaceAll("\\s+", " ").strip();
         return texto.isEmpty() ? null : texto;
     }
 
