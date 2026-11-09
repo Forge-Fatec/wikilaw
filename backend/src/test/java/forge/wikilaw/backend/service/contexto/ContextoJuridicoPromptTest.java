@@ -19,10 +19,22 @@ class ContextoJuridicoPromptTest {
         String prompt = ContextoJuridicoPrompt.formatar(contexto);
 
         assertThat(prompt).startsWith("Pesquisa do usuário: dano moral\n")
-                .contains("Documentos encontrados (2):")
+                .contains("Documentos encontrados (2), numerados pela posição na lista de resultados:")
                 .containsSubsequence("<documento numero=\"1\">", "Título: REsp dano moral", "</documento>",
                         "<documento numero=\"2\">", "Título: Tema 1061", "</documento>")
-                .doesNotContain("limite de contexto");
+                .doesNotContain("limite de contexto", "<pesquisa_ativa>");
+    }
+
+    @Test
+    void describesTheActiveSearchBeforeTheDocuments() {
+        var contexto = new ContextoJuridico("dano moral", List.of(new Campo("Tribunal", "STJ"),
+                new Campo("Ordenação", "Mais recentes primeiro")),
+                List.of(documento(4, "decisoes", 7L, "REsp", false)), 30, List.of());
+
+        String prompt = ContextoJuridicoPrompt.formatar(contexto);
+
+        assertThat(prompt).containsSubsequence("Pesquisa do usuário: dano moral", "<pesquisa_ativa>", "Tribunal: STJ",
+                "Ordenação: Mais recentes primeiro", "</pesquisa_ativa>", "Apenas 1 dos 30", "<documento numero=\"4\">");
     }
 
     @Test
