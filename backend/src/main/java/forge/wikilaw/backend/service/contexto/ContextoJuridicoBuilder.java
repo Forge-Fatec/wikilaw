@@ -49,7 +49,8 @@ public class ContextoJuridicoBuilder {
         var contexto = new ArrayList<DocumentoContexto>(selecionados.size());
         for (ResultadoPesquisa resultado : selecionados)
             contexto.add(documento(resultado.posicao(), resultado.referencia(), resultado.documento(), cota));
-        return new ContextoJuridico(limpar(pesquisa.termo()), contexto, pesquisa.totalResultados(),
+        return new ContextoJuridico(limpar(pesquisa.termo()), DescricaoPesquisa.campos(pesquisa), contexto,
+                pesquisa.totalResultados(),
                 selecao.omitidos().stream().map(ResultadoPesquisa::referencia).toList());
     }
 

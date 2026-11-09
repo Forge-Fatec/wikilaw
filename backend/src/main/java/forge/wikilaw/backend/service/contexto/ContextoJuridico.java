@@ -8,17 +8,20 @@ import java.util.List;
  * na pesquisa e ligado ao documento do acervo. O modelo cita os documentos pelo {@code numero}.
  *
  * @param termo termo pesquisado pelo usuario, ou {@code null}
- * @param documentos resultados que cabem nos limites configurados, do mais ao menos relevante
- * @param totalResultados quantos resultados a pesquisa enviou
+ * @param pesquisa como a pesquisa ativa foi feita e os filtros aplicados, ja prontos para o prompt
+ * @param documentos resultados que cabem nos limites configurados, na ordem da pesquisa
+ * @param totalResultados quantos resultados a pesquisa ativa tem
  * @param omitidos resultados que ficaram de fora por excederem os limites do modelo
  */
 public record ContextoJuridico(
         String termo,
+        List<Campo> pesquisa,
         List<DocumentoContexto> documentos,
         int totalResultados,
         List<DocumentoReferencia> omitidos) {
 
     public ContextoJuridico {
+        pesquisa = List.copyOf(pesquisa);
         documentos = List.copyOf(documentos);
         omitidos = List.copyOf(omitidos);
     }

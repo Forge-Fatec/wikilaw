@@ -12,7 +12,7 @@ class ContextoJuridicoPromptTest {
 
     @Test
     void writesEachDocumentInsideANumberedBlock() {
-        var contexto = new ContextoJuridico("dano moral", List.of(
+        var contexto = new ContextoJuridico("dano moral", List.of(), List.of(
                 documento(1, "decisoes", 7L, "REsp dano moral", false),
                 documento(2, "precedentes", 3L, "Tema 1061", false)), 2, List.of());
 
@@ -28,7 +28,7 @@ class ContextoJuridicoPromptTest {
     @Test
     void tellsTheModelWhenResultsWereLeftOutOrShortened() {
         var omitido = new DocumentoReferencia("decisoes", 9L);
-        var contexto = new ContextoJuridico(null, List.of(documento(1, "decisoes", 7L, "REsp", true)), 2,
+        var contexto = new ContextoJuridico(null, List.of(), List.of(documento(1, "decisoes", 7L, "REsp", true)), 2,
                 List.of(omitido));
 
         String prompt = ContextoJuridicoPrompt.formatar(contexto);
