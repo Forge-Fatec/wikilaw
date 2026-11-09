@@ -36,10 +36,26 @@ sequenceDiagram
 ```
 
 - O navegador envia **apenas referências** (`categoria` e `id`). O texto dos documentos é lido do banco, então o usuário não consegue enviar outro conteúdo como se fosse acervo.
-- Cada campo do documento é cortado em 2.500 caracteres antes de ir ao modelo.
+- Os documentos viram um **contexto jurídico** estruturado antes de ir ao modelo (ver abaixo).
 - O Gemini responde no formato definido por um **schema JSON** (saída estruturada), e o backend valida e limita cada seção.
 - As instruções do modelo mandam usar só os documentos enviados, citar a posição deles (`[1]`, `[2, 3]`) e tratar o conteúdo dos documentos como material de análise, não como instrução.
 - O conteúdo enviado ao Gemini não é gravado em log.
+
+## Contexto jurídico (SCRUM-263)
+
+Os resultados da pesquisa são o contexto da análise. O `ContextoJuridicoBuilder` monta um `ContextoJuridico` com o termo pesquisado e um bloco por resultado, numerado na ordem da pesquisa (`[1]`, `[2]`…) e ligado à `categoria` e ao `id` do acervo.
+
+| Limite | Variável | Padrão |
+| --- | --- | --- |
+| Resultados enviados ao modelo | `WIKILAW_AI_CONTEXTO_MAX_DOCUMENTOS` | 10 |
+| Caracteres do conteúdo, divididos igualmente entre os resultados | `WIKILAW_AI_CONTEXTO_MAX_CARACTERES` | 30.000 |
+| Caracteres por campo (ementa, decisão etc.) | `WIKILAW_AI_CONTEXTO_MAX_CARACTERES_CAMPO` | 2.500 |
+
+- Entram os resultados mais relevantes (os primeiros da pesquisa) até o limite de documentos; os demais vão em `resultadosOmitidos`.
+- Os dados de identificação (categoria, título, tribunal, órgão julgador, processo ou tema, relator, datas, situação e resultado) sempre entram. A ementa e depois a decisão ocupam o que sobrar da cota de cada resultado; um trecho que caberia com menos de 200 caracteres fica de fora.
+- Quando algo é cortado ou omitido, o prompt avisa o modelo e a resposta traz `contextoResumido: true`.
+- As instruções pedem que a análise se relacione ao caso pesquisado e considere as decisões e os precedentes encontrados.
+- Sem resultados, o backend não chama a IA e responde **422** com "Não existem resultados suficientes para contextualizar a análise".
 
 ## Tokens
 
@@ -68,7 +84,7 @@ Sem o teto de raciocínio, o modelo pode gastar o limite de saída pensando e co
 | Campo | Regra |
 | --- | --- |
 | `termo` | Opcional, até 2.000 caracteres |
-| `resultados` | De 1 a 10 referências, sem repetição, na ordem exibida |
+| `resultados` | Até 50 referências, sem repetição, na ordem exibida; só as que cabem no contexto vão ao modelo |
 
 Resposta `200`:
 
@@ -86,13 +102,19 @@ Resposta `200`:
   "aviso": "Análise gerada com auxílio de inteligência artificial…",
   "modelo": "gemini-3.5-flash",
   "geradaEm": "2026-11-03T21:00:00-03:00",
-  "documentosAnalisados": 2
+  "documentosAnalisados": 2,
+  "resultadosUtilizados": [{ "categoria": "decisoes", "id": 7 }, { "categoria": "precedentes", "id": 3 }],
+  "resultadosOmitidos": [],
+  "contextoResumido": false
 }
 ```
 
+`resultadosUtilizados` segue a numeração das citações: `[1]` é o primeiro item.
+
 | Status | Quando | O que a tela mostra |
 | --- | --- | --- |
-| `400` | Lista vazia, mais de 10 referências ou repetidas | Pede para refazer a pesquisa |
+| `400` | Mais de 50 referências ou repetidas | Pede para refazer a pesquisa |
+| `422` | Nenhum resultado para contextualizar a análise | Mensagem genérica (o botão só aparece com resultados) |
 | `409` | Um documento saiu do acervo | Pede para refazer a pesquisa |
 | `429` | Limite de uso do Gemini atingido | Mensagem de limite + "Tentar novamente" |
 | `503` | IA desligada, sem chave, fora do ar, resposta bloqueada, cortada ou inválida | Mensagem de indisponibilidade + "Tentar novamente" |
@@ -113,9 +135,10 @@ Uma nova pesquisa, ou outro filtro ou ordenação, muda o conjunto analisado e d
 | Camada | Arquivo |
 | --- | --- |
 | Cliente Gemini | `backend/.../integration/ai/GeminiClient.java`, `GeminiProperties.java` |
-| Regra de negócio e prompt | `backend/.../service/AnaliseJuridicaService.java` |
+| Regra de negócio e instruções | `backend/.../service/AnaliseJuridicaService.java` |
+| Contexto jurídico | `backend/.../service/contexto/ContextoJuridicoBuilder.java`, `ContextoJuridicoPrompt.java`, `integration/ai/ContextoJuridicoProperties.java` |
 | Endpoint | `backend/.../controller/AnaliseJuridicaController.java` |
 | Tela | `frontend/src/components/AnaliseIaPanel.tsx`, `frontend/src/analiseIa.ts` |
-| Testes | `GeminiClientTest`, `AnaliseJuridicaServiceTest`, `AnaliseJuridicaControllerTest`, `frontend/tests/scrum-256-analise-ia.spec.ts` |
+| Testes | `GeminiClientTest`, `AnaliseJuridicaServiceTest`, `AnaliseJuridicaControllerTest`, `ContextoJuridicoBuilderTest`, `ContextoJuridicoPromptTest`, `frontend/tests/scrum-256-analise-ia.spec.ts` |
 
 Para trocar de modelo (por exemplo, um Gemini mais novo ou o `gemini-pro-latest`). O `gemini-2.5-flash` não está mais disponível para contas novas, basta mudar `WIKILAW_GEMINI_MODEL`. Para trocar de provedor, implemente a interface `GenerativeAiProvider`.
