@@ -2038,6 +2038,7 @@ select,
 .ai-document-link:hover { color: var(--terracotta-dark); }
 .ai-document-link:focus-visible { outline: 3px solid #7197b1; outline-offset: 2px; }
 .ai-meta { margin: 20px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+.ai-context-scope { margin: 18px 0 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
 @media (max-width: 760px) {
   .ai-analysis { padding: 18px 16px; }
   .ai-analysis-btn { width: 100%; }

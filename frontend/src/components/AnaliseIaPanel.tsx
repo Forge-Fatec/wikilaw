@@ -99,6 +99,20 @@ export function AnaliseIaPanel({ resultados, pesquisa, termo, onAbrirDocumento }
   )
 }
 
+/** Quais resultados da pesquisa entraram no contexto da IA, pela posição na lista. */
+function ResultadosUtilizados({ analise }: { analise: AnaliseJuridica }) {
+  const posicoes = (analise.resultadosUtilizados ?? []).map((resultado) => resultado.posicao)
+  const omitidos = analise.resultadosOmitidos?.length ?? 0
+  if (!posicoes.length) return null
+  return (
+    <p className="ai-context-scope">
+      Resultados usados como contexto: {posicoes.length === 1 ? 'posição' : 'posições'} {posicoes.join(', ')}.
+      {omitidos > 0 && ` ${omitidos} ${omitidos === 1 ? 'resultado ficou' : 'resultados ficaram'} de fora pelo limite da IA.`}
+      {analise.contextoResumido && omitidos === 0 && ' Parte do conteúdo foi resumida para caber no limite da IA.'}
+    </p>
+  )
+}
+
 function ConteudoAnalise({ analise, onAbrirDocumento }: {
   analise: AnaliseJuridica
   onAbrirDocumento: (referencia: ReferenciaDocumento) => void
@@ -172,6 +186,8 @@ function ConteudoAnalise({ analise, onAbrirDocumento }: {
           </ol>
         </>
       )}
+
+      <ResultadosUtilizados analise={analise} />
 
       {analise.limitacoes.length > 0 && (
         <>
