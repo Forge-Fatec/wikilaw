@@ -102,7 +102,10 @@ public class AnaliseJuridicaService {
                 AVISO,
                 ai.model(),
                 OffsetDateTime.now(clock),
-                contexto.documentos().size());
+                contexto.documentos().size(),
+                contexto.utilizados(),
+                contexto.omitidos(),
+                contexto.truncado());
     }
 
     /** Busca cada documento no acervo, preservando a ordem exibida na pesquisa. */
