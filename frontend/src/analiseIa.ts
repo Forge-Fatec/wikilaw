@@ -82,6 +82,7 @@ export async function gerarAnaliseJuridica(
   if (!response.ok) {
     if (response.status === 429) throw new Error('O limite de uso da IA foi atingido. Aguarde alguns instantes e tente novamente.')
     if (response.status === 503) throw new Error('O serviço de IA está indisponível no momento. Tente novamente em instantes.')
+    if (response.status === 422) throw new Error('Não existem resultados suficientes para contextualizar a análise. Faça uma pesquisa que retorne documentos e tente novamente.')
     if (response.status === 409) throw new Error('Um resultado não está mais disponível. Refaça a pesquisa e tente novamente.')
     if (response.status === 400) throw new Error('Não foi possível analisar estes resultados. Refaça a pesquisa e tente novamente.')
     throw new Error('Não foi possível gerar a análise. Tente novamente.')
