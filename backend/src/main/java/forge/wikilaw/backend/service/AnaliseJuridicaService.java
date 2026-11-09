@@ -10,8 +10,8 @@ import forge.wikilaw.backend.service.contexto.ContextoJuridico.DocumentoContexto
 import forge.wikilaw.backend.service.contexto.ContextoJuridicoBuilder;
 import forge.wikilaw.backend.service.contexto.ContextoJuridicoPrompt;
 import forge.wikilaw.backend.service.pesquisa.PesquisaAtiva;
-import forge.wikilaw.backend.service.pesquisa.PesquisaAtiva.ResultadoPesquisa;
 import forge.wikilaw.backend.service.pesquisa.PesquisaAtivaService;
+import forge.wikilaw.backend.service.pesquisa.SelecaoResultadosRelevantes;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -60,20 +60,22 @@ public class AnaliseJuridicaService {
             """;
 
     private final PesquisaAtivaService pesquisas;
+    private final SelecaoResultadosRelevantes selecao;
     private final GenerativeAiProvider ai;
     private final ContextoJuridicoBuilder contextoBuilder;
     private final ObjectNode schema;
     private final Clock clock;
 
     @Autowired
-    public AnaliseJuridicaService(PesquisaAtivaService pesquisas, GenerativeAiProvider ai,
-            ContextoJuridicoBuilder contextoBuilder, ObjectMapper json) {
-        this(pesquisas, ai, contextoBuilder, json, Clock.system(ZoneId.of("America/Sao_Paulo")));
+    public AnaliseJuridicaService(PesquisaAtivaService pesquisas, SelecaoResultadosRelevantes selecao,
+            GenerativeAiProvider ai, ContextoJuridicoBuilder contextoBuilder, ObjectMapper json) {
+        this(pesquisas, selecao, ai, contextoBuilder, json, Clock.system(ZoneId.of("America/Sao_Paulo")));
     }
 
-    AnaliseJuridicaService(PesquisaAtivaService pesquisas, GenerativeAiProvider ai,
-            ContextoJuridicoBuilder contextoBuilder, ObjectMapper json, Clock clock) {
+    AnaliseJuridicaService(PesquisaAtivaService pesquisas, SelecaoResultadosRelevantes selecao,
+            GenerativeAiProvider ai, ContextoJuridicoBuilder contextoBuilder, ObjectMapper json, Clock clock) {
         this.pesquisas = pesquisas;
+        this.selecao = selecao;
         this.ai = ai;
         this.contextoBuilder = contextoBuilder;
         this.schema = responseSchema(json);
@@ -82,9 +84,7 @@ public class AnaliseJuridicaService {
 
     public AnaliseJuridicaResponse analisar(AnaliseJuridicaRequest request) {
         PesquisaAtiva pesquisa = pesquisas.recuperar(request);
-        ContextoJuridico contexto = contextoBuilder.montar(pesquisa.termo(),
-                pesquisa.resultados().stream().map(ResultadoPesquisa::referencia).toList(),
-                pesquisa.resultados().stream().map(ResultadoPesquisa::documento).toList());
+        ContextoJuridico contexto = contextoBuilder.montar(pesquisa, selecao.selecionar(pesquisa));
         JsonNode output = ai.generateJson(INSTRUCOES, ContextoJuridicoPrompt.formatar(contexto), schema);
 
         String resumo = texto(output, "resumo");

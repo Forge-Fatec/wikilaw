@@ -20,6 +20,8 @@ import forge.wikilaw.backend.integration.ai.GenerativeAiProvider;
 import forge.wikilaw.backend.service.DocumentQueryService.Summary;
 import forge.wikilaw.backend.service.contexto.ContextoJuridicoBuilder;
 import forge.wikilaw.backend.service.pesquisa.PesquisaAtivaService;
+import forge.wikilaw.backend.service.pesquisa.SelecaoResultadosRelevantes;
+import forge.wikilaw.backend.service.search.SearchTermProcessor;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -37,7 +39,8 @@ class AnaliseJuridicaServiceTest {
     private final DocumentQueryService documents = mock(DocumentQueryService.class);
     private final GenerativeAiProvider ai = mock(GenerativeAiProvider.class);
     private final ContextoJuridicoProperties limites = new ContextoJuridicoProperties();
-    private final AnaliseJuridicaService service = new AnaliseJuridicaService(new PesquisaAtivaService(documents), ai,
+    private final AnaliseJuridicaService service = new AnaliseJuridicaService(new PesquisaAtivaService(documents),
+            new SelecaoResultadosRelevantes(limites, new SearchTermProcessor()), ai,
             new ContextoJuridicoBuilder(limites), json,
             Clock.fixed(Instant.parse("2026-11-03T12:00:00Z"), ZoneId.of("America/Sao_Paulo")));
 
