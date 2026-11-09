@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   gerarAnaliseJuridica,
-  MAX_DOCUMENTOS_ANALISE,
+  MAX_RESULTADOS_ANALISE,
   type AnaliseJuridica,
+  type PesquisaAtiva,
   type ReferenciaDocumento,
 } from '../analiseIa'
 
 interface Props {
-  /** Resultados na ordem exibida; só os primeiros MAX_DOCUMENTOS_ANALISE são analisados. */
+  /** Resultados da pesquisa ativa na ordem exibida; o back escolhe os mais relevantes entre eles. */
   resultados: ReferenciaDocumento[]
+  /** Pesquisa exibida (modo, filtros e total), enviada junto para contextualizar a análise. */
+  pesquisa: PesquisaAtiva
   termo: string
   onAbrirDocumento: (referencia: ReferenciaDocumento) => void
 }
@@ -21,11 +24,11 @@ type Estado =
 
 const horario = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 
-export function AnaliseIaPanel({ resultados, termo, onAbrirDocumento }: Props) {
+export function AnaliseIaPanel({ resultados, pesquisa, termo, onAbrirDocumento }: Props) {
   const [estado, setEstado] = useState<Estado>({ fase: 'inicial' })
   const requisicao = useRef<AbortController | null>(null)
   const titulo = useRef<HTMLHeadingElement>(null)
-  const analisados = resultados.slice(0, MAX_DOCUMENTOS_ANALISE)
+  const enviados = resultados.slice(0, MAX_RESULTADOS_ANALISE)
 
   useEffect(() => () => requisicao.current?.abort(), [])
   useEffect(() => {
@@ -38,7 +41,7 @@ export function AnaliseIaPanel({ resultados, termo, onAbrirDocumento }: Props) {
     requisicao.current = controle
     setEstado({ fase: 'gerando' })
     try {
-      const analise = await gerarAnaliseJuridica(termo, analisados, controle.signal)
+      const analise = await gerarAnaliseJuridica(termo, pesquisa, enviados, controle.signal)
       if (!controle.signal.aborted) setEstado({ fase: 'pronta', analise })
     } catch (error) {
       if (controle.signal.aborted) return
@@ -59,12 +62,12 @@ export function AnaliseIaPanel({ resultados, termo, onAbrirDocumento }: Props) {
           <h3 id="ai-analysis-title" ref={titulo} tabIndex={-1}>Análise jurídica com IA</h3>
           <p className="ai-analysis-scope">
             {estado.fase === 'pronta'
-              ? `Baseada nos ${estado.analise.documentosAnalisados} primeiros resultados da pesquisa.`
-              : `Analisa os ${analisados.length} primeiros resultados exibidos, na ordem atual.`}
+              ? `Baseada em ${estado.analise.documentosAnalisados} dos ${pesquisa.totalResultados} resultados da pesquisa atual.`
+              : `Usa a pesquisa atual (${pesquisa.totalResultados} resultados, com os filtros e a ordenação aplicados) e analisa os mais relevantes.`}
           </p>
         </div>
         {estado.fase === 'inicial' && (
-          <button type="button" className="ai-analysis-btn" onClick={() => void analisar()} disabled={!analisados.length}>
+          <button type="button" className="ai-analysis-btn" onClick={() => void analisar()} disabled={!enviados.length}>
             Analisar com IA
           </button>
         )}
