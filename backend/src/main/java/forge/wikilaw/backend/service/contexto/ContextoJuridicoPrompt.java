@@ -14,8 +14,8 @@ public final class ContextoJuridicoPrompt {
                 .append(contexto.termo() == null ? "(sem termo informado)" : contexto.termo()).append("\n\n");
         int incluidos = contexto.documentos().size();
         if (contexto.totalResultados() > incluidos)
-            prompt.append("A pesquisa retornou ").append(contexto.totalResultados()).append(" resultados; os ")
-                    .append(incluidos).append(" mais relevantes cabem no limite de contexto e estão abaixo. ")
+            prompt.append("Apenas ").append(incluidos).append(" dos ").append(contexto.totalResultados())
+                    .append(" resultados da pesquisa (os mais relevantes) cabem no limite de contexto e estão abaixo. ")
                     .append("Considere essa limitação na análise.\n\n");
         prompt.append("Documentos encontrados (").append(incluidos).append("):\n");
         for (DocumentoContexto doc : contexto.documentos()) {
