@@ -8,8 +8,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import forge.wikilaw.backend.dto.AnaliseJuridicaRequest;
 import forge.wikilaw.backend.dto.AnaliseJuridicaResponse;
 import forge.wikilaw.backend.exception.AiProviderException;
+import forge.wikilaw.backend.exception.ContextoInsuficienteException;
 import forge.wikilaw.backend.service.AnaliseJuridicaService;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -62,13 +64,19 @@ class AnaliseJuridicaControllerTest {
     }
 
     @Test
-    void requiresBetweenOneAndTenResults() throws Exception {
+    void reportsASearchWithoutResultsAsInsufficientContext() throws Exception {
+        when(service.analisar(any())).thenThrow(new ContextoInsuficienteException());
+
         mvc.perform(post("/api/pesquisas/analises").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"termo\":\"x\",\"resultados\":[]}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error").value(ContextoInsuficienteException.MENSAGEM));
+    }
 
+    @Test
+    void rejectsMoreResultsThanTheRequestLimit() throws Exception {
         var muitos = new StringBuilder("{\"resultados\":[");
-        for (int i = 1; i <= 11; i++) muitos.append(i > 1 ? "," : "").append("{\"categoria\":\"decisoes\",\"id\":").append(i).append('}');
+        for (int i = 1; i <= AnaliseJuridicaRequest.MAX_RESULTADOS + 1; i++) muitos.append(i > 1 ? "," : "").append("{\"categoria\":\"decisoes\",\"id\":").append(i).append('}');
         mvc.perform(post("/api/pesquisas/analises").contentType(MediaType.APPLICATION_JSON).content(muitos + "]}"))
                 .andExpect(status().isBadRequest());
         verify(service, never()).analisar(any());
