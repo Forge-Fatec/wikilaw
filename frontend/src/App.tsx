@@ -7,7 +7,7 @@ import { rolarSuavementeAte } from './rolagemSuave'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
 import { ExportPdfDialog } from './components/ExportPdfDialog'
 import { AnaliseIaPanel } from './components/AnaliseIaPanel'
-import { MAX_DOCUMENTOS_ANALISE } from './analiseIa'
+import { MAX_RESULTADOS_ANALISE, type PesquisaAtiva } from './analiseIa'
 import { FiltroFontes } from './components/FiltroFontes'
 import { PanoramaTribunal } from './components/PanoramaTribunal'
 import { CaseDocumentUpload } from './components/CaseDocumentUpload'
@@ -755,14 +755,31 @@ function App({
     (paginaExibida - 1) * ITENS_POR_PAGINA,
     paginaExibida * ITENS_POR_PAGINA,
   )
-  // A análise com IA cobre os primeiros resultados na ordem atual; mudar pesquisa,
-  // filtros ou ordenação muda esse conjunto e descarta a análise anterior.
+  // A análise com IA fica vinculada à pesquisa ativa: vão os resultados na ordem exibida e
+  // a descrição da pesquisa (modo, filtros, ordenação e recorte dos gráficos). Mudar
+  // qualquer um deles muda a pesquisa ativa e descarta a análise anterior.
   const referenciasAnalise = useMemo(
-    () => resultados.slice(0, MAX_DOCUMENTOS_ANALISE)
+    () => resultados.slice(0, MAX_RESULTADOS_ANALISE)
       .map((doc) => ({ categoria: CATEGORIA_POR_TIPO[doc.type], id: doc.id })),
     [resultados],
   )
-  const chaveAnalise = `${termoPesquisado}|${consultaPesquisada}|`
+  const pesquisaAnalise = useMemo<PesquisaAtiva>(() => ({
+    modo: resultadoSimilar ? 'similaridade' : 'textual',
+    consultaContextual: documentoUsado ? consultaPesquisada || null : null,
+    documentoContexto: documentoUsado,
+    categorias: (Object.keys(filtros) as DocType[])
+      .filter((tipo) => filtros[tipo]).map((tipo) => CATEGORIA_POR_TIPO[tipo]),
+    fontes: fontesPesquisadas,
+    tribunal: tribunal === TODOS_OS_TRIBUNAIS ? null : tribunal,
+    dataDe: dataDe || null,
+    dataAte: dataAte || null,
+    ordenacao,
+    resultadoDecisao: selecao.resultado,
+    orgaoJulgador: selecao.orgaoJulgador,
+    totalResultados: resultados.length,
+  }), [resultadoSimilar, documentoUsado, consultaPesquisada, filtros, fontesPesquisadas, tribunal, dataDe, dataAte,
+    ordenacao, selecao, resultados.length])
+  const chaveAnalise = `${termoPesquisado}|${JSON.stringify(pesquisaAnalise)}|`
     + referenciasAnalise.map((ref) => `${ref.categoria}:${ref.id}`).join(',')
 
   function voltarParaPrimeiraPagina() {
@@ -1272,6 +1289,7 @@ function App({
               <AnaliseIaPanel
                 key={chaveAnalise}
                 resultados={referenciasAnalise}
+                pesquisa={pesquisaAnalise}
                 termo={termoPesquisado || consultaPesquisada}
                 onAbrirDocumento={(ref) => {
                   const doc = resultados.find((d) => d.id === ref.id && CATEGORIA_POR_TIPO[d.type] === ref.categoria)
