@@ -5,6 +5,7 @@ import forge.wikilaw.backend.dto.AnaliseJuridicaResponse;
 import forge.wikilaw.backend.dto.AnaliseJuridicaResponse.DocumentoRelevante;
 import forge.wikilaw.backend.dto.PesquisaPdfRequest.DocumentoReferencia;
 import forge.wikilaw.backend.exception.AiProviderException;
+import forge.wikilaw.backend.exception.ContextoInsuficienteException;
 import forge.wikilaw.backend.integration.ai.GenerativeAiProvider;
 import forge.wikilaw.backend.service.DocumentQueryService.Summary;
 import forge.wikilaw.backend.service.contexto.ContextoJuridico;
@@ -81,6 +82,7 @@ public class AnaliseJuridicaService {
     }
 
     public AnaliseJuridicaResponse analisar(AnaliseJuridicaRequest request) {
+        if (request.resultados() == null || request.resultados().isEmpty()) throw new ContextoInsuficienteException();
         ContextoJuridico contexto = contextoBuilder.montar(request.termo(), request.resultados(), carregar(request.resultados()));
         JsonNode output = ai.generateJson(INSTRUCOES, ContextoJuridicoPrompt.formatar(contexto), schema);
 
