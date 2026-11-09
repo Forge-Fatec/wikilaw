@@ -14,6 +14,7 @@ import forge.wikilaw.backend.dto.AnaliseJuridicaRequest;
 import forge.wikilaw.backend.dto.AnaliseJuridicaResponse.DocumentoRelevante;
 import forge.wikilaw.backend.dto.PesquisaPdfRequest.DocumentoReferencia;
 import forge.wikilaw.backend.exception.AiProviderException;
+import forge.wikilaw.backend.exception.ContextoInsuficienteException;
 import forge.wikilaw.backend.integration.ai.ContextoJuridicoProperties;
 import forge.wikilaw.backend.integration.ai.GenerativeAiProvider;
 import forge.wikilaw.backend.service.DocumentQueryService.Summary;
@@ -34,8 +35,9 @@ class AnaliseJuridicaServiceTest {
     private final ObjectMapper json = JsonMapper.builder().build();
     private final DocumentQueryService documents = mock(DocumentQueryService.class);
     private final GenerativeAiProvider ai = mock(GenerativeAiProvider.class);
+    private final ContextoJuridicoProperties limites = new ContextoJuridicoProperties();
     private final AnaliseJuridicaService service = new AnaliseJuridicaService(documents, ai,
-            new ContextoJuridicoBuilder(new ContextoJuridicoProperties()), json,
+            new ContextoJuridicoBuilder(limites), json,
             Clock.fixed(Instant.parse("2026-11-03T12:00:00Z"), ZoneId.of("America/Sao_Paulo")));
 
     @Test
@@ -70,7 +72,47 @@ class AnaliseJuridicaServiceTest {
         assertThat(result.aviso()).contains("inteligência artificial");
         assertThat(result.modelo()).isEqualTo("gemini-teste");
         assertThat(result.documentosAnalisados()).isEqualTo(2);
+        assertThat(result.resultadosUtilizados()).containsExactly(
+                new DocumentoReferencia("decisoes", 7L), new DocumentoReferencia("precedentes", 3L));
+        assertThat(result.resultadosOmitidos()).isEmpty();
+        assertThat(result.contextoResumido()).isFalse();
         assertThat(result.geradaEm().toInstant()).isEqualTo(Instant.parse("2026-11-03T12:00:00Z"));
+    }
+
+    @Test
+    void informsThatThereAreNoResultsToContextualiseWithoutCallingTheAi() {
+        assertThatThrownBy(() -> service.analisar(new AnaliseJuridicaRequest("dano moral", List.of())))
+                .isInstanceOf(ContextoInsuficienteException.class)
+                .hasMessageContaining("Não existem resultados suficientes para contextualizar a análise");
+        assertThatThrownBy(() -> service.analisar(new AnaliseJuridicaRequest("dano moral", null)))
+                .isInstanceOf(ContextoInsuficienteException.class);
+        verify(documents, never()).summariesByIds(anyString(), any());
+        verify(ai, never()).generateJson(anyString(), anyString(), any());
+    }
+
+    @Test
+    void sendsOnlyTheResultsThatFitTheContextAndIdentifiesTheOmittedOnes() {
+        limites.setMaxDocumentos(2);
+        when(documents.summariesByIds("decisoes", List.of(1L, 2L, 3L))).thenReturn(List.of(
+                summary(1L, "decisoes", "Primeiro"), summary(2L, "decisoes", "Segundo"), summary(3L, "decisoes", "Terceiro")));
+        when(ai.generateJson(anyString(), anyString(), any())).thenReturn(json.readTree("""
+                {"resumo":"Resumo [1]","documentosRelevantes":[{"referencia":3,"motivo":"fora do contexto"},
+                                                                {"referencia":2,"motivo":"Aplica a tese"}]}"""));
+        var refs = List.of(new DocumentoReferencia("decisoes", 1L), new DocumentoReferencia("decisoes", 2L),
+                new DocumentoReferencia("decisoes", 3L));
+
+        var result = service.analisar(new AnaliseJuridicaRequest("dano moral", refs));
+
+        ArgumentCaptor<String> prompt = ArgumentCaptor.forClass(String.class);
+        verify(ai).generateJson(anyString(), prompt.capture(), any(JsonNode.class));
+        assertThat(prompt.getValue()).contains("Primeiro", "Segundo", "Apenas 2 dos 3 resultados")
+                .doesNotContain("Terceiro");
+        assertThat(result.documentosAnalisados()).isEqualTo(2);
+        assertThat(result.resultadosUtilizados()).containsExactly(refs.get(0), refs.get(1));
+        assertThat(result.resultadosOmitidos()).containsExactly(refs.get(2));
+        assertThat(result.contextoResumido()).isTrue();
+        assertThat(result.documentosRelevantes())
+                .containsExactly(new DocumentoRelevante("decisoes", 2L, "Segundo", "Aplica a tese"));
     }
 
     @Test
