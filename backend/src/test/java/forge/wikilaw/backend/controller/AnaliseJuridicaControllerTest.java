@@ -10,7 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import forge.wikilaw.backend.dto.AnaliseJuridicaRequest;
 import forge.wikilaw.backend.dto.AnaliseJuridicaResponse;
-import forge.wikilaw.backend.dto.PesquisaPdfRequest.DocumentoReferencia;
+import forge.wikilaw.backend.dto.AnaliseJuridicaResponse.ResultadoUtilizado;
 import forge.wikilaw.backend.exception.AiProviderException;
 import forge.wikilaw.backend.exception.ContextoInsuficienteException;
 import forge.wikilaw.backend.service.AnaliseJuridicaService;
@@ -38,7 +38,7 @@ class AnaliseJuridicaControllerTest {
         when(service.analisar(any())).thenReturn(new AnaliseJuridicaResponse("Resumo [1]", "Questao", "Entendimento",
                 List.of("Ponto"), List.of("CDC, art. 14"), List.of(), List.of(), List.of(), true,
                 AnaliseJuridicaService.AVISO, "gemini-3.5-flash", OffsetDateTime.parse("2026-11-03T09:00:00-03:00"), 1,
-                List.of(new DocumentoReferencia("decisoes", 7L)), List.of(), false));
+                List.of(new ResultadoUtilizado(1, "decisoes", 7L)), List.of(), false));
 
         mvc.perform(post("/api/pesquisas/analises").contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isOk())
@@ -46,6 +46,7 @@ class AnaliseJuridicaControllerTest {
                 .andExpect(jsonPath("$.geradaPorIa").value(true))
                 .andExpect(jsonPath("$.aviso").value(AnaliseJuridicaService.AVISO))
                 .andExpect(jsonPath("$.modelo").value("gemini-3.5-flash"))
+                .andExpect(jsonPath("$.resultadosUtilizados[0].posicao").value(1))
                 .andExpect(jsonPath("$.resultadosUtilizados[0].categoria").value("decisoes"))
                 .andExpect(jsonPath("$.resultadosUtilizados[0].id").value(7))
                 .andExpect(jsonPath("$.resultadosOmitidos").isEmpty());

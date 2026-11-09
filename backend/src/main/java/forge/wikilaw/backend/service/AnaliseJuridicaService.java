@@ -3,6 +3,7 @@ package forge.wikilaw.backend.service;
 import forge.wikilaw.backend.dto.AnaliseJuridicaRequest;
 import forge.wikilaw.backend.dto.AnaliseJuridicaResponse;
 import forge.wikilaw.backend.dto.AnaliseJuridicaResponse.DocumentoRelevante;
+import forge.wikilaw.backend.dto.AnaliseJuridicaResponse.ResultadoUtilizado;
 import forge.wikilaw.backend.exception.AiProviderException;
 import forge.wikilaw.backend.integration.ai.GenerativeAiProvider;
 import forge.wikilaw.backend.service.contexto.ContextoJuridico;
@@ -104,7 +105,8 @@ public class AnaliseJuridicaService {
                 ai.model(),
                 OffsetDateTime.now(clock),
                 contexto.documentos().size(),
-                contexto.utilizados(),
+                contexto.documentos().stream().map(doc -> new ResultadoUtilizado(doc.numero(),
+                        doc.referencia().categoria(), doc.referencia().id())).toList(),
                 contexto.omitidos(),
                 contexto.truncado());
     }
