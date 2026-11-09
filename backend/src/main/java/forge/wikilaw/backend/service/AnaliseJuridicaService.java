@@ -7,6 +7,10 @@ import forge.wikilaw.backend.dto.PesquisaPdfRequest.DocumentoReferencia;
 import forge.wikilaw.backend.exception.AiProviderException;
 import forge.wikilaw.backend.integration.ai.GenerativeAiProvider;
 import forge.wikilaw.backend.service.DocumentQueryService.Summary;
+import forge.wikilaw.backend.service.contexto.ContextoJuridico;
+import forge.wikilaw.backend.service.contexto.ContextoJuridico.DocumentoContexto;
+import forge.wikilaw.backend.service.contexto.ContextoJuridicoBuilder;
+import forge.wikilaw.backend.service.contexto.ContextoJuridicoPrompt;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -35,7 +39,6 @@ public class AnaliseJuridicaService {
             + "documentos selecionados. Pode conter erros ou omissões e não substitui a leitura dos documentos "
             + "nem a orientação de um profissional do Direito.";
 
-    static final int MAX_CARACTERES_CAMPO = 2_500;
     private static final int MAX_CARACTERES_SAIDA = 4_000;
     private static final int MAX_ITENS_LISTA = 8;
 
@@ -58,24 +61,28 @@ public class AnaliseJuridicaService {
 
     private final DocumentQueryService documents;
     private final GenerativeAiProvider ai;
+    private final ContextoJuridicoBuilder contextoBuilder;
     private final ObjectNode schema;
     private final Clock clock;
 
     @Autowired
-    public AnaliseJuridicaService(DocumentQueryService documents, GenerativeAiProvider ai, ObjectMapper json) {
-        this(documents, ai, json, Clock.system(ZoneId.of("America/Sao_Paulo")));
+    public AnaliseJuridicaService(DocumentQueryService documents, GenerativeAiProvider ai,
+            ContextoJuridicoBuilder contextoBuilder, ObjectMapper json) {
+        this(documents, ai, contextoBuilder, json, Clock.system(ZoneId.of("America/Sao_Paulo")));
     }
 
-    AnaliseJuridicaService(DocumentQueryService documents, GenerativeAiProvider ai, ObjectMapper json, Clock clock) {
+    AnaliseJuridicaService(DocumentQueryService documents, GenerativeAiProvider ai,
+            ContextoJuridicoBuilder contextoBuilder, ObjectMapper json, Clock clock) {
         this.documents = documents;
         this.ai = ai;
+        this.contextoBuilder = contextoBuilder;
         this.schema = responseSchema(json);
         this.clock = clock;
     }
 
     public AnaliseJuridicaResponse analisar(AnaliseJuridicaRequest request) {
-        List<Summary> ordered = carregar(request.resultados());
-        JsonNode output = ai.generateJson(INSTRUCOES, prompt(request.termo(), ordered), schema);
+        ContextoJuridico contexto = contextoBuilder.montar(request.termo(), request.resultados(), carregar(request.resultados()));
+        JsonNode output = ai.generateJson(INSTRUCOES, ContextoJuridicoPrompt.formatar(contexto), schema);
 
         String resumo = texto(output, "resumo");
         if (resumo == null)
@@ -87,13 +94,13 @@ public class AnaliseJuridicaService {
                 lista(output, "pontosPrincipais"),
                 lista(output, "fundamentosLegais"),
                 lista(output, "divergencias"),
-                relevantes(output, request.resultados(), ordered),
+                relevantes(output, contexto),
                 lista(output, "limitacoes"),
                 true,
                 AVISO,
                 ai.model(),
                 OffsetDateTime.now(clock),
-                ordered.size());
+                contexto.documentos().size());
     }
 
     /** Busca cada documento no acervo, preservando a ordem exibida na pesquisa. */
@@ -112,63 +119,15 @@ public class AnaliseJuridicaService {
         return referencias.stream().map(found::get).toList();
     }
 
-    String prompt(String termo, List<Summary> ordered) {
-        var prompt = new StringBuilder();
-        String pesquisa = limpar(termo);
-        prompt.append("Pesquisa do usuário: ").append(pesquisa == null ? "(sem termo informado)" : pesquisa).append("\n\n");
-        prompt.append("Documentos encontrados (").append(ordered.size()).append("):\n");
-        for (int i = 0; i < ordered.size(); i++) {
-            Summary doc = ordered.get(i);
-            prompt.append("\n<documento numero=\"").append(i + 1).append("\">\n");
-            campo(prompt, "Categoria", categoria(doc.categoria()));
-            campo(prompt, "Título", doc.titulo());
-            campo(prompt, "Tipo", doc.tipoDocumento());
-            campo(prompt, "Fonte", doc.fonte());
-            campo(prompt, "Tribunal", doc.tribunal());
-            campo(prompt, "Órgão julgador", doc.orgaoJulgador());
-            campo(prompt, "Processo ou tema", doc.numeroProcessoOuTema());
-            campo(prompt, "Relator ou autores", doc.autoresOuRelator());
-            campo(prompt, "Data de julgamento", doc.dataJulgamento() == null ? null : doc.dataJulgamento().toString());
-            campo(prompt, "Data de publicação", doc.dataPublicacao() == null ? null : doc.dataPublicacao().toString());
-            campo(prompt, "Situação", doc.situacao());
-            campo(prompt, "Resultado", doc.resultado());
-            campo(prompt, "Ementa ou resumo", doc.resumoOuEmenta());
-            campo(prompt, "Decisão", doc.decisao());
-            prompt.append("</documento>\n");
-        }
-        return prompt.toString();
-    }
-
-    private static void campo(StringBuilder prompt, String nome, String valor) {
-        String texto = limpar(valor);
-        if (texto == null) return;
-        if (texto.length() > MAX_CARACTERES_CAMPO) texto = texto.substring(0, MAX_CARACTERES_CAMPO) + "…";
-        prompt.append(nome).append(": ").append(texto).append('\n');
-    }
-
-    private static String limpar(String valor) {
-        if (valor == null) return null;
-        String texto = valor.replace("</documento", "</ documento").replaceAll("\\s+", " ").strip();
-        return texto.isEmpty() ? null : texto;
-    }
-
-    private static String categoria(String categoria) {
-        return switch (categoria == null ? "" : categoria) {
-            case "decisoes" -> "Decisão judicial";
-            case "precedentes" -> "Precedente";
-            case "doutrina" -> "Doutrina";
-            default -> categoria;
-        };
-    }
-
-    private List<DocumentoRelevante> relevantes(JsonNode output, List<DocumentoReferencia> referencias, List<Summary> ordered) {
+    /** Liga cada citacao do modelo, feita pelo numero do documento, ao resultado da pesquisa correspondente. */
+    private List<DocumentoRelevante> relevantes(JsonNode output, ContextoJuridico contexto) {
         var result = new ArrayList<DocumentoRelevante>();
         var vistos = new LinkedHashSet<Integer>();
         for (JsonNode item : output.path("documentosRelevantes")) {
             int numero = item.path("referencia").asInt(0);
-            if (numero < 1 || numero > ordered.size() || !vistos.add(numero)) continue;
-            DocumentoReferencia ref = referencias.get(numero - 1);
-            result.add(new DocumentoRelevante(ref.categoria(), ref.id(), ordered.get(numero - 1).titulo(),
+            DocumentoContexto doc = contexto.documento(numero);
+            if (doc == null || !vistos.add(numero)) continue;
+            result.add(new DocumentoRelevante(doc.referencia().categoria(), doc.referencia().id(), doc.titulo(),
                     texto(item, "motivo")));
             if (result.size() == MAX_ITENS_LISTA) break;
         }
