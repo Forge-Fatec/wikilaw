@@ -141,6 +141,8 @@ class AnaliseJuridicaServiceTest {
         verify(ai).generateJson(anyString(), prompt.capture(), any(JsonNode.class));
         assertThat(prompt.getValue()).containsSubsequence("<documento numero=\"1\">", "<documento numero=\"3\">")
                 .doesNotContain("Execução fiscal");
+        assertThat(prompt.getValue()).containsSubsequence("<pesquisa_ativa>", "Categorias: decisões judiciais",
+                "Ordenação: Mais recentes primeiro", "Total de resultados: 3", "</pesquisa_ativa>");
         assertThat(result.resultadosUtilizados())
                 .containsExactly(new ResultadoUtilizado(1, "decisoes", 1L), new ResultadoUtilizado(3, "decisoes", 3L));
         assertThat(result.resultadosOmitidos()).containsExactly(refs.get(1));
