@@ -48,7 +48,7 @@ test('CA01, CA02 e CA04: gera a análise dos primeiros resultados e a identifica
 
   await expect(painel(page).getByText(ANALISE.resumo)).toBeVisible()
   expect(payload?.termo).toBe('negativação indevida')
-  expect(payload?.resultados).toHaveLength(10)
+  expect(payload?.resultados).toHaveLength(12)
   expect(payload?.resultados[0]).toEqual({ categoria: 'decisoes', id: 12 })
 
   // CA02: seções organizadas, com destaque para as informações principais.
