@@ -3,28 +3,23 @@ package forge.wikilaw.backend.service;
 import forge.wikilaw.backend.dto.AnaliseJuridicaRequest;
 import forge.wikilaw.backend.dto.AnaliseJuridicaResponse;
 import forge.wikilaw.backend.dto.AnaliseJuridicaResponse.DocumentoRelevante;
-import forge.wikilaw.backend.dto.PesquisaPdfRequest.DocumentoReferencia;
 import forge.wikilaw.backend.exception.AiProviderException;
-import forge.wikilaw.backend.exception.ContextoInsuficienteException;
 import forge.wikilaw.backend.integration.ai.GenerativeAiProvider;
-import forge.wikilaw.backend.service.DocumentQueryService.Summary;
 import forge.wikilaw.backend.service.contexto.ContextoJuridico;
 import forge.wikilaw.backend.service.contexto.ContextoJuridico.DocumentoContexto;
 import forge.wikilaw.backend.service.contexto.ContextoJuridicoBuilder;
 import forge.wikilaw.backend.service.contexto.ContextoJuridicoPrompt;
+import forge.wikilaw.backend.service.pesquisa.PesquisaAtiva;
+import forge.wikilaw.backend.service.pesquisa.PesquisaAtiva.ResultadoPesquisa;
+import forge.wikilaw.backend.service.pesquisa.PesquisaAtivaService;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -64,21 +59,21 @@ public class AnaliseJuridicaService {
             - Em "documentosRelevantes", use o número do documento no campo "referencia".
             """;
 
-    private final DocumentQueryService documents;
+    private final PesquisaAtivaService pesquisas;
     private final GenerativeAiProvider ai;
     private final ContextoJuridicoBuilder contextoBuilder;
     private final ObjectNode schema;
     private final Clock clock;
 
     @Autowired
-    public AnaliseJuridicaService(DocumentQueryService documents, GenerativeAiProvider ai,
+    public AnaliseJuridicaService(PesquisaAtivaService pesquisas, GenerativeAiProvider ai,
             ContextoJuridicoBuilder contextoBuilder, ObjectMapper json) {
-        this(documents, ai, contextoBuilder, json, Clock.system(ZoneId.of("America/Sao_Paulo")));
+        this(pesquisas, ai, contextoBuilder, json, Clock.system(ZoneId.of("America/Sao_Paulo")));
     }
 
-    AnaliseJuridicaService(DocumentQueryService documents, GenerativeAiProvider ai,
+    AnaliseJuridicaService(PesquisaAtivaService pesquisas, GenerativeAiProvider ai,
             ContextoJuridicoBuilder contextoBuilder, ObjectMapper json, Clock clock) {
-        this.documents = documents;
+        this.pesquisas = pesquisas;
         this.ai = ai;
         this.contextoBuilder = contextoBuilder;
         this.schema = responseSchema(json);
@@ -86,8 +81,10 @@ public class AnaliseJuridicaService {
     }
 
     public AnaliseJuridicaResponse analisar(AnaliseJuridicaRequest request) {
-        if (request.resultados() == null || request.resultados().isEmpty()) throw new ContextoInsuficienteException();
-        ContextoJuridico contexto = contextoBuilder.montar(request.termo(), request.resultados(), carregar(request.resultados()));
+        PesquisaAtiva pesquisa = pesquisas.recuperar(request);
+        ContextoJuridico contexto = contextoBuilder.montar(pesquisa.termo(),
+                pesquisa.resultados().stream().map(ResultadoPesquisa::referencia).toList(),
+                pesquisa.resultados().stream().map(ResultadoPesquisa::documento).toList());
         JsonNode output = ai.generateJson(INSTRUCOES, ContextoJuridicoPrompt.formatar(contexto), schema);
 
         String resumo = texto(output, "resumo");
@@ -110,22 +107,6 @@ public class AnaliseJuridicaService {
                 contexto.utilizados(),
                 contexto.omitidos(),
                 contexto.truncado());
-    }
-
-    /** Busca cada documento no acervo, preservando a ordem exibida na pesquisa. */
-    private List<Summary> carregar(List<DocumentoReferencia> referencias) {
-        if (new LinkedHashSet<>(referencias).size() != referencias.size())
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resultados repetidos na solicitação");
-
-        Map<String, List<Long>> idsPorCategoria = new LinkedHashMap<>();
-        referencias.forEach(ref -> idsPorCategoria.computeIfAbsent(ref.categoria(), key -> new ArrayList<>()).add(ref.id()));
-        Map<DocumentoReferencia, Summary> found = new HashMap<>();
-        idsPorCategoria.forEach((categoria, ids) -> documents.summariesByIds(categoria, ids)
-                .forEach(row -> found.put(new DocumentoReferencia(categoria, row.id()), row)));
-        if (found.size() != referencias.size())
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Um resultado não está mais disponível. Atualize a pesquisa e tente novamente.");
-        return referencias.stream().map(found::get).toList();
     }
 
     /** Liga cada citacao do modelo, feita pelo numero do documento, ao resultado da pesquisa correspondente. */
