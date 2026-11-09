@@ -6,16 +6,19 @@ import forge.wikilaw.backend.integration.ai.ContextoJuridicoProperties;
 import forge.wikilaw.backend.service.DocumentQueryService.Summary;
 import forge.wikilaw.backend.service.contexto.ContextoJuridico.Campo;
 import forge.wikilaw.backend.service.contexto.ContextoJuridico.DocumentoContexto;
+import forge.wikilaw.backend.service.pesquisa.PesquisaAtiva;
+import forge.wikilaw.backend.service.pesquisa.PesquisaAtiva.ResultadoPesquisa;
+import forge.wikilaw.backend.service.pesquisa.SelecaoResultados;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
 /**
- * Monta o contexto juridico da IA a partir dos resultados de uma pesquisa, respeitando os limites configurados.
+ * Monta o contexto juridico da IA a partir dos resultados selecionados da pesquisa, respeitando os limites
+ * configurados.
  *
- * <p>Os resultados chegam na ordem de relevancia da pesquisa; entram os primeiros {@code maxDocumentos}.
- * O orcamento de caracteres e dividido igualmente entre eles: os dados de identificacao (titulo, tribunal,
+ * <p>O orcamento de caracteres e dividido igualmente entre os resultados: os dados de identificacao (titulo, tribunal,
  * processo, datas) sempre entram, e o conteudo (ementa, depois decisao) ocupa o que sobrar da cota de cada um.
  */
 @Component
@@ -32,22 +35,22 @@ public class ContextoJuridicoBuilder {
     }
 
     /**
-     * @param referencias resultados da pesquisa na ordem exibida ao usuario
-     * @param documentos o documento do acervo de cada referencia, na mesma ordem
-     * @throws ContextoInsuficienteException se a pesquisa nao trouxe resultados
+     * Cada documento recebe como numero a posicao do resultado na pesquisa, para a citacao [n] apontar para
+     * o mesmo item que o usuario ve na lista.
+     *
+     * @param selecao resultados escolhidos para a analise e os que ficaram de fora
+     * @throws ContextoInsuficienteException se nenhum resultado foi selecionado
      */
-    public ContextoJuridico montar(String termo, List<DocumentoReferencia> referencias, List<Summary> documentos) {
-        if (referencias == null || referencias.isEmpty()) throw new ContextoInsuficienteException();
-        if (documentos.size() != referencias.size())
-            throw new IllegalArgumentException("Cada referencia precisa do seu documento");
+    public ContextoJuridico montar(PesquisaAtiva pesquisa, SelecaoResultados selecao) {
+        List<ResultadoPesquisa> selecionados = selecao.selecionados();
+        if (selecionados.isEmpty()) throw new ContextoInsuficienteException();
 
-        int selecionados = Math.min(referencias.size(), limites.getMaxDocumentos());
-        int cota = limites.getMaxCaracteres() / selecionados;
-        var contexto = new ArrayList<DocumentoContexto>(selecionados);
-        for (int i = 0; i < selecionados; i++)
-            contexto.add(documento(i + 1, referencias.get(i), documentos.get(i), cota));
-        return new ContextoJuridico(limpar(termo), contexto, referencias.size(),
-                referencias.subList(selecionados, referencias.size()));
+        int cota = limites.getMaxCaracteres() / selecionados.size();
+        var contexto = new ArrayList<DocumentoContexto>(selecionados.size());
+        for (ResultadoPesquisa resultado : selecionados)
+            contexto.add(documento(resultado.posicao(), resultado.referencia(), resultado.documento(), cota));
+        return new ContextoJuridico(limpar(pesquisa.termo()), contexto, pesquisa.totalResultados(),
+                selecao.omitidos().stream().map(ResultadoPesquisa::referencia).toList());
     }
 
     private DocumentoContexto documento(int numero, DocumentoReferencia referencia, Summary doc, int cota) {

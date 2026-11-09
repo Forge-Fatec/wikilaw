@@ -4,8 +4,8 @@ import forge.wikilaw.backend.dto.PesquisaPdfRequest.DocumentoReferencia;
 import java.util.List;
 
 /**
- * Contexto juridico enviado a IA: o termo pesquisado e os resultados selecionados, cada um numerado na ordem
- * da pesquisa e ligado ao documento do acervo. O modelo cita os documentos pelo {@code numero}.
+ * Contexto juridico enviado a IA: o termo pesquisado e os resultados selecionados, cada um numerado pela posicao
+ * na pesquisa e ligado ao documento do acervo. O modelo cita os documentos pelo {@code numero}.
  *
  * @param termo termo pesquisado pelo usuario, ou {@code null}
  * @param documentos resultados que cabem nos limites configurados, do mais ao menos relevante
@@ -23,9 +23,9 @@ public record ContextoJuridico(
         omitidos = List.copyOf(omitidos);
     }
 
-    /** Documento do acervo pelo numero usado no contexto, ou {@code null} se o numero nao existir. */
+    /** Documento pelo numero citado pelo modelo (a posicao na pesquisa), ou {@code null} se nao estiver no contexto. */
     public DocumentoContexto documento(int numero) {
-        return numero < 1 || numero > documentos.size() ? null : documentos.get(numero - 1);
+        return documentos.stream().filter(doc -> doc.numero() == numero).findFirst().orElse(null);
     }
 
     public List<DocumentoReferencia> utilizados() {
@@ -37,7 +37,7 @@ public record ContextoJuridico(
     }
 
     /**
-     * @param numero posicao do documento no contexto, a partir de 1
+     * @param numero posicao do resultado na pesquisa ativa, a partir de 1
      * @param referencia categoria e id do documento no acervo
      * @param campos dados do documento, em ordem de prioridade
      * @param truncado {@code true} se algum campo foi cortado ou deixado de fora pelo limite de caracteres
