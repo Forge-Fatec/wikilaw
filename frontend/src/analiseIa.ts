@@ -1,17 +1,41 @@
 import { API_BASE } from './api'
 import { apiFetch } from './auth'
 
-/** Mesmo limite do back (AnaliseJuridicaRequest.MAX_DOCUMENTOS). */
-export const MAX_DOCUMENTOS_ANALISE = 10
+/**
+ * Quantos resultados da pesquisa ativa vão para o back (AnaliseJuridicaRequest.MAX_RESULTADOS).
+ * O back escolhe entre eles os mais relevantes que cabem no limite de contexto da IA.
+ */
+export const MAX_RESULTADOS_ANALISE = 200
 
 export interface ReferenciaDocumento {
   categoria: string
   id: number
 }
 
+/** Como a pesquisa exibida foi feita e os filtros aplicados nela (PesquisaAtivaRequest no back). */
+export interface PesquisaAtiva {
+  modo: 'textual' | 'similaridade'
+  consultaContextual: string | null
+  documentoContexto: string | null
+  categorias: string[]
+  fontes: string[]
+  tribunal: string | null
+  dataDe: string | null
+  dataAte: string | null
+  ordenacao: 'mais-recentes' | 'mais-antigos' | 'relevancia'
+  resultadoDecisao: string | null
+  orgaoJulgador: string | null
+  totalResultados: number
+}
+
 export interface DocumentoRelevante extends ReferenciaDocumento {
   titulo: string | null
   motivo: string | null
+}
+
+/** Resultado enviado à IA; `posicao` é a posição na lista e o número das citações, como [3]. */
+export interface ResultadoUtilizado extends ReferenciaDocumento {
+  posicao: number
 }
 
 export interface AnaliseJuridica {
@@ -28,10 +52,14 @@ export interface AnaliseJuridica {
   modelo: string
   geradaEm: string
   documentosAnalisados: number
+  resultadosUtilizados?: ResultadoUtilizado[]
+  resultadosOmitidos?: ReferenciaDocumento[]
+  contextoResumido?: boolean
 }
 
 export async function gerarAnaliseJuridica(
   termo: string,
+  pesquisa: PesquisaAtiva,
   resultados: ReferenciaDocumento[],
   signal?: AbortSignal,
 ): Promise<AnaliseJuridica> {
@@ -42,7 +70,8 @@ export async function gerarAnaliseJuridica(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         termo: termo.slice(0, 2000) || null,
-        resultados: resultados.slice(0, MAX_DOCUMENTOS_ANALISE),
+        pesquisa: { ...pesquisa, consultaContextual: pesquisa.consultaContextual?.slice(0, 2000) || null },
+        resultados: resultados.slice(0, MAX_RESULTADOS_ANALISE),
       }),
       signal,
     })
