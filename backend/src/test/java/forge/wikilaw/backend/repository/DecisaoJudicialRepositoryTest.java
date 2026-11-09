@@ -41,6 +41,18 @@ class DecisaoJudicialRepositoryTest {
         assertThat(repository.countByIdFonteAndAtivoTrue(FONTE_STF)).isEqualTo(2);
     }
 
+    @Test
+    void maxIdIsZeroWithoutDecisoesAndGrowsWithEachNewOne() {
+        assertThat(repository.findMaxId()).isZero();
+
+        repository.saveAndFlush(decisao(FONTE_STF, "RE-1000", true));
+        long primeiro = repository.findMaxId();
+        DecisaoJudicial nova = repository.saveAndFlush(decisao(FONTE_STF, "RE-1001", true));
+
+        assertThat(primeiro).isPositive();
+        assertThat(repository.findMaxId()).isEqualTo(nova.getId()).isGreaterThan(primeiro);
+    }
+
     private DecisaoJudicial decisao(long fonte, String identificador, boolean ativo) {
         DecisaoJudicial decisao = new DecisaoJudicial();
         decisao.setIdFonte(fonte);
