@@ -2039,6 +2039,9 @@ select,
 .ai-document-link:focus-visible { outline: 3px solid #7197b1; outline-offset: 2px; }
 .ai-meta { margin: 20px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
 .ai-context-scope { margin: 18px 0 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.ai-citation { white-space: nowrap; }
+.ai-citation a { color: var(--terracotta-dark); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.ai-citation a:focus-visible { outline: 2px solid #7197b1; outline-offset: 1px; }
 .ai-sources { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
 .ai-sources-empty { margin: 0; font-size: 13px; line-height: 1.55; color: var(--muted); }
 .ai-sources-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }

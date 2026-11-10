@@ -7,6 +7,7 @@ import {
   type ReferenciaDocumento,
 } from '../analiseIa'
 import { FontesAnalise } from './FontesAnalise'
+import { TextoComCitacoes } from './TextoComCitacoes'
 
 interface Props {
   /** Resultados da pesquisa ativa na ordem exibida; o back escolhe os mais relevantes entre eles. */
@@ -119,6 +120,9 @@ function ConteudoAnalise({ analise, onAbrirDocumento }: {
   onAbrirDocumento: (referencia: ReferenciaDocumento) => void
 }) {
   const geradaEm = new Date(analise.geradaEm)
+  // So as fontes verificadas pelo back viram link; uma citacao sem fonte fica como texto.
+  const numerosFontes = new Set((analise.fontes ?? []).map((fonte) => fonte.numero))
+  const citado = (texto: string) => <TextoComCitacoes texto={texto} fontes={numerosFontes} />
   return (
     <div className="ai-analysis-body">
       <p className="ai-disclaimer" role="note">
@@ -126,20 +130,20 @@ function ConteudoAnalise({ analise, onAbrirDocumento }: {
       </p>
 
       <h4>Resumo</h4>
-      <p className="ai-summary">{analise.resumo}</p>
+      <p className="ai-summary">{citado(analise.resumo)}</p>
 
       {(analise.questaoJuridica || analise.entendimentoPredominante) && (
         <div className="ai-highlights">
           {analise.questaoJuridica && (
             <div className="ai-highlight">
               <span>Questão jurídica</span>
-              <p>{analise.questaoJuridica}</p>
+              <p>{citado(analise.questaoJuridica)}</p>
             </div>
           )}
           {analise.entendimentoPredominante && (
             <div className="ai-highlight strong">
               <span>Entendimento predominante</span>
-              <p>{analise.entendimentoPredominante}</p>
+              <p>{citado(analise.entendimentoPredominante)}</p>
             </div>
           )}
         </div>
@@ -149,7 +153,7 @@ function ConteudoAnalise({ analise, onAbrirDocumento }: {
         <>
           <h4>Pontos principais</h4>
           <ul className="ai-list">
-            {analise.pontosPrincipais.map((ponto, i) => <li key={i}>{ponto}</li>)}
+            {analise.pontosPrincipais.map((ponto, i) => <li key={i}>{citado(ponto)}</li>)}
           </ul>
         </>
       )}
@@ -158,7 +162,7 @@ function ConteudoAnalise({ analise, onAbrirDocumento }: {
         <>
           <h4>Fundamentos legais citados</h4>
           <ul className="ai-chips">
-            {analise.fundamentosLegais.map((fundamento, i) => <li key={i}>{fundamento}</li>)}
+            {analise.fundamentosLegais.map((fundamento, i) => <li key={i}>{citado(fundamento)}</li>)}
           </ul>
         </>
       )}
@@ -167,7 +171,7 @@ function ConteudoAnalise({ analise, onAbrirDocumento }: {
         <>
           <h4>Divergências</h4>
           <ul className="ai-list">
-            {analise.divergencias.map((divergencia, i) => <li key={i}>{divergencia}</li>)}
+            {analise.divergencias.map((divergencia, i) => <li key={i}>{citado(divergencia)}</li>)}
           </ul>
         </>
       )}
@@ -181,7 +185,7 @@ function ConteudoAnalise({ analise, onAbrirDocumento }: {
                 <button type="button" className="ai-document-link" onClick={() => onAbrirDocumento(doc)}>
                   {doc.titulo ?? 'Documento sem título'}
                 </button>
-                {doc.motivo && <p>{doc.motivo}</p>}
+                {doc.motivo && <p>{citado(doc.motivo)}</p>}
               </li>
             ))}
           </ol>
@@ -196,7 +200,7 @@ function ConteudoAnalise({ analise, onAbrirDocumento }: {
         <>
           <h4>Limitações</h4>
           <ul className="ai-list muted">
-            {analise.limitacoes.map((limitacao, i) => <li key={i}>{limitacao}</li>)}
+            {analise.limitacoes.map((limitacao, i) => <li key={i}>{citado(limitacao)}</li>)}
           </ul>
         </>
       )}
@@ -204,7 +208,7 @@ function ConteudoAnalise({ analise, onAbrirDocumento }: {
       <p className="ai-meta">
         Gerada com auxílio de IA pelo modelo {analise.modelo}
         {Number.isNaN(geradaEm.getTime()) ? '' : ` em ${horario.format(geradaEm)}`}
-        {' · '}Os números entre colchetes, como [1], indicam a posição do documento na lista de resultados.
+        {' · '}Os números entre colchetes, como [1], indicam a posição do documento na lista de resultados e levam à fonte correspondente.
       </p>
     </div>
   )
