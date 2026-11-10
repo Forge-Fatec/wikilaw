@@ -75,6 +75,11 @@ export interface AnaliseJuridica {
   fontes?: FonteAnalise[]
 }
 
+/** Âncora de cada fonte na lista de fontes, usada pelas citações [n] do texto da análise. */
+export function idFonte(numero: number) {
+  return `fonte-analise-${numero}`
+}
+
 export async function gerarAnaliseJuridica(
   termo: string,
   pesquisa: PesquisaAtiva,
