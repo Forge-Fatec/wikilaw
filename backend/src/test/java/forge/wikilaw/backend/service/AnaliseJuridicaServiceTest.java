@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import forge.wikilaw.backend.dto.AnaliseJuridicaRequest;
 import forge.wikilaw.backend.dto.AnaliseJuridicaResponse.DocumentoRelevante;
+import forge.wikilaw.backend.dto.AnaliseJuridicaResponse.FonteAnalise;
 import forge.wikilaw.backend.dto.AnaliseJuridicaResponse.ResultadoUtilizado;
 import forge.wikilaw.backend.dto.PesquisaAtivaRequest;
 import forge.wikilaw.backend.dto.PesquisaPdfRequest.DocumentoReferencia;
@@ -148,6 +149,35 @@ class AnaliseJuridicaServiceTest {
         assertThat(result.resultadosOmitidos()).containsExactly(refs.get(1));
         assertThat(result.documentosRelevantes())
                 .containsExactly(new DocumentoRelevante(3, "decisoes", 3L, "Dano moral por negativação", "Trata do caso"));
+    }
+
+    @Test
+    void identifiesTheSourcesBehindEachSectionAndDropsUnverifiableCitations() {
+        var comLink = new Summary(1L, "STJ", "decisoes", "ext-1", "REsp 1", "Acórdão", "REsp 1.234/SP", null,
+                "Ementa", null, null, "STJ", null, null, null, null, null, null, null, null, null, null, null,
+                "https://processo.stj.jus.br/1", null);
+        var semLink = new Summary(2L, "TJDFT", "decisoes", "ext-2", "Apelação 2", null, "0700-2", null, "Ementa",
+                null, null, "TJDFT", null, null, null, null, null, null, null, null, null, null, null,
+                "javascript:alert(1)", null);
+        when(documents.summariesByIds("decisoes", List.of(1L, 2L))).thenReturn(List.of(comLink, semLink));
+        when(ai.generateJson(anyString(), anyString(), any())).thenReturn(json.readTree("""
+                {"resumo":"Dano presumido [1, 7].",
+                 "entendimentoPredominante":"Prevalece a tese do STJ [1]",
+                 "pontosPrincipais":["Prazo prescricional de 5 anos [9]", "Valor razoável [2]"],
+                 "documentosRelevantes":[{"referencia":2,"motivo":"Aplica a tese [1]"},{"referencia":8,"motivo":"x"}]}"""));
+
+        var result = service.analisar(new AnaliseJuridicaRequest("dano moral", List.of(
+                new DocumentoReferencia("decisoes", 1L), new DocumentoReferencia("decisoes", 2L))));
+
+        assertThat(result.resumo()).isEqualTo("Dano presumido [1].");
+        assertThat(result.pontosPrincipais()).containsExactly("Prazo prescricional de 5 anos", "Valor razoável [2]");
+        assertThat(result.documentosRelevantes()).extracting(DocumentoRelevante::numero).containsExactly(2);
+        assertThat(result.fontes()).containsExactly(
+                new FonteAnalise(1, "decisoes", 1L, "REsp 1", "STJ", "STJ", "REsp 1.234/SP", "ext-1",
+                        "https://processo.stj.jus.br/1",
+                        List.of("Resumo", "Entendimento predominante", "Documentos mais relevantes")),
+                new FonteAnalise(2, "decisoes", 2L, "Apelação 2", "TJDFT", "TJDFT", "0700-2", "ext-2", null,
+                        List.of("Pontos principais", "Documentos mais relevantes")));
     }
 
     @Test
