@@ -10,6 +10,7 @@ import forge.wikilaw.backend.service.contexto.ContextoJuridico;
 import forge.wikilaw.backend.service.contexto.ContextoJuridico.DocumentoContexto;
 import forge.wikilaw.backend.service.contexto.ContextoJuridicoBuilder;
 import forge.wikilaw.backend.service.contexto.ContextoJuridicoPrompt;
+import forge.wikilaw.backend.service.contexto.ReferenciasAnalise;
 import forge.wikilaw.backend.service.pesquisa.PesquisaAtiva;
 import forge.wikilaw.backend.service.pesquisa.PesquisaAtivaService;
 import forge.wikilaw.backend.service.pesquisa.SelecaoResultadosRelevantes;
@@ -19,6 +20,8 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
@@ -31,6 +34,8 @@ import tools.jackson.databind.node.ObjectNode;
  */
 @Service
 public class AnaliseJuridicaService {
+
+    private static final Logger log = LoggerFactory.getLogger(AnaliseJuridicaService.class);
 
     public static final String AVISO = "Análise gerada com auxílio de inteligência artificial a partir dos "
             + "documentos selecionados. Pode conter erros ou omissões e não substitui a leitura dos documentos "
@@ -91,18 +96,29 @@ public class AnaliseJuridicaService {
         ContextoJuridico contexto = contextoBuilder.montar(pesquisa, selecao.selecionar(pesquisa));
         JsonNode output = ai.generateJson(INSTRUCOES, ContextoJuridicoPrompt.formatar(contexto), schema);
 
-        String resumo = texto(output, "resumo");
+        // Toda citacao [n] e conferida contra o contexto: a analise so aponta fontes que o modelo recebeu.
+        var referencias = new ReferenciasAnalise(contexto);
+        String resumo = referencias.citar("Resumo", texto(output, "resumo"));
         if (resumo == null)
             throw new AiProviderException("O Gemini retornou uma análise sem resumo", 0);
+        String questaoJuridica = referencias.citar("Questão jurídica", texto(output, "questaoJuridica"));
+        String entendimento = referencias.citar("Entendimento predominante", texto(output, "entendimentoPredominante"));
+        List<String> pontos = referencias.citar("Pontos principais", lista(output, "pontosPrincipais"));
+        List<String> fundamentos = referencias.citar("Fundamentos legais", lista(output, "fundamentosLegais"));
+        List<String> divergencias = referencias.citar("Divergências", lista(output, "divergencias"));
+        List<DocumentoRelevante> relevantes = relevantes(output, contexto, referencias);
+        List<String> limitacoes = referencias.citar("Limitações", lista(output, "limitacoes"));
+        if (referencias.descartadas() > 0)
+            log.warn("Citacoes da IA para documentos fora do contexto foram descartadas: {}", referencias.descartadas());
         return new AnaliseJuridicaResponse(
                 resumo,
-                texto(output, "questaoJuridica"),
-                texto(output, "entendimentoPredominante"),
-                lista(output, "pontosPrincipais"),
-                lista(output, "fundamentosLegais"),
-                lista(output, "divergencias"),
-                relevantes(output, contexto),
-                lista(output, "limitacoes"),
+                questaoJuridica,
+                entendimento,
+                pontos,
+                fundamentos,
+                divergencias,
+                relevantes,
+                limitacoes,
                 true,
                 AVISO,
                 ai.model(),
@@ -112,19 +128,20 @@ public class AnaliseJuridicaService {
                         doc.referencia().categoria(), doc.referencia().id())).toList(),
                 contexto.omitidos(),
                 contexto.truncado(),
-                List.of());
+                referencias.fontes());
     }
 
     /** Liga cada citacao do modelo, feita pelo numero do documento, ao resultado da pesquisa correspondente. */
-    private List<DocumentoRelevante> relevantes(JsonNode output, ContextoJuridico contexto) {
+    private List<DocumentoRelevante> relevantes(JsonNode output, ContextoJuridico contexto,
+            ReferenciasAnalise referencias) {
         var result = new ArrayList<DocumentoRelevante>();
         var vistos = new LinkedHashSet<Integer>();
         for (JsonNode item : output.path("documentosRelevantes")) {
             int numero = item.path("referencia").asInt(0);
+            if (!vistos.add(numero) || !referencias.registrar("Documentos mais relevantes", numero)) continue;
             DocumentoContexto doc = contexto.documento(numero);
-            if (doc == null || !vistos.add(numero)) continue;
             result.add(new DocumentoRelevante(numero, doc.referencia().categoria(), doc.referencia().id(),
-                    doc.titulo(), texto(item, "motivo")));
+                    doc.titulo(), referencias.citar("Documentos mais relevantes", texto(item, "motivo"))));
             if (result.size() == MAX_ITENS_LISTA) break;
         }
         return List.copyOf(result);
