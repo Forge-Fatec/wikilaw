@@ -83,7 +83,7 @@ public class ContextoJuridicoBuilder {
             campos.add(new Campo(campo.nome(), cortado));
             usados += campo.nome().length() + cortado.length();
         }
-        return new DocumentoContexto(numero, referencia, limpar(doc.titulo()), campos, truncado);
+        return new DocumentoContexto(numero, referencia, limpar(doc.titulo()), campos, truncado, FonteDocumento.de(doc));
     }
 
     private static List<Campo> identificacao(DocumentoReferencia referencia, Summary doc) {

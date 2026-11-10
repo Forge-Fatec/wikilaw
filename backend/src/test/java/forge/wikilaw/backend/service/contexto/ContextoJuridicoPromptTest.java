@@ -52,6 +52,6 @@ class ContextoJuridicoPromptTest {
 
     private static DocumentoContexto documento(int numero, String categoria, Long id, String titulo, boolean truncado) {
         return new DocumentoContexto(numero, new DocumentoReferencia(categoria, id), titulo,
-                List.of(new Campo("Título", titulo)), truncado);
+                List.of(new Campo("Título", titulo)), truncado, null);
     }
 }

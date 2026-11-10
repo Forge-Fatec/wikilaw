@@ -44,16 +44,19 @@ public record ContextoJuridico(
      * @param referencia categoria e id do documento no acervo
      * @param campos dados do documento, em ordem de prioridade
      * @param truncado {@code true} se algum campo foi cortado ou deixado de fora pelo limite de caracteres
+     * @param origem identificacao do documento na fonte original, para citar e abrir o registro
      */
     public record DocumentoContexto(
             int numero,
             DocumentoReferencia referencia,
             String titulo,
             List<Campo> campos,
-            boolean truncado) {
+            boolean truncado,
+            FonteDocumento origem) {
 
         public DocumentoContexto {
             campos = List.copyOf(campos);
+            if (origem == null) origem = new FonteDocumento(null, null, null, null, null);
         }
     }
 
