@@ -6,6 +6,7 @@ import {
   type PesquisaAtiva,
   type ReferenciaDocumento,
 } from '../analiseIa'
+import { FontesAnalise } from './FontesAnalise'
 
 interface Props {
   /** Resultados da pesquisa ativa na ordem exibida; o back escolhe os mais relevantes entre eles. */
@@ -186,6 +187,8 @@ function ConteudoAnalise({ analise, onAbrirDocumento }: {
           </ol>
         </>
       )}
+
+      {analise.fontes && <FontesAnalise fontes={analise.fontes} onAbrirDocumento={onAbrirDocumento} />}
 
       <ResultadosUtilizados analise={analise} />
 
