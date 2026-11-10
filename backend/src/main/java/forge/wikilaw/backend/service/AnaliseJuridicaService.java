@@ -111,7 +111,8 @@ public class AnaliseJuridicaService {
                 contexto.documentos().stream().map(doc -> new ResultadoUtilizado(doc.numero(),
                         doc.referencia().categoria(), doc.referencia().id())).toList(),
                 contexto.omitidos(),
-                contexto.truncado());
+                contexto.truncado(),
+                List.of());
     }
 
     /** Liga cada citacao do modelo, feita pelo numero do documento, ao resultado da pesquisa correspondente. */
@@ -122,8 +123,8 @@ public class AnaliseJuridicaService {
             int numero = item.path("referencia").asInt(0);
             DocumentoContexto doc = contexto.documento(numero);
             if (doc == null || !vistos.add(numero)) continue;
-            result.add(new DocumentoRelevante(doc.referencia().categoria(), doc.referencia().id(), doc.titulo(),
-                    texto(item, "motivo")));
+            result.add(new DocumentoRelevante(numero, doc.referencia().categoria(), doc.referencia().id(),
+                    doc.titulo(), texto(item, "motivo")));
             if (result.size() == MAX_ITENS_LISTA) break;
         }
         return List.copyOf(result);

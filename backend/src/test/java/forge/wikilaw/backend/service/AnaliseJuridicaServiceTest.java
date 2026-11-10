@@ -73,7 +73,7 @@ class AnaliseJuridicaServiceTest {
         assertThat(result.pontosPrincipais()).containsExactly("Dano in re ipsa [1]");
         assertThat(result.divergencias()).isEmpty();
         assertThat(result.documentosRelevantes())
-                .containsExactly(new DocumentoRelevante("precedentes", 3L, "Tema 1061", "Tese firmada"));
+                .containsExactly(new DocumentoRelevante(2, "precedentes", 3L, "Tema 1061", "Tese firmada"));
         assertThat(result.geradaPorIa()).isTrue();
         assertThat(result.aviso()).contains("inteligência artificial");
         assertThat(result.modelo()).isEqualTo("gemini-teste");
@@ -119,7 +119,7 @@ class AnaliseJuridicaServiceTest {
         assertThat(result.resultadosOmitidos()).containsExactly(refs.get(2));
         assertThat(result.contextoResumido()).isTrue();
         assertThat(result.documentosRelevantes())
-                .containsExactly(new DocumentoRelevante("decisoes", 2L, "Segundo", "Aplica a tese"));
+                .containsExactly(new DocumentoRelevante(2, "decisoes", 2L, "Segundo", "Aplica a tese"));
     }
 
     @Test
@@ -147,7 +147,7 @@ class AnaliseJuridicaServiceTest {
                 .containsExactly(new ResultadoUtilizado(1, "decisoes", 1L), new ResultadoUtilizado(3, "decisoes", 3L));
         assertThat(result.resultadosOmitidos()).containsExactly(refs.get(1));
         assertThat(result.documentosRelevantes())
-                .containsExactly(new DocumentoRelevante("decisoes", 3L, "Dano moral por negativação", "Trata do caso"));
+                .containsExactly(new DocumentoRelevante(3, "decisoes", 3L, "Dano moral por negativação", "Trata do caso"));
     }
 
     @Test

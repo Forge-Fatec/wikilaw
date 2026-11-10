@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import forge.wikilaw.backend.dto.AnaliseJuridicaRequest;
 import forge.wikilaw.backend.dto.AnaliseJuridicaResponse;
+import forge.wikilaw.backend.dto.AnaliseJuridicaResponse.FonteAnalise;
 import forge.wikilaw.backend.dto.AnaliseJuridicaResponse.ResultadoUtilizado;
 import forge.wikilaw.backend.exception.AiProviderException;
 import forge.wikilaw.backend.exception.ContextoInsuficienteException;
@@ -38,7 +39,9 @@ class AnaliseJuridicaControllerTest {
         when(service.analisar(any())).thenReturn(new AnaliseJuridicaResponse("Resumo [1]", "Questao", "Entendimento",
                 List.of("Ponto"), List.of("CDC, art. 14"), List.of(), List.of(), List.of(), true,
                 AnaliseJuridicaService.AVISO, "gemini-3.5-flash", OffsetDateTime.parse("2026-11-03T09:00:00-03:00"), 1,
-                List.of(new ResultadoUtilizado(1, "decisoes", 7L)), List.of(), false));
+                List.of(new ResultadoUtilizado(1, "decisoes", 7L)), List.of(), false,
+                List.of(new FonteAnalise(1, "decisoes", 7L, "REsp 1", "STJ", "STJ", "REsp 1", "ext-7",
+                        "https://stj.jus.br/7", List.of("Resumo")))));
 
         mvc.perform(post("/api/pesquisas/analises").contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isOk())
@@ -49,7 +52,12 @@ class AnaliseJuridicaControllerTest {
                 .andExpect(jsonPath("$.resultadosUtilizados[0].posicao").value(1))
                 .andExpect(jsonPath("$.resultadosUtilizados[0].categoria").value("decisoes"))
                 .andExpect(jsonPath("$.resultadosUtilizados[0].id").value(7))
-                .andExpect(jsonPath("$.resultadosOmitidos").isEmpty());
+                .andExpect(jsonPath("$.resultadosOmitidos").isEmpty())
+                .andExpect(jsonPath("$.fontes[0].numero").value(1))
+                .andExpect(jsonPath("$.fontes[0].fonte").value("STJ"))
+                .andExpect(jsonPath("$.fontes[0].identificadorExterno").value("ext-7"))
+                .andExpect(jsonPath("$.fontes[0].url").value("https://stj.jus.br/7"))
+                .andExpect(jsonPath("$.fontes[0].secoes[0]").value("Resumo"));
     }
 
     @Test
