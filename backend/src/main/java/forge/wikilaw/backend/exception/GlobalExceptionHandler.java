@@ -64,6 +64,12 @@ public class GlobalExceptionHandler {
         return response(status, "Análise por IA indisponível", List.of(exception.getMessage()));
     }
 
+    /** Pesquisa sem resultados: nao ha o que enviar a IA como contexto. */
+    @ExceptionHandler(ContextoInsuficienteException.class)
+    ResponseEntity<ApiErrorResponse> handleContextoInsuficiente(ContextoInsuficienteException exception) {
+        return response(HttpStatus.UNPROCESSABLE_CONTENT, exception.getMessage(), List.of());
+    }
+
     private ResponseEntity<ApiErrorResponse> response(HttpStatus status, String error, List<String> details) {
         return ResponseEntity.status(status).body(new ApiErrorResponse(
                 OffsetDateTime.now(ZoneOffset.UTC), status.value(), error, details));
