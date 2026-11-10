@@ -2054,7 +2054,26 @@ select,
 }
 .ai-sources-list li:target, .ai-sources-list li:focus { border-color: var(--terracotta); outline: none; }
 .ai-source-number { flex: none; font-size: 13px; font-weight: 700; color: var(--terracotta-dark); }
-.ai-source-body { min-width: 0; font-size: 14px; }
+.ai-source-body { flex: 1; min-width: 0; font-size: 14px; }
+.ai-source-link {
+  flex: none;
+  align-self: center;
+  padding: 6px 12px;
+  border: 1px solid var(--terracotta);
+  border-radius: 999px;
+  color: var(--terracotta-dark);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.ai-source-link:hover { background: #fdf6f1; }
+.ai-source-link:focus-visible { outline: 3px solid #7197b1; outline-offset: 2px; }
+.ai-source-link.indisponivel { border-color: var(--line); color: var(--muted); font-weight: 600; }
+@media (max-width: 760px) {
+  .ai-sources-list li { flex-wrap: wrap; }
+  .ai-source-link { margin-left: 28px; }
+}
 .ai-source-meta, .ai-source-sections { margin: 3px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
 @media (max-width: 760px) {
   .ai-analysis { padding: 18px 16px; }

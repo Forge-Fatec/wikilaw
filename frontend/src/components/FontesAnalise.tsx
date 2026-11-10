@@ -33,12 +33,42 @@ export function FontesAnalise({ fontes, onAbrirDocumento }: Props) {
                     <p className="ai-source-sections">Sustenta: {fonte.secoes.join(', ')}</p>
                   )}
                 </div>
+                <LinkOriginal fonte={fonte} />
               </li>
             ))}
           </ol>
         )}
     </section>
   )
+}
+
+/** Abre o documento ou registro jurídico original numa nova aba; sem endereço válido, avisa que não há link. */
+function LinkOriginal({ fonte }: { fonte: FonteAnalise }) {
+  const url = urlSegura(fonte.url)
+  if (!url) {
+    return (
+      <span className="ai-source-link indisponivel" title="Esta fonte não informou um link para o documento original.">
+        Original indisponível
+      </span>
+    )
+  }
+  return (
+    <a className="ai-source-link" href={url} target="_blank" rel="noopener noreferrer">
+      Abrir original ↗
+      <span className="sr-only"> de {fonte.titulo ?? `fonte ${fonte.numero}`} (abre em nova aba)</span>
+    </a>
+  )
+}
+
+// O back já filtra, mas a tela confere de novo: nunca abre esquemas como javascript:.
+function urlSegura(url: string | null) {
+  if (!url?.trim()) return null
+  try {
+    const { protocol } = new URL(url.trim())
+    return protocol === 'http:' || protocol === 'https:' ? url.trim() : null
+  } catch {
+    return null
+  }
 }
 
 const CATEGORIAS: Record<string, string> = {
