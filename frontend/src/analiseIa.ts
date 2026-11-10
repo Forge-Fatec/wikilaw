@@ -29,8 +29,25 @@ export interface PesquisaAtiva {
 }
 
 export interface DocumentoRelevante extends ReferenciaDocumento {
+  /** Posição na pesquisa, o mesmo número das citações [n]. */
+  numero?: number
   titulo: string | null
   motivo: string | null
+}
+
+/** Documento que fundamenta a análise; o back só devolve fontes realmente citadas e verificadas. */
+export interface FonteAnalise extends ReferenciaDocumento {
+  /** Posição na pesquisa, o mesmo número das citações [n]. */
+  numero: number
+  titulo: string | null
+  fonte: string | null
+  tribunal: string | null
+  numeroProcessoOuTema: string | null
+  identificadorExterno: string | null
+  /** Endereço do documento original (só http/https) ou null quando a fonte não informou. */
+  url: string | null
+  /** Seções da análise que citam esta fonte. */
+  secoes: string[]
 }
 
 /** Resultado enviado à IA; `posicao` é a posição na lista e o número das citações, como [3]. */
@@ -55,6 +72,7 @@ export interface AnaliseJuridica {
   resultadosUtilizados?: ResultadoUtilizado[]
   resultadosOmitidos?: ReferenciaDocumento[]
   contextoResumido?: boolean
+  fontes?: FonteAnalise[]
 }
 
 export async function gerarAnaliseJuridica(
