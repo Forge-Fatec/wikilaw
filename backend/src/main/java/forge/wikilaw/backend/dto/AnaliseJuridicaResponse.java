@@ -10,6 +10,7 @@ import java.util.List;
  * {@code resultadosUtilizados} lista os resultados enviados como contexto com a posicao de cada um na pesquisa,
  * que e o numero das citacoes [n];
  * {@code resultadosOmitidos}, os que ficaram de fora pelo limite de contexto do modelo.
+ * {@code fontes} lista so os documentos que a analise realmente cita, com as secoes que cada um sustenta.
  */
 public record AnaliseJuridicaResponse(
         String resumo,
@@ -27,9 +28,37 @@ public record AnaliseJuridicaResponse(
         int documentosAnalisados,
         List<ResultadoUtilizado> resultadosUtilizados,
         List<DocumentoReferencia> resultadosOmitidos,
-        boolean contextoResumido) {
+        boolean contextoResumido,
+        List<FonteAnalise> fontes) {
 
-    public record DocumentoRelevante(String categoria, Long id, String titulo, String motivo) {}
+    /** @param numero posicao do documento na pesquisa, o mesmo numero das citacoes [n] */
+    public record DocumentoRelevante(int numero, String categoria, Long id, String titulo, String motivo) {}
 
     public record ResultadoUtilizado(int posicao, String categoria, Long id) {}
+
+    /**
+     * Fonte que fundamenta a analise.
+     *
+     * @param numero posicao do documento na pesquisa, o mesmo numero das citacoes [n]
+     * @param fonte sigla da fonte de dados
+     * @param identificadorExterno identificador do documento na fonte
+     * @param url endereco do documento original (so http/https), ou {@code null} se a fonte nao informou
+     * @param secoes secoes da analise que citam esta fonte, na ordem em que aparecem
+     */
+    public record FonteAnalise(
+            int numero,
+            String categoria,
+            Long id,
+            String titulo,
+            String fonte,
+            String tribunal,
+            String numeroProcessoOuTema,
+            String identificadorExterno,
+            String url,
+            List<String> secoes) {
+
+        public FonteAnalise {
+            secoes = List.copyOf(secoes);
+        }
+    }
 }

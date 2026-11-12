@@ -64,6 +64,13 @@ Os resultados da pesquisa ativa são o contexto da análise.
 - As instruções pedem que a análise se relacione ao caso pesquisado e considere as decisões e os precedentes encontrados.
 - Sem resultados, o backend não chama a IA e responde **422** com "Não existem resultados suficientes para contextualizar a análise".
 
+## Fontes da análise (SCRUM-270)
+
+- **Identificadores preservados:** cada documento do contexto guarda a identificação na fonte original (`FonteDocumento`: sigla da fonte, tribunal, processo ou tema, identificador externo e URL). A URL só é mantida se for `http`/`https` absoluta.
+- **Validação das citações** (`ReferenciasAnalise`): toda citação `[n]` devolvida pela IA, em qualquer seção, é conferida contra os documentos realmente enviados. Números inexistentes saem do marcador; um marcador sem nenhum número válido sai do texto, e a informação fica sem referência em vez de apontar para uma fonte inexistente. Colchetes que não são citação (`[sic]`, `[CF/88]`) não mudam, e `documentosRelevantes` com número fora do contexto são descartados.
+- **Resposta:** `fontes` lista só os documentos citados, na ordem da pesquisa, com a identificação, o link original e as seções que cada um sustenta. `documentosRelevantes` também traz o `numero`.
+- **Tela:** a seção "Fontes utilizadas" mostra cada fonte com `[n]`, título (abre o detalhe), identificação e "Sustenta: …"; "Abrir original ↗" abre o documento numa nova aba ou mostra "Original indisponível" quando não há link. Cada citação `[n]` no texto da análise leva à fonte correspondente.
+
 ## Tokens
 
 | Parte | Tamanho | Limite |
@@ -118,7 +125,7 @@ Resposta `200`:
   "pontosPrincipais": ["…"],
   "fundamentosLegais": ["CDC, art. 14"],
   "divergencias": [],
-  "documentosRelevantes": [{ "categoria": "precedentes", "id": 3, "titulo": "Tema 1061", "motivo": "…" }],
+  "documentosRelevantes": [{ "numero": 2, "categoria": "precedentes", "id": 3, "titulo": "Tema 1061", "motivo": "…" }],
   "limitacoes": ["…"],
   "geradaPorIa": true,
   "aviso": "Análise gerada com auxílio de inteligência artificial…",
@@ -127,7 +134,15 @@ Resposta `200`:
   "documentosAnalisados": 2,
   "resultadosUtilizados": [{ "posicao": 1, "categoria": "decisoes", "id": 7 }, { "posicao": 2, "categoria": "precedentes", "id": 3 }],
   "resultadosOmitidos": [],
-  "contextoResumido": false
+  "contextoResumido": false,
+  "fontes": [
+    {
+      "numero": 1, "categoria": "decisoes", "id": 7, "titulo": "REsp 1.234.567/SP",
+      "fonte": "STJ", "tribunal": "STJ", "numeroProcessoOuTema": "REsp 1.234.567/SP",
+      "identificadorExterno": "…", "url": "https://processo.stj.jus.br/…",
+      "secoes": ["Resumo", "Pontos principais"]
+    }
+  ]
 }
 ```
 
@@ -161,7 +176,8 @@ Uma nova pesquisa, ou outro filtro, ordenação ou recorte de gráfico, muda a p
 | Pesquisa ativa | `backend/.../dto/PesquisaAtivaRequest.java`, `service/pesquisa/PesquisaAtivaService.java`, `SelecaoResultadosRelevantes.java` |
 | Contexto jurídico | `backend/.../service/contexto/ContextoJuridicoBuilder.java`, `DescricaoPesquisa.java`, `ContextoJuridicoPrompt.java`, `integration/ai/ContextoJuridicoProperties.java` |
 | Endpoint | `backend/.../controller/AnaliseJuridicaController.java` |
-| Tela | `frontend/src/components/AnaliseIaPanel.tsx`, `frontend/src/analiseIa.ts` |
-| Testes | `GeminiClientTest`, `AnaliseJuridicaServiceTest`, `AnaliseJuridicaControllerTest`, `ContextoJuridicoBuilderTest`, `ContextoJuridicoPromptTest`, `DescricaoPesquisaTest`, `PesquisaAtivaServiceTest`, `SelecaoResultadosRelevantesTest`, `frontend/tests/scrum-256-analise-ia.spec.ts`, `frontend/tests/scrum-263-analise-contextualizada.spec.ts` |
+| Fontes da análise | `backend/.../service/contexto/FonteDocumento.java`, `ReferenciasAnalise.java` |
+| Tela | `frontend/src/components/AnaliseIaPanel.tsx`, `FontesAnalise.tsx`, `TextoComCitacoes.tsx`, `frontend/src/analiseIa.ts` |
+| Testes | `GeminiClientTest`, `AnaliseJuridicaServiceTest`, `AnaliseJuridicaControllerTest`, `ContextoJuridicoBuilderTest`, `ContextoJuridicoPromptTest`, `DescricaoPesquisaTest`, `PesquisaAtivaServiceTest`, `SelecaoResultadosRelevantesTest`, `FonteDocumentoTest`, `ReferenciasAnaliseTest`, `frontend/tests/scrum-256-analise-ia.spec.ts`, `frontend/tests/scrum-263-analise-contextualizada.spec.ts`, `frontend/tests/scrum-270-fontes-analise.spec.ts` |
 
 Para trocar de modelo (por exemplo, um Gemini mais novo ou o `gemini-pro-latest`). O `gemini-2.5-flash` não está mais disponível para contas novas, basta mudar `WIKILAW_GEMINI_MODEL`. Para trocar de provedor, implemente a interface `GenerativeAiProvider`.
