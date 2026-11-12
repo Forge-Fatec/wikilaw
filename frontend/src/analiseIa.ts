@@ -112,3 +112,69 @@ export async function gerarAnaliseJuridica(
   }
   return response.json()
 }
+
+/** Pergunta e resposta já trocadas na conversa sobre a análise; só existem na tela. */
+export interface TrocaConversa {
+  pergunta: string
+  resposta: string
+}
+
+/** Documento citado na resposta; `posicao` é o número entre colchetes. */
+export interface DocumentoCitado extends ReferenciaDocumento {
+  posicao: number
+  titulo: string | null
+}
+
+export interface RespostaPergunta {
+  resposta: string
+  documentosCitados: DocumentoCitado[]
+  aviso: string
+  modelo: string
+  geradaEm: string
+  historicoResumido: boolean
+}
+
+/** Mesmo limite de caracteres da pergunta no back (PerguntaAnaliseRequest). */
+export const MAX_CARACTERES_PERGUNTA = 1000
+
+/**
+ * Pergunta complementar sobre a análise: vai junto a mesma pesquisa ativa (o back relê os documentos)
+ * e as trocas anteriores, para a IA entender perguntas que dependem delas.
+ */
+export async function perguntarSobreAnalise(
+  termo: string,
+  pesquisa: PesquisaAtiva,
+  resultados: ReferenciaDocumento[],
+  pergunta: string,
+  historico: TrocaConversa[],
+  signal?: AbortSignal,
+): Promise<RespostaPergunta> {
+  let response: Response
+  try {
+    response = await apiFetch(`${API_BASE}/api/pesquisas/analises/perguntas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        analise: {
+          termo: termo.slice(0, 2000) || null,
+          pesquisa: { ...pesquisa, consultaContextual: pesquisa.consultaContextual?.slice(0, 2000) || null },
+          resultados: resultados.slice(0, MAX_RESULTADOS_ANALISE),
+        },
+        pergunta: pergunta.slice(0, MAX_CARACTERES_PERGUNTA),
+        historico,
+      }),
+      signal,
+    })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
+    throw new Error('Não foi possível falar com o servidor. Verifique a conexão e tente novamente.', { cause: error })
+  }
+  if (!response.ok) {
+    if (response.status === 429) throw new Error('O limite de uso da IA foi atingido. Aguarde alguns instantes e pergunte de novo.')
+    if (response.status === 503) throw new Error('O serviço de IA está indisponível no momento. Tente novamente em instantes.')
+    if (response.status === 409) throw new Error('Um resultado não está mais disponível. Refaça a pesquisa e gere a análise de novo.')
+    if (response.status === 400) throw new Error('Não foi possível enviar esta pergunta. Revise o texto e tente novamente.')
+    throw new Error('Não foi possível responder à pergunta. Tente novamente.')
+  }
+  return response.json()
+}

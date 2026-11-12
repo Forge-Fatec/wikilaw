@@ -8,6 +8,7 @@ import {
 } from '../analiseIa'
 import { FontesAnalise } from './FontesAnalise'
 import { TextoComCitacoes } from './TextoComCitacoes'
+import { ConversaAnalise } from './ConversaAnalise'
 
 interface Props {
   /** Resultados da pesquisa ativa na ordem exibida; o back escolhe os mais relevantes entre eles. */
@@ -96,7 +97,19 @@ export function AnaliseIaPanel({ resultados, pesquisa, termo, onAbrirDocumento }
         </div>
       )}
 
-      {estado.fase === 'pronta' && <ConteudoAnalise analise={estado.analise} onAbrirDocumento={onAbrirDocumento} />}
+      {estado.fase === 'pronta' && (
+        <>
+          <ConteudoAnalise analise={estado.analise} onAbrirDocumento={onAbrirDocumento} />
+          {/* A chave recomeça a conversa quando a análise é gerada de novo. */}
+          <ConversaAnalise
+            key={estado.analise.geradaEm}
+            termo={termo}
+            pesquisa={pesquisa}
+            resultados={enviados}
+            onAbrirDocumento={onAbrirDocumento}
+          />
+        </>
+      )}
     </section>
   )
 }
