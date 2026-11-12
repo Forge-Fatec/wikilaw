@@ -7,6 +7,8 @@ import { rolarSuavementeAte } from './rolagemSuave'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
 import { ExportPdfDialog } from './components/ExportPdfDialog'
 import { AnaliseIaPanel } from './components/AnaliseIaPanel'
+import { AcompanhamentosDialog } from './components/AcompanhamentosDialog'
+import { useAcompanhamentos } from './components/hooks/useAcompanhamentos'
 import { MAX_RESULTADOS_ANALISE, type PesquisaAtiva } from './analiseIa'
 import { FiltroFontes } from './components/FiltroFontes'
 import { PanoramaTribunal } from './components/PanoramaTribunal'
@@ -381,6 +383,11 @@ function App({
   const [similaridadeStatus, setSimilaridadeStatus] = useState<SimilaridadeStatus | null>(null)
   const [buscaSimilar, setBuscaSimilar] = useState(false)
   const [resultadoSimilar, setResultadoSimilar] = useState(false)
+  // Texto do documento usado na última pesquisa por similaridade, para acompanhá-la depois.
+  const [textoDocumentoPesquisado, setTextoDocumentoPesquisado] = useState<string | null>(null)
+  const acompanhamentos = useAcompanhamentos(user.login)
+  const [acompanhamentosAbertos, setAcompanhamentosAbertos] = useState(false)
+  const [erroAcompanhamento, setErroAcompanhamento] = useState<string | null>(null)
   const [notaSimilar, setNotaSimilar] = useState<string | null>(null)
   const [pesquisou, setPesquisou] = useState(false)
   const [exportando, setExportando] = useState(false)
@@ -542,6 +549,7 @@ function App({
         setTermoPesquisado(query.trim())
         setConsultaPesquisada('')
         setDocumentoUsado(contexto.documento?.nome ?? null)
+        setTextoDocumentoPesquisado(contexto.documento?.texto ?? null)
         setResultadoSimilar(true)
         setOrdenacao('relevancia')
         setNotaSimilar(`Até ${response.limite} documentos mais semelhantes. Os filtros se aplicam a esse conjunto.${response.pendentes > 0 ? ' O acervo continua sendo preparado; novos resultados podem aparecer nas próximas pesquisas.' : ''}`)
@@ -826,6 +834,23 @@ function App({
   // Resumo do que está filtrando a lista, visível mesmo com o painel fechado.
   const filtrosAtivos: FiltroAtivo[] = []
   const tiposMarcados = (Object.keys(filtros) as DocType[]).filter((tipo) => filtros[tipo])
+  // Só a pesquisa por similaridade pode ser acompanhada: as novidades vêm da busca com IA.
+  const pesquisaAtual = {
+    descricao: termoPesquisado,
+    fatos: textoDocumentoPesquisado,
+    documento: documentoUsado,
+    categorias: tiposMarcados.map((tipo) => CATEGORIA_POR_TIPO[tipo]),
+  }
+  const acompanhandoPesquisaAtual = acompanhamentos.estaAcompanhando(pesquisaAtual)
+
+  async function acompanharPesquisaAtual() {
+    setErroAcompanhamento(null)
+    try {
+      await acompanhamentos.acompanhar(pesquisaAtual)
+    } catch (falha) {
+      setErroAcompanhamento(falha instanceof Error ? falha.message : 'Não foi possível acompanhar a pesquisa.')
+    }
+  }
   if (tiposMarcados.length < Object.keys(filtros).length) {
     filtrosAtivos.push({
       chave: 'tipos',
@@ -955,6 +980,19 @@ function App({
                 </svg>
               </button>
             )}
+            <button
+              type="button"
+              className="logout-button acompanhamentos-botao"
+              onClick={() => setAcompanhamentosAbertos(true)}
+              aria-haspopup="dialog"
+            >
+              Acompanhamentos
+              {acompanhamentos.totalNovidades > 0 && (
+                <span className="acompanhamentos-badge" aria-label={`${acompanhamentos.totalNovidades} novidades`}>
+                  {acompanhamentos.totalNovidades}
+                </span>
+              )}
+            </button>
             <button type="button" className="logout-button" onClick={onLogout}>Sair</button>
           </div>
         </header>
@@ -1265,6 +1303,16 @@ function App({
                     </button>
                   </div>
                 </div>
+                {resultadoSimilar && (
+                  <button
+                    type="button"
+                    className="acompanhar-btn"
+                    disabled={carregando || Boolean(erro) || acompanhandoPesquisaAtual}
+                    onClick={() => void acompanharPesquisaAtual()}
+                  >
+                    {acompanhandoPesquisaAtual ? 'Acompanhando ✓' : 'Acompanhar esta pesquisa'}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="export-pdf-btn"
@@ -1280,6 +1328,7 @@ function App({
 
             {erroExportacao && !modalExportacao && <p className="export-message export-error" role="alert">{erroExportacao}</p>}
             {exportacaoConcluida && <p className="export-message" role="status">PDF gerado. O download foi iniciado.</p>}
+            {erroAcompanhamento && <p className="export-message export-error" role="alert">{erroAcompanhamento}</p>}
 
             {erro && <div className="empty">{erro}</div>}
             {notaSimilar && !erro && !carregando && <p className="similarity-notice" role="status">{notaSimilar}</p>}
@@ -1442,6 +1491,17 @@ function App({
           </main>
         </div>
       </div>
+
+      {acompanhamentosAbertos && (
+        <AcompanhamentosDialog
+          lista={acompanhamentos.lista}
+          verificando={acompanhamentos.verificando}
+          onVerificar={() => void acompanhamentos.verificar()}
+          onMarcarComoVistas={acompanhamentos.marcarComoVistas}
+          onDeixarDeAcompanhar={acompanhamentos.deixarDeAcompanhar}
+          onClose={() => setAcompanhamentosAbertos(false)}
+        />
+      )}
 
       {modalExportacao && (
         <ExportPdfDialog
