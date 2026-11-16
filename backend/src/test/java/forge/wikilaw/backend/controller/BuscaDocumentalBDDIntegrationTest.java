@@ -24,13 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/**
- * Cenários BDD das US01-US10: HTTP -> Controller -> Service -> JPA Repository -> H2.
- * Os dados são importados pelo pipeline real DocumentRecordProcessor.
- * A autenticação é validada separadamente em AutenticacaoIntegrationTest.
- * Lacunas: HTTP 400 para termo acima de 300 caracteres e paginação inválida,
- * e período da doutrina dependem de correções na aplicação e não são cobertos aqui.
- */
 @SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)
 @Transactional
