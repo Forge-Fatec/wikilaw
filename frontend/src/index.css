@@ -2224,3 +2224,55 @@ select,
 .acompanhamento-botoes .acompanhamento-remover {
   color: var(--terracotta-dark);
 }
+/* Perguntas sobre a análise de IA (SCRUM-277). */
+.ai-chat { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
+.ai-chat-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ai-chat-header h4 { margin: 0; }
+.ai-chat-reset {
+  border: 0;
+  background: none;
+  color: var(--terracotta-dark);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ai-chat-reset:focus-visible { outline: 3px solid #7197b1; outline-offset: 2px; }
+.ai-chat-hint { margin: 6px 0 12px; font-size: 13px; color: var(--muted); }
+.ai-chat-messages { display: flex; flex-direction: column; gap: 14px; margin: 0 0 14px; padding: 0; list-style: none; }
+.ai-chat-exchange { display: flex; flex-direction: column; gap: 8px; }
+.ai-chat-question,
+.ai-chat-answer {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.ai-chat-question { align-self: flex-end; max-width: 85%; background: var(--navy); color: #fff; }
+.ai-chat-answer { max-width: 92%; border: 1px solid var(--line); background: #fff; color: var(--ink); }
+.ai-chat-answer p { margin: 0; white-space: pre-wrap; }
+.ai-chat-question span,
+.ai-chat-answer > span {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  opacity: .7;
+}
+.ai-chat-citations { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 13px; }
+.ai-chat-note { margin: 0 0 10px; font-size: 12.5px; color: var(--muted); }
+.ai-chat-error { margin: 0 0 10px; font-size: 13px; color: var(--terracotta-dark); }
+.ai-chat-form { display: flex; gap: 10px; }
+.ai-chat-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: #fff;
+}
+.ai-chat-form input:focus { border-color: var(--terracotta); outline: none; }
