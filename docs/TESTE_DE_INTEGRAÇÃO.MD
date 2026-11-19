@@ -335,6 +335,25 @@ Then: o sistema retorna lista vazia com total = 0, sem erro
 
 ---
 
+
+### Teste de integração do frontend — Sprint 1
+
+**Funcionalidade coberta:** submissão da descrição do caso e visualização dos resultados da pesquisa.
+
+```text
+Cenário: pesquisar um caso e visualizar os resultados retornados
+
+Given: o usuário está na tela de pesquisa e informa uma descrição válida para o caso
+And: o backend possui conteúdos jurídicos relacionados à descrição informada
+
+When: o usuário executar a pesquisa
+
+Then: a interface deve apresentar os resultados retornados pelo backend
+And: cada resultado deve exibir seu título e resumo
+And: o usuário deve conseguir identificar a fonte de cada resultado
+```
+
+
 ## Cenários BDD — Sprint 2
 
 ### US11 — Visualizar dashboard com os indicadores da pesquisa
@@ -508,6 +527,261 @@ Given: a geração do PDF foi concluída com sucesso
 When: o processamento for finalizado
 Then: o sistema disponibiliza o arquivo gerado ao usuário
 ```
+
+
+### Teste de integração do frontend — Sprint 2
+
+**Funcionalidade coberta:** interação com os elementos do dashboard.
+
+```text
+Cenário: filtrar os indicadores do dashboard por uma categoria do gráfico
+
+Given: o usuário está visualizando o dashboard de uma pesquisa com resultados de diferentes categorias
+When: o usuário selecionar uma categoria no gráfico
+
+Then: a interface deve indicar que o filtro foi aplicado
+And: os indicadores e a lista de resultados devem apresentar somente os dados correspondentes à seleção
+And: ao remover o filtro, a visualização completa da pesquisa deve ser restaurada
+```
+
+
+
+## Cenários BDD — Sprint 3
+
+Os cenários desta seção foram derivados das 10 User Stories informadas para a Sprint 3. Os testes de backend devem validar o comportamento integrado entre a API, os serviços responsáveis pelo processamento e as fontes de dados utilizadas. Quando houver integração com um serviço de IA, os resultados devem ser verificados por critérios observáveis e controlados, sem exigir que o texto gerado seja sempre idêntico.
+
+### US19 — Receber análise do caso auxiliada por IA
+
+```text
+Cenário: gerar análise para um caso com descrição válida
+
+Given: o usuário possui um caso cadastrado com descrição válida
+And: o serviço de análise por IA está disponível
+
+When: o usuário solicitar a análise do caso
+
+Then: o sistema deve retornar uma análise associada ao caso informado
+And: a resposta deve apresentar o conteúdo da análise em formato legível
+And: o sistema deve indicar que a análise foi concluída
+
+Cenário: solicitar análise sem descrição suficiente
+
+Given: o usuário possui um caso sem informações mínimas para análise
+When: o usuário solicitar a análise do caso
+
+Then: o sistema deve informar que não há dados suficientes para realizar a análise
+And: não deve apresentar uma análise como se tivesse sido concluída
+```
+
+### US20 — Considerar os resultados da pesquisa na análise realizada pela IA
+
+```text
+Cenário: análise considera os resultados jurídicos da pesquisa
+
+Given: o usuário possui um caso com uma pesquisa concluída
+And: a pesquisa possui resultados jurídicos relacionados ao caso
+
+When: o usuário solicitar a análise auxiliada por IA
+
+Then: a análise deve considerar as informações dos resultados da pesquisa
+And: a resposta deve relacionar os pontos relevantes do caso aos conteúdos jurídicos encontrados
+
+Cenário: análise sem resultados de pesquisa disponíveis
+
+Given: o usuário possui um caso sem resultados de pesquisa associados
+When: o usuário solicitar a análise auxiliada por IA
+
+Then: o sistema deve informar que não há resultados de pesquisa disponíveis para fundamentar essa parte da análise
+And: não deve apresentar referências a resultados inexistentes
+```
+
+### US21 — Identificar as informações e fontes utilizadas na análise gerada pela IA
+
+```text
+Cenário: apresentar as fontes utilizadas na análise
+
+Given: existe uma análise gerada com base em resultados jurídicos recuperados pelo sistema
+When: o usuário consultar os fundamentos da análise
+
+Then: o sistema deve apresentar as fontes utilizadas
+And: cada fonte deve permitir identificar o conteúdo jurídico correspondente
+And: as informações apresentadas devem corresponder aos resultados efetivamente considerados na análise
+
+Cenário: análise sem fontes recuperadas
+
+Given: a análise foi gerada sem resultados jurídicos recuperados
+When: o usuário consultar os fundamentos da análise
+
+Then: o sistema deve informar que não foram utilizadas fontes de pesquisa
+And: não deve inventar ou apresentar fontes não utilizadas
+```
+
+### US22 — Interagir com a análise gerada para obter esclarecimentos
+
+```text
+Cenário: enviar uma pergunta sobre a análise existente
+
+Given: o usuário possui uma análise concluída para seu caso
+When: o usuário enviar uma pergunta relacionada a um ponto específico da análise
+
+Then: o sistema deve retornar uma resposta relacionada à pergunta
+And: a resposta deve considerar o contexto da análise e do caso correspondente
+
+Cenário: enviar uma pergunta sem análise associada
+
+Given: o usuário não possui uma análise concluída para o caso
+When: o usuário tentar enviar uma pergunta sobre a análise
+
+Then: o sistema deve informar que não existe análise disponível para contextualizar a interação
+```
+
+### US23 — Acompanhar informações relevantes relacionadas ao caso
+
+```text
+Cenário: consultar informações acompanhadas de um caso
+
+Given: o usuário possui informações relevantes salvas ou acompanhadas em seu caso
+When: o usuário acessar a área de acompanhamento
+
+Then: o sistema deve apresentar as informações associadas ao caso
+And: cada informação deve manter sua identificação e origem, quando disponíveis
+
+Cenário: caso sem informações acompanhadas
+
+Given: o usuário possui um caso sem informações registradas para acompanhamento
+When: o usuário acessar a área de acompanhamento
+
+Then: o sistema deve apresentar uma indicação de que não existem informações acompanhadas
+And: a consulta deve ser concluída sem erro
+```
+
+### US24 — Visualizar um dashboard aprimorado
+
+```text
+Cenário: apresentar indicadores do caso em uma visualização consolidada
+
+Given: o usuário possui uma pesquisa com resultados disponíveis
+When: o usuário acessar o dashboard do caso
+
+Then: o sistema deve apresentar os indicadores e visualizações disponíveis para a pesquisa
+And: os dados apresentados devem corresponder ao caso ou à pesquisa selecionada
+
+Cenário: acessar dashboard sem dados disponíveis
+
+Given: o usuário acessa um caso que ainda não possui resultados de pesquisa
+When: o dashboard for carregado
+
+Then: o sistema deve apresentar um estado vazio ou uma orientação para realizar uma pesquisa
+And: a página deve permanecer utilizável, sem apresentar indicadores incorretos
+```
+
+### US25 — Melhorar as funcionalidades de pesquisa
+
+```text
+Cenário: realizar pesquisa utilizando os critérios disponíveis
+
+Given: existem conteúdos jurídicos cadastrados e pesquisáveis
+When: o usuário realizar uma pesquisa utilizando os critérios disponibilizados pelo sistema
+
+Then: o sistema deve retornar os conteúdos compatíveis com os critérios informados
+And: os resultados devem respeitar os critérios selecionados
+
+Cenário: realizar pesquisa sem correspondências
+
+Given: não existem conteúdos compatíveis com os critérios informados
+When: o usuário executar a pesquisa
+
+Then: o sistema deve retornar uma lista vazia
+And: deve informar que nenhum resultado foi encontrado, sem apresentar erro inesperado
+```
+
+### US26 — Proteger a conta e as informações pessoais por meio de permissões de acesso
+
+```text
+Cenário: usuário autenticado acessa seus próprios dados
+
+Given: o usuário está autenticado e possui dados associados à sua conta
+When: o usuário solicitar acesso aos próprios dados
+
+Then: o sistema deve permitir a consulta
+And: deve retornar somente as informações às quais esse usuário tem permissão
+
+Cenário: usuário tenta acessar dados de outra conta sem permissão
+
+Given: existem dados associados a outro usuário
+And: o usuário autenticado não possui permissão para acessá-los
+
+When: o usuário tentar consultar esses dados
+
+Then: o sistema deve negar o acesso
+And: não deve expor informações pessoais da outra conta
+
+Cenário: usuário não autenticado tenta acessar recurso protegido
+
+Given: o usuário não possui uma sessão autenticada válida
+When: o usuário solicitar acesso a um recurso protegido
+
+Then: o sistema deve responder com status HTTP 401
+And: não deve retornar os dados protegidos
+```
+
+### US27 — Limpar todos os filtros de pesquisa com uma única ação
+
+```text
+Cenário: remover todos os filtros aplicados
+
+Given: o usuário realizou uma pesquisa e aplicou filtros de período, tribunal e categoria
+When: o usuário solicitar a limpeza de todos os filtros
+
+Then: o sistema deve remover os filtros aplicados
+And: a pesquisa deve voltar a considerar os resultados sem essas restrições
+
+Cenário: limpar filtros quando nenhum filtro está aplicado
+
+Given: o usuário está visualizando os resultados sem filtros ativos
+When: o usuário solicitar a limpeza dos filtros
+
+Then: a interface deve permanecer no estado sem filtros
+And: os resultados não devem ser alterados indevidamente
+```
+
+### US28 — Alternar entre os temas claro e escuro
+
+```text
+Cenário: ativar o tema escuro
+
+Given: o usuário está utilizando a interface no tema claro
+When: o usuário selecionar o tema escuro
+
+Then: o sistema deve apresentar a interface no tema escuro
+And: os elementos principais devem permanecer legíveis e disponíveis
+
+Cenário: retornar ao tema claro
+
+Given: o usuário está utilizando a interface no tema escuro
+When: o usuário selecionar o tema claro
+
+Then: o sistema deve apresentar a interface no tema claro
+And: os elementos e funcionalidades da página devem continuar disponíveis
+```
+
+### Teste de integração do frontend — Sprint 3
+
+**Funcionalidade coberta:** consulta da análise gerada por IA e visualização das fontes utilizadas.
+
+```text
+Cenário: consultar a análise do caso e verificar suas fontes na interface
+
+Given: o usuário está autenticado e possui uma análise concluída para seu caso
+And: a análise possui fontes jurídicas associadas
+
+When: o usuário acessar a área de análise do caso
+
+Then: a interface deve apresentar o conteúdo da análise
+And: deve apresentar as fontes utilizadas como fundamento
+And: o usuário deve conseguir identificar a qual conteúdo jurídico cada fonte corresponde
+```
+
 
 ---
 
