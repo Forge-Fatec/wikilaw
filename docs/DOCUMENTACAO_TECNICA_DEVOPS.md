@@ -267,6 +267,10 @@ Como o valor é resolvido no build, **cada ambiente precisa de um build próprio
 | --- | --- | --- |
 | `WIKILAW_IMPORT_WORKER_ENABLED` | `true` | Liga o worker que processa as tarefas de importação |
 | `WIKILAW_IMPORT_POLL_DELAY` | `1000` (ms) | Intervalo de verificação de tarefas |
+| `WIKILAW_REFRESH_ENABLED` | `true` | Prepara atualizações periódicas, independente do bootstrap |
+| `WIKILAW_REFRESH_INTERVAL` | `24h` | Espera após o encerramento da última tarefa por fonte; mínimo `1m` |
+| `WIKILAW_REFRESH_PAGE_SIZE` | `20` | Registros por página, entre 1 e 100 |
+| `WIKILAW_REFRESH_INITIAL_DELAY` / `WIKILAW_REFRESH_POLL_DELAY` | `60000` (ms) | Espera inicial / frequência de verificação |
 | `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_ENABLED` | `true` | Enfileira a carga automática na subida |
 | `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_COMPLETO` | `true` | `true`: carga completa até esgotar as fontes; `false`: amostra limitada |
 | `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_TERMO` | `dano moral` | Termo da amostra limitada |
@@ -428,13 +432,14 @@ Os workers rodam **dentro do processo do backend** (agendamentos do Spring). Nã
 | --- | --- | --- |
 | Carga inicial | Na subida, enfileira a carga do acervo (completa ou amostra). Uma carga já concluída não é repetida | `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_ENABLED` |
 | Importação | Processa tarefas persistidas, uma página por vez, salvando a continuação. Tarefas são retomáveis após reinício | `WIKILAW_IMPORT_WORKER_ENABLED` |
+| Atualização periódica | Enfileira nova coleta por fonte após o intervalo: incremental no DataJud e releitura documental | `WIKILAW_REFRESH_ENABLED` |
 | Backfill semântico | Normaliza e divide os documentos em trechos | `WIKILAW_SEMANTIC_BACKFILL_ENABLED` |
 | Embeddings | Envia os trechos ao provedor e grava os vetores, com retry e backoff | `WIKILAW_EMBEDDING_ENABLED` |
 
 Implicações operacionais:
 
 - O worker de importação usa `SELECT … FOR UPDATE SKIP LOCKED`, então **várias réplicas podem rodar ao mesmo tempo** sem processar a mesma tarefa.
-- A carga completa gera tráfego contínuo para as fontes públicas e crescimento do banco. Em ambientes de teste, prefira `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_COMPLETO=false`.
+- A carga completa gera tráfego contínuo para as fontes públicas e crescimento do banco. Em ambientes de teste, prefira `WIKILAW_BOOTSTRAP_JURISPRUDENCIA_COMPLETO=false` e `WIKILAW_REFRESH_ENABLED=false`.
 - Os embeddings consomem a **cota da chave do Gemini**, a mesma da análise jurídica. Deixe desligado onde não for necessário.
 - Se for preciso separar API e workers, o mesmo artefato pode subir em dois deployments: um com os workers desligados (API) e outro com eles ligados.
 
