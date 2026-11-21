@@ -71,6 +71,17 @@ After the containers have started:
 | Backend    | `http://localhost:8080` |
 | PostgreSQL | `localhost:5432`        |
 
+### Periodic legal data refresh
+
+The backend checks each source every minute and queues a new import 24 hours after
+its last job finishes. DataJud uses an incremental window; document sources replay
+their supported collections and update existing records by natural key. Active or
+failed resumable jobs keep their checkpoints and prevent competing imports.
+Set `WIKILAW_REFRESH_INTERVAL=7d` to change the interval or
+`WIKILAW_REFRESH_ENABLED=false` to disable periodic refresh independently of startup
+imports. See [the import guide](docs/IMPORTACAO_ASSINCRONA.md) for configuration,
+progress monitoring and failure recovery.
+
 ### Stopping the Services
 
 To stop the containers:

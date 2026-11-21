@@ -4,10 +4,12 @@ import forge.wikilaw.backend.dto.ImportJobResponse;
 import forge.wikilaw.backend.entity.ImportJob;
 import forge.wikilaw.backend.entity.ImportJob.Status;
 import forge.wikilaw.backend.integration.datajud.dto.DataJudImportRequest;
+import forge.wikilaw.backend.integration.datajud.DataJudTribunal;
 import forge.wikilaw.backend.integration.documents.*;
 import forge.wikilaw.backend.repository.ImportJobRepository;
 import jakarta.validation.Validator;
 import java.time.OffsetDateTime;
+import java.time.Duration;
 import java.time.ZoneOffset;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -81,6 +83,38 @@ public class ImportJobService {
         validate(request);
         documents.validate(source, request);
         return enqueue(source.name(), source.name(), request, pages, false, ateEsgotar);
+    }
+
+    @Transactional
+    public void refreshDataJudIfDue(DataJudTribunal tribunal,
+            Duration interval, int pageSize) {
+        if (!refreshDue("DATAJUD:" + tribunal, interval)) return;
+        // Exhaust the frozen window before allowing it to advance the watermark.
+        enqueueDataJud(new DataJudImportRequest(tribunal, null, pageSize, 1), true, true);
+    }
+
+    @Transactional
+    public void refreshDocumentsIfDue(DocumentSource source, Duration interval, int pageSize) {
+        if (!refreshDue(source.name(), interval)) return;
+        boolean offset = switch (source) {
+            case STJ, STJ_PRECEDENTES, SCIELO, BDTD -> true;
+            default -> false;
+        };
+        // These adapters do not all support update timestamps. Replay the full
+        // collection with fresh snapshots; natural keys update existing records.
+        var request = new DocumentImportRequest(null, offset ? null : 0, pageSize,
+                offset ? 0 : null, null, null, null, null, null, null, null).withFullCollection();
+        enqueueDocuments(source, request, 1, true);
+    }
+
+    private boolean refreshDue(String scope, Duration interval) {
+        // Keep failed/limited jobs available for explicit resume, retaining their
+        // cursor. PostgreSQL's unique scope index also protects concurrent replicas.
+        if (jobs.findFirstByEscopoAndStatusIn(scope, java.util.List.of(
+                Status.PENDENTE, Status.EM_EXECUCAO, Status.FALHA, Status.LIMITE_ATINGIDO)).isPresent()) return false;
+        return jobs.findTopByEscopoOrderByAtualizadoEmDescIdDesc(scope)
+                .map(job -> !job.getAtualizadoEm().plus(interval).isAfter(now()))
+                .orElse(true);
     }
 
     /** Idempotent initial full harvest; never restart an existing full job on boot. */
