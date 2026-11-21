@@ -203,6 +203,119 @@ class ImportJobIntegrationTest {
     }
 
     @Test
+    void periodicDataJudWaitsForCompletionAndIntervalThenUsesPersistedWatermark() {
+        var interval = java.time.Duration.ofDays(1);
+        when(client.search(eq(DataJudTribunal.TJSP), anyString())).thenReturn(new DataJudRawResponse(EMPTY));
+        service.refreshDataJudIfDue(DataJudTribunal.TJSP, interval, 10);
+        var first = jobs.findAll().getFirst();
+        var firstRequest = json.readValue(first.getRequisicao(), DataJudImportRequest.class);
+        assertThat(first.isAteEsgotar()).isTrue();
+        service.refreshDataJudIfDue(DataJudTribunal.TJSP, interval, 10);
+        assertThat(jobs.count()).isEqualTo(1);
+        run(first.getId());
+        service.refreshDataJudIfDue(DataJudTribunal.TJSP, interval, 10);
+        assertThat(jobs.count()).isEqualTo(1);
+        first = jobs.findById(first.getId()).orElseThrow();
+        first.setAtualizadoEm(ImportJobService.now().minusDays(2));
+        jobs.save(first);
+        service.refreshDataJudIfDue(DataJudTribunal.TJSP, interval, 10);
+        var next = jobs.findTopByEscopoOrderByAtualizadoEmDescIdDesc("DATAJUD:TJSP").orElseThrow();
+        assertThat(jobs.count()).isEqualTo(2);
+        var request = json.readValue(next.getRequisicao(), DataJudImportRequest.class);
+        assertThat(request.desde()).isEqualTo(firstRequest.ate().minusMinutes(5));
+        assertThat(request.ate()).isAfterOrEqualTo(firstRequest.ate());
+        assertThat(next.getCursorJson()).isNull();
+    }
+
+    @Test
+    void periodicRefreshPreservesFailedCursorUntilExplicitResume() {
+        service.refreshDataJudIfDue(DataJudTribunal.TJSP, java.time.Duration.ofDays(1), 10);
+        var failed = jobs.findAll().getFirst();
+        failed.setStatus(ImportJob.Status.FALHA);
+        failed.setAtualizadoEm(ImportJobService.now().minusDays(2));
+        failed.setCursorJson("[123]");
+        jobs.save(failed);
+        service.refreshDataJudIfDue(DataJudTribunal.TJSP, java.time.Duration.ofDays(1), 10);
+        assertThat(jobs.count()).isEqualTo(1);
+        assertThat(jobs.findById(failed.getId()).orElseThrow().getCursorJson()).isEqualTo("[123]");
+        assertThat(service.resume(failed.getId(), 1).status()).isEqualTo(ImportJob.Status.PENDENTE);
+    }
+
+    @Test
+    void periodicRequestsAreValidForAllDocumentAdapters() {
+        for (var source : DocumentSource.values()) {
+            service.refreshDocumentsIfDue(source, java.time.Duration.ofDays(1), 25);
+            var job = jobs.findTopByEscopoOrderByAtualizadoEmDescIdDesc(source.name()).orElseThrow();
+            assertThat(job.isAteEsgotar()).isTrue();
+            var request = json.readValue(job.getRequisicao(), DocumentImportRequest.class);
+            assertThat(request.fullCollection()).isTrue();
+            assertThat(request.query()).isEmpty();
+            assertThat(request.size()).isEqualTo(25);
+        }
+        assertThat(jobs.count()).isEqualTo(DocumentSource.values().length);
+    }
+
+    @Test
+    void periodicEnqueueIsSerializedBetweenPostgresReplicas() throws Exception {
+        try (var connection = database.getConnection()) {
+            Assumptions.assumeTrue("PostgreSQL".equals(connection.getMetaData().getDatabaseProductName()));
+        }
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var ready = new CountDownLatch(2);
+            var start = new CountDownLatch(1);
+            Callable<Void> enqueue = () -> {
+                ready.countDown();
+                assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
+                try {
+                    service.refreshDataJudIfDue(DataJudTribunal.TJSP, java.time.Duration.ofDays(1), 10);
+                } catch (org.springframework.web.server.ResponseStatusException conflict) {
+                    assertThat(conflict.getStatusCode().value()).isEqualTo(409);
+                }
+                return null;
+            };
+            var first = executor.submit(enqueue);
+            var second = executor.submit(enqueue);
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            first.get(10, TimeUnit.SECONDS);
+            second.get(10, TimeUnit.SECONDS);
+        }
+        assertThat(jobs.count()).isEqualTo(1);
+    }
+
+    @Test
+    void periodicDocumentRefreshDownloadsNewSnapshotAndUpdatesWithoutDuplicates() {
+        seed("TJDFT");
+        if (tribunals.findBySigla("TJDFT").isEmpty()) {
+            var t = new Tribunal(); t.setSigla("TJDFT"); t.setNome("TJDFT");
+            t.setRamoJustica("ESTADUAL"); tribunals.save(t);
+        }
+        String url = "https://jurisdf.tjdft.jus.br/api/v1/pesquisa";
+        when(documentsHttp.request(eq(url), anyString())).thenReturn(
+                new PublicSourceHttpClient.Response(200,
+                    "{\"hits\":{\"value\":1},\"registros\":[{\"uuid\":\"periodic-doc\",\"identificador\":\"123\",\"ementa\":\"Original\"}]}", "application/json"),
+                new PublicSourceHttpClient.Response(200,
+                    "{\"hits\":{\"value\":1},\"registros\":[{\"uuid\":\"periodic-doc\",\"identificador\":\"123\",\"ementa\":\"Atualizada\"}]}", "application/json"));
+        var interval = java.time.Duration.ofDays(1);
+        service.refreshDocumentsIfDue(DocumentSource.TJDFT, interval, 10);
+        var first = jobs.findAll().getFirst();
+        run(first.getId());
+        var sourceId = sources.findBySigla("TJDFT").orElseThrow().getId();
+        var original = decisions.findByIdFonteAndIdentificadorExterno(sourceId, "periodic-doc").orElseThrow();
+        first = jobs.findById(first.getId()).orElseThrow();
+        first.setAtualizadoEm(ImportJobService.now().minusDays(2)); jobs.save(first);
+        service.refreshDocumentsIfDue(DocumentSource.TJDFT, interval, 10);
+        var next = jobs.findTopByEscopoOrderByAtualizadoEmDescIdDesc("TJDFT").orElseThrow();
+        assertThat(next.getCacheJson()).isEqualTo("{}");
+        assertThat(next.getPaginas()).isZero();
+        run(next.getId());
+        var updated = decisions.findByIdFonteAndIdentificadorExterno(sourceId, "periodic-doc").orElseThrow();
+        assertThat(updated.getId()).isEqualTo(original.getId());
+        assertThat(updated.getEmenta()).isEqualTo("Atualizada");
+        verify(documentsHttp, times(2)).request(eq(url), anyString());
+    }
+
+    @Test
     void incrementalUsesOnlyFullyCompletedUnfilteredLoadsAsWatermark() {
         when(client.search(eq(DataJudTribunal.TJSP), anyString())).thenReturn(new DataJudRawResponse(EMPTY));
         var first = service.enqueueDataJud(new DataJudImportRequest(DataJudTribunal.TJSP, null, 10, 10), true);

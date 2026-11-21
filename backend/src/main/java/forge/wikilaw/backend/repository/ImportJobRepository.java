@@ -7,6 +7,7 @@ import java.util.List;
 import org.springframework.data.jpa.repository.*;
 
 public interface ImportJobRepository extends JpaRepository<ImportJob, Long> {
+    Optional<ImportJob> findTopByEscopoOrderByAtualizadoEmDescIdDesc(String escopo);
     Optional<ImportJob> findTopByEscopoAndStatusAndIncrementalBaseTrueOrderByAtualizadoEmDesc(String escopo, ImportJob.Status status);
     Optional<ImportJob> findTopByEscopoAndBootstrapCompletoTrueOrderByCriadoEmDesc(String escopo);
     Optional<ImportJob> findFirstByEscopoAndStatusIn(String escopo, List<ImportJob.Status> statuses);

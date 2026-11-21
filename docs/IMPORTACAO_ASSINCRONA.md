@@ -1,4 +1,4 @@
-# Importação em segundo plano — SCRUM-244
+# Importação em segundo plano — SCRUM-244 / SCRUM-249
 
 Os endpoints de importação retornam **HTTP 202**, `idTarefa` e o header `Location`.
 O retorno confirma o enfileiramento. Consulte `/api/integrations/tarefas/{idTarefa}`
@@ -43,7 +43,49 @@ WIKILAW_BOOTSTRAP_JURISPRUDENCIA_COMPLETO=true
 `COMPLETO=false` restaura a carga de amostra, usando termo/páginas configurados.
 `SOMENTE_SE_VAZIO` aplica-se apenas à amostra: alguns registros existentes não comprovam
 que o acervo já foi colhido. `ENABLED=false` desativa a preparação automática de todas
-as fontes, incluindo DataJud. A API continua permitindo tarefas manuais.
+as fontes, incluindo DataJud, na inicialização. Para desligar também as atualizações
+periódicas, configure `WIKILAW_REFRESH_ENABLED=false`. A API continua permitindo tarefas manuais.
+
+## Atualização periódica — SCRUM-249
+
+O agendador verifica as fontes a cada minuto e prepara uma nova tarefa quando passou
+o intervalo desde a última tarefa encerrada daquela fonte (ou tribunal DataJud).
+O histórico em `import_job` mantém esse controle após reiniciar o backend.
+Sem histórico, a primeira verificação pode preparar uma carga completa, mesmo com o
+bootstrap desativado. Os dois agendadores possuem configurações independentes.
+
+```dotenv
+WIKILAW_REFRESH_ENABLED=true
+WIKILAW_REFRESH_INTERVAL=24h
+WIKILAW_REFRESH_PAGE_SIZE=20
+WIKILAW_REFRESH_INITIAL_DELAY=60000
+WIKILAW_REFRESH_POLL_DELAY=60000
+```
+
+O intervalo aceita durações como `24h`, `7d` e `PT24H`, com mínimo de um minuto;
+os delays são em milissegundos. O tamanho de página aceita 1 a 100.
+
+- DataJud: coleta incremental até esgotar a janela, com limite superior congelado.
+  Usa a última carga sem filtros concluída sem erros, sobrepondo cinco minutos para
+  tolerar indexação tardia. Sem histórico válido, começa sem limite inferior.
+  Sem `DATAJUD_API_KEY`, apenas as fontes documentais são atualizadas.
+- Fontes documentais: percorrem novamente o acervo suportado, com novos snapshots e
+  cache vazio. As chaves naturais atualizam registros existentes sem duplicá-los.
+  A releitura completa é necessária porque os adaptadores não possuem um filtro
+  uniforme por data de atualização; considere o custo de downloads ao definir o intervalo.
+- Tarefas pendentes, em execução, com falha ou limite atingido impedem uma nova tarefa
+  no mesmo escopo. Falhas preservam a continuação e exigem retomada ou cancelamento
+  pelo administrador. Os retries HTTP existentes continuam sendo utilizados.
+- Cancelar uma tarefa adia a próxima coleta desse escopo pelo intervalo configurado;
+  desligue `WIKILAW_REFRESH_ENABLED` para suspender as atualizações periódicas.
+- Uma falha ao preparar uma fonte é registrada no log e não impede as demais.
+  O índice único do PostgreSQL impede duas tarefas ativas do mesmo escopo entre réplicas.
+
+O processamento continua dependendo de `WIKILAW_IMPORT_WORKER_ENABLED=true`.
+Consulte o progresso, erros e contadores pelos endpoints de tarefas abaixo, ou use
+a consulta SQL deste guia para encontrar os IDs das tarefas automáticas.
+
+## Disparo manual
 
 Também é possível disparar manualmente:
 
@@ -162,7 +204,7 @@ Cursor repetido/inválido causa falha, em vez de um loop infinito.
 | WIKILAW_IMPORT_POLL_DELAY | 1000 | Intervalo em milissegundos após cada ciclo |
 
 O bootstrap documental somente enfileira tarefas; não espera downloads na inicialização.
-Os testes desativam worker/bootstrap e usam respostas controladas, sem coletar o acervo
+Os testes desativam worker/bootstrap/atualização periódica e usam respostas controladas, sem coletar o acervo
 externo no GitHub Actions.
 
 ## Contrato e desempenho
@@ -176,6 +218,13 @@ das cargas incrementais. O ganho total depende da fonte e do banco. Batching, ot
 de SQL e maior paralelismo exigem medição com dados reais.
 
 ## Validação em PostgreSQL isolado
+
+Na pasta `backend`, `./mvnw verify` executa a suíte e gera o relatório de cobertura.
+`ImportJobIntegrationTest` cobre o intervalo persistido, bloqueio de tarefas ativas
+ou com falha, watermark incremental, validação dos pedidos de todas as fontes e
+atualização de um documento existente sem duplicação. `LegalRefreshSchedulerTest`
+cobre desativação, ausência de chave DataJud e isolamento das falhas por fonte.
+As respostas HTTP das fontes são controladas nesses testes.
 
 Os testes normais usam H2 e desativam os coletores automáticos. Para validar também
 Flyway, JPA, JSONB, a fila e seu índice de exclusão em um PostgreSQL **descartável**:
