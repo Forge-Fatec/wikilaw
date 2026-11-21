@@ -18,6 +18,8 @@ for (const { nome, formato, mimeType } of [
     const textoExtraido = 'Texto do caso teste'
     const requisicoes: string[] = []
     await page.route('**/api/pesquisas/documentos', route => {
+      expect(route.request().method()).toBe('POST')
+      expect(route.request().headers()['content-type']).toContain('multipart/form-data; boundary=')
       requisicoes.push(route.request().postData() ?? '')
       return route.fulfill({ json: {
         nome, formato, tamanhoBytes: Buffer.byteLength(conteudo), caracteres: textoExtraido.length,
@@ -32,8 +34,12 @@ for (const { nome, formato, mimeType } of [
 
     await expect(page.locator('.hero .case-document-card')).toContainText(nome)
     expect(requisicoes).toHaveLength(1)
+    expect(requisicoes[0]).toContain('name="arquivo"')
     expect(requisicoes[0]).toContain(`filename="${nome}"`)
-    expect(requisicoes[0]).toContain(conteudo)
+    expect(requisicoes[0]).toContain(`Content-Type: ${mimeType}`)
+    // WebKit exposes multipart file metadata but omits file bytes in postData().
+    await page.locator('.hero').getByText('Conferir texto extraído', { exact: true }).click()
+    await expect(page.locator('.hero').getByLabel('Contexto do documento')).toHaveValue(textoExtraido)
   })
 }
 
