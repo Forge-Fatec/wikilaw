@@ -92,6 +92,33 @@ a {
 input, textarea, select { background-color: var(--surface); color: var(--ink); }
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 
+/* The opening screen follows the theme too, including the brand controls. */
+:root[data-theme='light'] :is(.header, .abertura, .hero, .login-page, .session-loading) {
+  background: var(--cream);
+  color: var(--ink);
+}
+:root[data-theme='light'] .header { background: var(--surface); }
+:root[data-theme='light'] .hero { border-top-color: var(--line); }
+:root[data-theme='light'] :is(.header .brand-text, .account-name, .hero h1, .hero .attach-document-btn,
+  .hero .case-document-progress, .hero .case-document-progress button, .hero .search-mode) { color: var(--heading); }
+:root[data-theme='light'] :is(.brand-text .tag, .account-name span, .hero > p, nav a) { color: var(--secondary); }
+:root[data-theme='light'] .hero h1 em { color: var(--terracotta-dark); }
+:root[data-theme='light'] :is(.header .theme-toggle, .settings-button, .logout-button, .filtros-hero .filters-toggle) {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line);
+}
+:root[data-theme='light'] :is(.header .theme-toggle, .settings-button, .logout-button, .filtros-hero .filters-toggle):hover {
+  border-color: var(--terracotta-dark);
+  color: var(--terracotta-dark);
+}
+:root[data-theme='light'] .filtros-hero .filters-toggle[aria-expanded='true'] { background: var(--accent-soft); }
+:root[data-theme='light'] :is(.hero .case-document-error, .search-error) { color: var(--error); }
+:root[data-theme='light'] .search-box { box-shadow: 0 12px 32px -16px rgba(30, 27, 48, .25); }
+:root[data-theme='light'] .login-visual { background: linear-gradient(135deg, #eee8df, #f8f6f2); }
+:root[data-theme='light'] .login-visual-copy { color: var(--heading); }
+:root[data-theme='light'] .login-visual::after { color: rgba(30, 27, 48, .06); }
+
 @media (max-width: 700px) {
   .theme-toggle { padding: 8px; }
   .header .theme-toggle span { display: none; }
