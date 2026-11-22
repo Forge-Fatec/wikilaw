@@ -91,7 +91,7 @@ export function BarChartDistribuicao({
           </>
         )}
         <Tooltip
-          contentStyle={{ border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+          contentStyle={{ background: "var(--surface)", color: "var(--ink)", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
         />
         <Bar
           dataKey="quantidade"
