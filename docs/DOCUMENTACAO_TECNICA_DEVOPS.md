@@ -594,6 +594,10 @@ Uma história está pronta quando:
 
 ## 13. Testes
 
+O modo claro/escuro (SCRUM-254) tem testes unitários da resolução da preferência
+e testes E2E nos três navegadores. Métodos, cenários, comandos e resultados estão
+documentados em [Tema da interface](TEMA_DA_INTERFACE.md#testes-métodos-cenários-e-resultados).
+
 | Camada | Ferramenta | Onde | Como rodar | Depende de |
 | --- | --- | --- | --- | --- |
 | Backend (unidade, repositório, controller, integração) | JUnit 5, Spring Boot Test, MockMvc | `backend/src/test` (63 classes) | `./mvnw verify` | Só H2 em memória; sem PostgreSQL nem APIs externas |
