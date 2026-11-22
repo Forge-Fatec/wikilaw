@@ -96,6 +96,62 @@ class AutenticacaoIntegrationTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void userNaoAcessaIntegracoesEAnonimoNaoAcessaAApi() throws Exception {
+        mvc.perform(get("/api/fontes")).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/integrations/datajud/import").with(csrf())).andExpect(status().isUnauthorized());
+
+        var adminSession = sessao(login("Admin", "Admin 123").andExpect(status().isOk()));
+        mvc.perform(post("/api/admin/usuarios")
+                        .session(adminSession)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"login":"leitor","senha":"senha 123","perfil":"USER"}
+                                """))
+                .andExpect(status().isCreated());
+        var userSession = sessao(login("leitor", "senha 123").andExpect(status().isOk()));
+
+        mvc.perform(get("/api/fontes").session(userSession)).andExpect(status().isOk());
+
+        mvc.perform(post("/api/integrations/datajud/import").session(userSession).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("Acesso negado"));
+        mvc.perform(post("/api/integrations/documentos/{fonte}/import", "STJ").session(userSession).with(csrf()))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/integrations/tarefas/{id}", 1).session(userSession))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/integrations/tarefas/{id}/retomar", 1).session(userSession).with(csrf()))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/integrations/tarefas/{id}/cancelar", 1).session(userSession).with(csrf()))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/admin/usuarios").session(userSession).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"login":"intruso","senha":"senha 123","perfil":"ADMIN"}
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void recusaAlteracaoSemTokenCsrf() throws Exception {
+        var adminSession = sessao(login("Admin", "Admin 123").andExpect(status().isOk()));
+
+        mvc.perform(post("/api/admin/usuarios")
+                        .session(adminSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"login":"semcsrf","senha":"senha 123","perfil":"USER"}
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    private static org.springframework.mock.web.MockHttpSession sessao(
+            org.springframework.test.web.servlet.ResultActions login) {
+        return (org.springframework.mock.web.MockHttpSession) login.andReturn().getRequest().getSession(false);
+    }
+
     private org.springframework.test.web.servlet.ResultActions login(String login, String senha) throws Exception {
         return mvc.perform(post("/api/auth/login")
                 .with(csrf())
