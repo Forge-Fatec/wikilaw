@@ -144,7 +144,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 
 .header {
   background: var(--navy);
-  padding: 22px 48px;
+  padding: 19px 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;

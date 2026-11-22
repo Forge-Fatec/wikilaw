@@ -4,6 +4,8 @@ O botão **Modo escuro / Modo claro** fica no login e no cabeçalho da aplicaç�
 A troca é imediata e preserva o formulário, a pesquisa e a sessão atuais.
 No celular, o botão do cabeçalho mostra apenas o ícone; o nome acessível continua
 indicando a ação, e o controle aceita teclado e tem área mínima de 44 × 44 px.
+O espaçamento do cabeçalho no desktop mantém sua altura anterior para que abrir
+os filtros não introduza rolagem em telas de 1366 × 768.
 
 ## Preferência e aplicação
 
@@ -65,6 +67,7 @@ Em 22/11/2026, na imagem `mcr.microsoft.com/playwright:v1.62.1-noble`, a mesma d
 | `npm run lint` | Aprovado, sem erros |
 | `npm run build` | Aprovado |
 | Playwright, somente `scrum-254-theme.spec.ts` | **33 aprovados, 0 falhas, 0 ignorados (32,9 s)**: 3 testes unitários + 8 E2E, executados em cada um dos 3 projetos |
+| Tema e regressão de filtros (`scrum-254-theme.spec.ts` + `hero-filters.spec.ts`) | **54 aprovados, 0 falhas, 0 ignorados (57,0 s)** nos 3 navegadores; inclui ausência de rolagem com os filtros abertos em 1366 × 768 e 390 × 844 |
 | Revisão visual | Capturas de login no celular e resultados no desktop, nos temas claro/escuro, inspecionadas |
 
 As capturas e relatórios ficam em `frontend/test-results/` e não são versionados.
