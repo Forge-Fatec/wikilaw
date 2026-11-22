@@ -13,6 +13,7 @@ import { MAX_RESULTADOS_ANALISE, type PesquisaAtiva } from './analiseIa'
 import { FiltroFontes } from './components/FiltroFontes'
 import { PanoramaTribunal } from './components/PanoramaTribunal'
 import { CaseDocumentUpload } from './components/CaseDocumentUpload'
+import { ThemeToggle } from './components/ThemeToggle'
 import { useCaseDocument } from './components/hooks/useCaseDocument'
 import { prepareSearchContext } from './caseDocument'
 import { buscarSimilares, type SimilaridadeStatus } from './similaridade'
@@ -963,6 +964,7 @@ function App({
             </div>
           </div>
           <div className="account-actions">
+            <ThemeToggle />
             <div className="account-name">
               <strong>{user.login}</strong>
               <span>{user.perfil === 'ADMIN' ? 'Administrador' : 'Usuário'}</span>
