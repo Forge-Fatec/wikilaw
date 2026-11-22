@@ -3,6 +3,7 @@ package forge.wikilaw.backend.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -10,7 +11,9 @@ import forge.wikilaw.backend.dto.LoginRequest;
 import forge.wikilaw.backend.entity.PerfilUsuario;
 import forge.wikilaw.backend.entity.Usuario;
 import forge.wikilaw.backend.repository.UsuarioRepository;
+import forge.wikilaw.backend.security.LoginAttemptService;
 import forge.wikilaw.backend.security.UsuarioPrincipal;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
@@ -44,7 +47,8 @@ class AutenticacaoControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller = new AutenticacaoController(authenticationManager, repository, sessionRegistry);
+        controller = new AutenticacaoController(authenticationManager, repository, sessionRegistry,
+                new LoginAttemptService(2, Duration.ofMinutes(15)));
     }
 
     @AfterEach
@@ -100,6 +104,29 @@ class AutenticacaoControllerTest {
                     assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
                     assertThat(exception.getReason()).isEqualTo("Login ou senha invalidos");
                 });
+    }
+
+    @Test
+    void bloqueiaLoginDepoisDeSenhasErradasSemConferirASenha() {
+        when(authenticationManager.authenticate(any(Authentication.class)))
+                .thenThrow(new BadCredentialsException("invalido"));
+        for (int tentativa = 0; tentativa < 2; tentativa++) {
+            assertThatThrownBy(() -> controller.login(
+                    new LoginRequest("Admin", "errada"), new MockHttpServletRequest(), new MockHttpServletResponse()))
+                    .isInstanceOfSatisfying(ResponseStatusException.class,
+                            exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED));
+        }
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        assertThatThrownBy(() -> controller.login(
+                new LoginRequest(" admin ", "Admin 123"), new MockHttpServletRequest(), response))
+                .isInstanceOfSatisfying(ResponseStatusException.class, exception -> {
+                    assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+                    assertThat(exception.getReason())
+                            .isEqualTo("Muitas tentativas de login. Tente novamente em 15 minutos.");
+                });
+        assertThat(response.getHeader("Retry-After")).isEqualTo("900");
+        verify(authenticationManager, times(2)).authenticate(any(Authentication.class));
     }
 
     @Test

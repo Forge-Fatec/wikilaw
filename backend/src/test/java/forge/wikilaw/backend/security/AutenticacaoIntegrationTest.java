@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -145,6 +146,29 @@ class AutenticacaoIntegrationTest {
                                 {"login":"semcsrf","senha":"senha 123","perfil":"USER"}
                                 """))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void bloqueiaLoginDepoisDeCincoSenhasErradas() throws Exception {
+        var adminSession = sessao(login("Admin", "Admin 123").andExpect(status().isOk()));
+        mvc.perform(post("/api/admin/usuarios")
+                        .session(adminSession)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"login":"alvo","senha":"senha certa","perfil":"USER"}
+                                """))
+                .andExpect(status().isCreated());
+
+        for (int tentativa = 1; tentativa <= 5; tentativa++) {
+            login("alvo", "chute " + tentativa).andExpect(status().isUnauthorized());
+        }
+
+        login("alvo", "senha certa")
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "900"))
+                .andExpect(jsonPath("$.error").value("Muitas tentativas de login. Tente novamente em 15 minutos."));
+        login("Admin", "Admin 123").andExpect(status().isOk());
     }
 
     private static org.springframework.mock.web.MockHttpSession sessao(
