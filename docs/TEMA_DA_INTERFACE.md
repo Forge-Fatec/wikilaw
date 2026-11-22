@@ -63,6 +63,13 @@ nos projetos Chromium, Firefox e WebKit.
 
 ### Execução inicial
 
+O arquivo existente [`frontend/tests/home-scroll.spec.ts`](../frontend/tests/home-scroll.spec.ts)
+também foi atualizado: o cenário de abertura roda em `light` e `dark`, verificando
+que o hero e a página ocupam exatamente a altura da janela, sem rolagem, com fundo
+`rgb(245, 243, 239)` no claro e `rgb(30, 27, 48)` no escuro. Os demais cenários
+continuam validando o estado de pesquisa, a preservação da lista, a posição dos
+resultados e a preferência por movimento reduzido.
+
 Em 22/11/2026, na imagem `mcr.microsoft.com/playwright:v1.62.1-noble`, a mesma do CI:
 
 | Verificação | Resultado |
@@ -71,6 +78,7 @@ Em 22/11/2026, na imagem `mcr.microsoft.com/playwright:v1.62.1-noble`, a mesma d
 | `npm run build` | Aprovado |
 | Playwright, somente `scrum-254-theme.spec.ts` | **33 aprovados, 0 falhas, 0 ignorados (32,9 s)**: 3 testes unitários + 8 E2E, executados em cada um dos 3 projetos |
 | Tema e regressão de filtros (`scrum-254-theme.spec.ts` + `hero-filters.spec.ts`) | **54 aprovados, 0 falhas, 0 ignorados (58,8 s)** nos 3 navegadores; inclui cabeçalho/hero claros e ausência de rolagem com os filtros abertos em 1366 × 768 e 390 × 844 |
+| Regressão da tela inicial e rolagem (`home-scroll.spec.ts`) | **24 aprovados, 0 falhas, 0 ignorados (37,2 s)** nos 3 navegadores, incluindo as cores e dimensões nos dois temas |
 | Revisão visual | Capturas de login no celular e resultados no desktop, nos temas claro/escuro, inspecionadas |
 
 As capturas e relatórios ficam em `frontend/test-results/` e não são versionados.
