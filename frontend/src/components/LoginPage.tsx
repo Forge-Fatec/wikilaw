@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { signIn, type AuthUser } from '../auth'
+import { ThemeToggle } from './ThemeToggle'
 
 export function LoginPage({ onLogin }: { onLogin: (user: AuthUser) => void }) {
   const [login, setLogin] = useState('')
@@ -23,12 +24,15 @@ export function LoginPage({ onLogin }: { onLogin: (user: AuthUser) => void }) {
   return (
     <main className="login-page">
       <section className="login-panel" aria-labelledby="login-title">
-        <div className="login-brand">
-          <div className="brand-mark">W</div>
-          <div className="brand-text">
-            <div className="name">Wikilaw</div>
-            <div className="tag">PESQUISA JURÍDICA</div>
+        <div className="login-topbar">
+          <div className="login-brand">
+            <div className="brand-mark">W</div>
+            <div className="brand-text">
+              <div className="name">Wikilaw</div>
+              <div className="tag">PESQUISA JURÍDICA</div>
+            </div>
           </div>
+          <ThemeToggle />
         </div>
         <div className="login-content">
           <div className="login-rule" />

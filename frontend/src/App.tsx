@@ -13,6 +13,7 @@ import { MAX_RESULTADOS_ANALISE, type PesquisaAtiva } from './analiseIa'
 import { FiltroFontes } from './components/FiltroFontes'
 import { PanoramaTribunal } from './components/PanoramaTribunal'
 import { CaseDocumentUpload } from './components/CaseDocumentUpload'
+import { ThemeToggle } from './components/ThemeToggle'
 import { useCaseDocument } from './components/hooks/useCaseDocument'
 import { prepareSearchContext } from './caseDocument'
 import { buscarSimilares, type SimilaridadeStatus } from './similaridade'
@@ -828,6 +829,7 @@ function App({
     setDataDe('')
     setDataAte('')
     setSelecao(SEM_SELECAO)
+    setFontesDesmarcadas([])
     voltarParaPrimeiraPagina()
   }
 
@@ -962,6 +964,7 @@ function App({
             </div>
           </div>
           <div className="account-actions">
+            <ThemeToggle />
             <div className="account-name">
               <strong>{user.login}</strong>
               <span>{user.perfil === 'ADMIN' ? 'Administrador' : 'Usuário'}</span>
@@ -1130,29 +1133,30 @@ function App({
                 </div>
               )}
               {filtrosAtivos.length > 0 && (
-                <>
-                  <ul className="active-filters" aria-label="Filtros ativos">
-                    {filtrosAtivos.map((filtro) => (
-                      <li key={filtro.chave}>
-                        <button
-                          type="button"
-                          className="chip"
-                          aria-label={`Remover filtro ${filtro.rotulo}`}
-                          onClick={() => {
-                            filtro.remover()
-                            voltarParaPrimeiraPagina()
-                          }}
-                        >
-                          {filtro.rotulo}
-                          <span aria-hidden="true"> ×</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                  <button type="button" className="clear-link" onClick={limparFiltros}>
-                    Limpar filtros
-                  </button>
-                </>
+                <ul className="active-filters" aria-label="Filtros ativos">
+                  {filtrosAtivos.map((filtro) => (
+                    <li key={filtro.chave}>
+                      <button
+                        type="button"
+                        className="chip"
+                        aria-label={`Remover filtro ${filtro.rotulo}`}
+                        onClick={() => {
+                          filtro.remover()
+                          voltarParaPrimeiraPagina()
+                        }}
+                      >
+                        {filtro.rotulo}
+                        <span aria-hidden="true"> ×</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {/* Fontes desmarcadas não viram chip, mas também são limpas por aqui. */}
+              {totalFiltros > 0 && (
+                <button type="button" className="clear-link" onClick={limparFiltros}>
+                  Limpar filtros
+                </button>
               )}
 
               {/* O painel fica no hero: este botão sobe até ele e o abre. */}
