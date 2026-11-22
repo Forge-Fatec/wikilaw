@@ -829,6 +829,7 @@ function App({
     setDataDe('')
     setDataAte('')
     setSelecao(SEM_SELECAO)
+    setFontesDesmarcadas([])
     voltarParaPrimeiraPagina()
   }
 
@@ -1132,29 +1133,30 @@ function App({
                 </div>
               )}
               {filtrosAtivos.length > 0 && (
-                <>
-                  <ul className="active-filters" aria-label="Filtros ativos">
-                    {filtrosAtivos.map((filtro) => (
-                      <li key={filtro.chave}>
-                        <button
-                          type="button"
-                          className="chip"
-                          aria-label={`Remover filtro ${filtro.rotulo}`}
-                          onClick={() => {
-                            filtro.remover()
-                            voltarParaPrimeiraPagina()
-                          }}
-                        >
-                          {filtro.rotulo}
-                          <span aria-hidden="true"> ×</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                  <button type="button" className="clear-link" onClick={limparFiltros}>
-                    Limpar filtros
-                  </button>
-                </>
+                <ul className="active-filters" aria-label="Filtros ativos">
+                  {filtrosAtivos.map((filtro) => (
+                    <li key={filtro.chave}>
+                      <button
+                        type="button"
+                        className="chip"
+                        aria-label={`Remover filtro ${filtro.rotulo}`}
+                        onClick={() => {
+                          filtro.remover()
+                          voltarParaPrimeiraPagina()
+                        }}
+                      >
+                        {filtro.rotulo}
+                        <span aria-hidden="true"> ×</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {/* Fontes desmarcadas não viram chip, mas também são limpas por aqui. */}
+              {totalFiltros > 0 && (
+                <button type="button" className="clear-link" onClick={limparFiltros}>
+                  Limpar filtros
+                </button>
               )}
 
               {/* O painel fica no hero: este botão sobe até ele e o abre. */}
