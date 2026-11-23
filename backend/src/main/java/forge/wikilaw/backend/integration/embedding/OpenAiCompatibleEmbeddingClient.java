@@ -11,6 +11,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
@@ -21,6 +22,8 @@ import tools.jackson.databind.ObjectMapper;
  * Os vetores sao normalizados (norma L2 = 1) para que a similaridade de cosseno seja um produto escalar.
  */
 @Component
+@ConditionalOnProperty(prefix = "wikilaw.semantic.embedding", name = "provider",
+        havingValue = EmbeddingProperties.PROVIDER_OPENAI_COMPATIBLE, matchIfMissing = true)
 public class OpenAiCompatibleEmbeddingClient implements EmbeddingProvider {
 
     private static final Logger log = LoggerFactory.getLogger(OpenAiCompatibleEmbeddingClient.class);

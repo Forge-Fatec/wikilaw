@@ -6,14 +6,19 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import forge.wikilaw.backend.config.JurisprudenciaBootstrapProperties;
+import forge.wikilaw.backend.config.LegalRefreshProperties;
 import forge.wikilaw.backend.config.SemanticSearchProperties;
+import forge.wikilaw.backend.integration.ai.ContextoJuridicoProperties;
+import forge.wikilaw.backend.integration.ai.GeminiProperties;
 import forge.wikilaw.backend.integration.datajud.DataJudProperties;
 import forge.wikilaw.backend.integration.embedding.EmbeddingProperties;
 
 @SpringBootApplication
 @EnableScheduling
-@EnableConfigurationProperties({DataJudProperties.class, JurisprudenciaBootstrapProperties.class,
-		EmbeddingProperties.class, SemanticSearchProperties.class})
+@EnableConfigurationProperties({LegalRefreshProperties.class,
+        DataJudProperties.class, JurisprudenciaBootstrapProperties.class,
+		EmbeddingProperties.class, SemanticSearchProperties.class, GeminiProperties.class,
+		ContextoJuridicoProperties.class})
 public class BackendApplication {
 
 	public static void main(String[] args) {

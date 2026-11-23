@@ -1,44 +1,21 @@
-### CI flow
+# CI flow
 
-On pull requests and pushes to main or develop:
+Workflow: [`workflows/ci.yml`](workflows/ci.yml). Full documentation, with diagrams and FAQ (in Portuguese): [`docs/CI.md`](../docs/CI.md).
 
-1. Three jobs run in parallel:
-   - Backend tests using Java 25 and Maven.
-   - Frontend lint and production build using Node.js 22.
-   - Playwright tests across Chromium, Firefox, and WebKit.
+Runs on every pull request, on pushes to `main` and `develop`, and manually (`workflow_dispatch`). A new push cancels the previous run on the same branch.
 
-2. Playwright automatically starts the Vite development server and uploads its HTML
-   report.
+| Job | What it does |
+| --- | --- |
+| Embedding service contract tests | Python 3.12 + pytest on `embeddings/`, with a stub encoder (no model download) |
+| Backend unit tests | Java 25 + Maven: `./mvnw --batch-mode verify` (JUnit on H2, JaCoCo report) |
+| Frontend checks | Node 22: `npm ci`, `npm run lint`, `npm run build` |
+| Playwright (chromium, firefox, webkit) | E2E tests with a mocked API, inside `mcr.microsoft.com/playwright`; report uploaded for 7 days. Failures do not block the pipeline yet (`continue-on-error`) |
+| Build Docker images | After backend, frontend and Playwright: `docker compose config` and `docker compose build backend frontend` |
 
-3. After all checks pass, Docker Compose is validated and the backend/frontend images are
-   built.
+That is 5 jobs and 7 checks on the PR (one Playwright check per browser).
 
-4. SonarQube remains a local-only analysis tool and is not run by GitHub Actions.
+Notes:
 
-### Project integration
-
-The React frontend currently uses local in-memory legal documents; its API search is
-still a placeholder. I replaced the external Playwright example with tests covering the
-actual application:
-
-- Page title, main heading, and initial results.
-- Document-type filtering behavior.
-
-Relevant changes:
-
-- frontend/playwright.config.ts:14
-- frontend/tests/example.spec.ts:1
-- frontend/package.json:7
-
-The Spring backend tests use the existing H2 test configuration, so CI does not need
-PostgreSQL or external APIs for unit/integration testing. Docker validation separately
-confirms that the production PostgreSQL/backend/frontend images can be assembled.
-
-Validation completed successfully:
-
-- Backend Maven verification on Java 25
-- Frontend lint and production build
-- 6 Playwright executions passed across three browsers
-- Docker Compose configuration validation
-- Backend and frontend Docker image builds
-- git diff --check passed
+- CI needs no secrets: DataJud, Gemini and the other external APIs are mocked in the tests.
+- Keep the Playwright image tag in sync with `@playwright/test` in `frontend/package-lock.json`.
+- SonarQube runs locally only, not in GitHub Actions.

@@ -6,9 +6,14 @@ import { paginasVisiveis, RETICENCIAS } from './paginacao'
 import { rolarSuavementeAte } from './rolagemSuave'
 import { BarChartDistribuicao } from './components/charts/BarChartDistribuicao'
 import { ExportPdfDialog } from './components/ExportPdfDialog'
+import { AnaliseIaPanel } from './components/AnaliseIaPanel'
+import { AcompanhamentosDialog } from './components/AcompanhamentosDialog'
+import { useAcompanhamentos } from './components/hooks/useAcompanhamentos'
+import { MAX_RESULTADOS_ANALISE, type PesquisaAtiva } from './analiseIa'
 import { FiltroFontes } from './components/FiltroFontes'
 import { PanoramaTribunal } from './components/PanoramaTribunal'
 import { CaseDocumentUpload } from './components/CaseDocumentUpload'
+import { ThemeToggle } from './components/ThemeToggle'
 import { useCaseDocument } from './components/hooks/useCaseDocument'
 import { prepareSearchContext } from './caseDocument'
 import { buscarSimilares, type SimilaridadeStatus } from './similaridade'
@@ -379,6 +384,11 @@ function App({
   const [similaridadeStatus, setSimilaridadeStatus] = useState<SimilaridadeStatus | null>(null)
   const [buscaSimilar, setBuscaSimilar] = useState(false)
   const [resultadoSimilar, setResultadoSimilar] = useState(false)
+  // Texto do documento usado na última pesquisa por similaridade, para acompanhá-la depois.
+  const [textoDocumentoPesquisado, setTextoDocumentoPesquisado] = useState<string | null>(null)
+  const acompanhamentos = useAcompanhamentos(user.login)
+  const [acompanhamentosAbertos, setAcompanhamentosAbertos] = useState(false)
+  const [erroAcompanhamento, setErroAcompanhamento] = useState<string | null>(null)
   const [notaSimilar, setNotaSimilar] = useState<string | null>(null)
   const [pesquisou, setPesquisou] = useState(false)
   const [exportando, setExportando] = useState(false)
@@ -540,6 +550,7 @@ function App({
         setTermoPesquisado(query.trim())
         setConsultaPesquisada('')
         setDocumentoUsado(contexto.documento?.nome ?? null)
+        setTextoDocumentoPesquisado(contexto.documento?.texto ?? null)
         setResultadoSimilar(true)
         setOrdenacao('relevancia')
         setNotaSimilar(`Até ${response.limite} documentos mais semelhantes. Os filtros se aplicam a esse conjunto.${response.pendentes > 0 ? ' O acervo continua sendo preparado; novos resultados podem aparecer nas próximas pesquisas.' : ''}`)
@@ -753,6 +764,32 @@ function App({
     (paginaExibida - 1) * ITENS_POR_PAGINA,
     paginaExibida * ITENS_POR_PAGINA,
   )
+  // A análise com IA fica vinculada à pesquisa ativa: vão os resultados na ordem exibida e
+  // a descrição da pesquisa (modo, filtros, ordenação e recorte dos gráficos). Mudar
+  // qualquer um deles muda a pesquisa ativa e descarta a análise anterior.
+  const referenciasAnalise = useMemo(
+    () => resultados.slice(0, MAX_RESULTADOS_ANALISE)
+      .map((doc) => ({ categoria: CATEGORIA_POR_TIPO[doc.type], id: doc.id })),
+    [resultados],
+  )
+  const pesquisaAnalise = useMemo<PesquisaAtiva>(() => ({
+    modo: resultadoSimilar ? 'similaridade' : 'textual',
+    consultaContextual: documentoUsado ? consultaPesquisada || null : null,
+    documentoContexto: documentoUsado,
+    categorias: (Object.keys(filtros) as DocType[])
+      .filter((tipo) => filtros[tipo]).map((tipo) => CATEGORIA_POR_TIPO[tipo]),
+    fontes: fontesPesquisadas,
+    tribunal: tribunal === TODOS_OS_TRIBUNAIS ? null : tribunal,
+    dataDe: dataDe || null,
+    dataAte: dataAte || null,
+    ordenacao,
+    resultadoDecisao: selecao.resultado,
+    orgaoJulgador: selecao.orgaoJulgador,
+    totalResultados: resultados.length,
+  }), [resultadoSimilar, documentoUsado, consultaPesquisada, filtros, fontesPesquisadas, tribunal, dataDe, dataAte,
+    ordenacao, selecao, resultados.length])
+  const chaveAnalise = `${termoPesquisado}|${JSON.stringify(pesquisaAnalise)}|`
+    + referenciasAnalise.map((ref) => `${ref.categoria}:${ref.id}`).join(',')
 
   function voltarParaPrimeiraPagina() {
     setPaginaAtual(1)
@@ -792,12 +829,30 @@ function App({
     setDataDe('')
     setDataAte('')
     setSelecao(SEM_SELECAO)
+    setFontesDesmarcadas([])
     voltarParaPrimeiraPagina()
   }
 
   // Resumo do que está filtrando a lista, visível mesmo com o painel fechado.
   const filtrosAtivos: FiltroAtivo[] = []
   const tiposMarcados = (Object.keys(filtros) as DocType[]).filter((tipo) => filtros[tipo])
+  // Só a pesquisa por similaridade pode ser acompanhada: as novidades vêm da busca com IA.
+  const pesquisaAtual = {
+    descricao: termoPesquisado,
+    fatos: textoDocumentoPesquisado,
+    documento: documentoUsado,
+    categorias: tiposMarcados.map((tipo) => CATEGORIA_POR_TIPO[tipo]),
+  }
+  const acompanhandoPesquisaAtual = acompanhamentos.estaAcompanhando(pesquisaAtual)
+
+  async function acompanharPesquisaAtual() {
+    setErroAcompanhamento(null)
+    try {
+      await acompanhamentos.acompanhar(pesquisaAtual)
+    } catch (falha) {
+      setErroAcompanhamento(falha instanceof Error ? falha.message : 'Não foi possível acompanhar a pesquisa.')
+    }
+  }
   if (tiposMarcados.length < Object.keys(filtros).length) {
     filtrosAtivos.push({
       chave: 'tipos',
@@ -909,6 +964,7 @@ function App({
             </div>
           </div>
           <div className="account-actions">
+            <ThemeToggle />
             <div className="account-name">
               <strong>{user.login}</strong>
               <span>{user.perfil === 'ADMIN' ? 'Administrador' : 'Usuário'}</span>
@@ -927,6 +983,19 @@ function App({
                 </svg>
               </button>
             )}
+            <button
+              type="button"
+              className="logout-button acompanhamentos-botao"
+              onClick={() => setAcompanhamentosAbertos(true)}
+              aria-haspopup="dialog"
+            >
+              Acompanhamentos
+              {acompanhamentos.totalNovidades > 0 && (
+                <span className="acompanhamentos-badge" aria-label={`${acompanhamentos.totalNovidades} novidades`}>
+                  {acompanhamentos.totalNovidades}
+                </span>
+              )}
+            </button>
             <button type="button" className="logout-button" onClick={onLogout}>Sair</button>
           </div>
         </header>
@@ -1064,29 +1133,30 @@ function App({
                 </div>
               )}
               {filtrosAtivos.length > 0 && (
-                <>
-                  <ul className="active-filters" aria-label="Filtros ativos">
-                    {filtrosAtivos.map((filtro) => (
-                      <li key={filtro.chave}>
-                        <button
-                          type="button"
-                          className="chip"
-                          aria-label={`Remover filtro ${filtro.rotulo}`}
-                          onClick={() => {
-                            filtro.remover()
-                            voltarParaPrimeiraPagina()
-                          }}
-                        >
-                          {filtro.rotulo}
-                          <span aria-hidden="true"> ×</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                  <button type="button" className="clear-link" onClick={limparFiltros}>
-                    Limpar filtros
-                  </button>
-                </>
+                <ul className="active-filters" aria-label="Filtros ativos">
+                  {filtrosAtivos.map((filtro) => (
+                    <li key={filtro.chave}>
+                      <button
+                        type="button"
+                        className="chip"
+                        aria-label={`Remover filtro ${filtro.rotulo}`}
+                        onClick={() => {
+                          filtro.remover()
+                          voltarParaPrimeiraPagina()
+                        }}
+                      >
+                        {filtro.rotulo}
+                        <span aria-hidden="true"> ×</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {/* Fontes desmarcadas não viram chip, mas também são limpas por aqui. */}
+              {totalFiltros > 0 && (
+                <button type="button" className="clear-link" onClick={limparFiltros}>
+                  Limpar filtros
+                </button>
               )}
 
               {/* O painel fica no hero: este botão sobe até ele e o abre. */}
@@ -1237,6 +1307,16 @@ function App({
                     </button>
                   </div>
                 </div>
+                {resultadoSimilar && (
+                  <button
+                    type="button"
+                    className="acompanhar-btn"
+                    disabled={carregando || Boolean(erro) || acompanhandoPesquisaAtual}
+                    onClick={() => void acompanharPesquisaAtual()}
+                  >
+                    {acompanhandoPesquisaAtual ? 'Acompanhando ✓' : 'Acompanhar esta pesquisa'}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="export-pdf-btn"
@@ -1252,11 +1332,24 @@ function App({
 
             {erroExportacao && !modalExportacao && <p className="export-message export-error" role="alert">{erroExportacao}</p>}
             {exportacaoConcluida && <p className="export-message" role="status">PDF gerado. O download foi iniciado.</p>}
+            {erroAcompanhamento && <p className="export-message export-error" role="alert">{erroAcompanhamento}</p>}
 
             {erro && <div className="empty">{erro}</div>}
             {notaSimilar && !erro && !carregando && <p className="similarity-notice" role="status">{notaSimilar}</p>}
 
             {documentoUsado && !carregando && !erro && <p className="case-document-applied">Contexto utilizado: <strong>{documentoUsado}</strong></p>}
+            {pesquisou && !erro && !carregando && resultados.length > 0 && (
+              <AnaliseIaPanel
+                key={chaveAnalise}
+                resultados={referenciasAnalise}
+                pesquisa={pesquisaAnalise}
+                termo={termoPesquisado || consultaPesquisada}
+                onAbrirDocumento={(ref) => {
+                  const doc = resultados.find((d) => d.id === ref.id && CATEGORIA_POR_TIPO[d.type] === ref.categoria)
+                  if (doc) setDocumentoSelecionado(doc)
+                }}
+              />
+            )}
             {!erro && !carregando && resultados.length === 0 && (
               <div className="empty">
                 {similaridadeStatus?.habilitada && !pesquisou
@@ -1402,6 +1495,17 @@ function App({
           </main>
         </div>
       </div>
+
+      {acompanhamentosAbertos && (
+        <AcompanhamentosDialog
+          lista={acompanhamentos.lista}
+          verificando={acompanhamentos.verificando}
+          onVerificar={() => void acompanhamentos.verificar()}
+          onMarcarComoVistas={acompanhamentos.marcarComoVistas}
+          onDeixarDeAcompanhar={acompanhamentos.deixarDeAcompanhar}
+          onClose={() => setAcompanhamentosAbertos(false)}
+        />
+      )}
 
       {modalExportacao && (
         <ExportPdfDialog

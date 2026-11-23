@@ -43,23 +43,26 @@ function folgaAbaixoDaBarra(page: Page, seletor: string) {
 }
 
 test.describe('tela inicial e rolagem até os resultados', () => {
-  test('ao entrar, o hero ocupa a tela inteira e não há o que rolar', async ({ page }) => {
-    const cenario = 'primeira tela'
-    await abrirFrontend(page)
+  for (const theme of ['light', 'dark'] as const) {
+    test(`ao entrar no modo ${theme}, o hero ocupa a tela inteira e não há o que rolar`, async ({ page }) => {
+      const cenario = 'primeira tela'
+      await page.emulateMedia({ colorScheme: theme })
+      await abrirFrontend(page)
 
-    printStep(cenario, 'Validando a altura da abertura e a cor do fundo')
-    await expect(page.locator('.abertura')).toBeVisible()
-    await expect(page.locator('.filtros-hero .filters-toggle')).toBeVisible()
-    const medidas = await page.evaluate(() => ({
-      abertura: document.querySelector('.abertura')!.getBoundingClientRect().height,
-      janela: window.innerHeight,
-      pagina: document.documentElement.scrollHeight,
-      fundoHero: getComputedStyle(document.querySelector('.hero')!).backgroundColor,
-    }))
-    expect(medidas.abertura).toBe(medidas.janela)
-    expect(medidas.pagina).toBe(medidas.janela)
-    expect(medidas.fundoHero).toBe('rgb(30, 27, 48)')
-  })
+      printStep(cenario, 'Validando a altura da abertura e a cor do fundo')
+      await expect(page.locator('.abertura')).toBeVisible()
+      await expect(page.locator('.filtros-hero .filters-toggle')).toBeVisible()
+      const medidas = await page.evaluate(() => ({
+        abertura: document.querySelector('.abertura')!.getBoundingClientRect().height,
+        janela: window.innerHeight,
+        pagina: document.documentElement.scrollHeight,
+        fundoHero: getComputedStyle(document.querySelector('.hero')!).backgroundColor,
+      }))
+      expect(medidas.abertura).toBe(medidas.janela)
+      expect(medidas.pagina).toBe(medidas.janela)
+      expect(medidas.fundoHero).toBe(theme === 'dark' ? 'rgb(30, 27, 48)' : 'rgb(245, 243, 239)')
+    })
+  }
 
   test('mostra PESQUISANDO durante a pesquisa e volta para PESQUISAR', async ({ page }) => {
     const cenario = 'rótulo do botão'
