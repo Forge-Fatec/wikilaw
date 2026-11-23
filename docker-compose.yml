@@ -28,6 +28,9 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
       WIKILAW_VECTOR_ENABLED: ${WIKILAW_VECTOR_ENABLED:-true}
       WIKILAW_EMBEDDING_URL: http://embeddings:8000
+      WIKILAW_INITIAL_ADMIN_LOGIN: ${WIKILAW_INITIAL_ADMIN_LOGIN:-Admin}
+      # A senha padrao e publica: defina outra no .env antes do primeiro start fora do desenvolvimento.
+      WIKILAW_INITIAL_ADMIN_PASSWORD: ${WIKILAW_INITIAL_ADMIN_PASSWORD:-Admin 123}
       DATAJUD_API_KEY: ${DATAJUD_API_KEY:-}
       DATAJUD_BASE_URL: ${DATAJUD_BASE_URL:-https://api-publica.datajud.cnj.jus.br}
       WIKILAW_IMPORT_WORKER_ENABLED: ${WIKILAW_IMPORT_WORKER_ENABLED:-true}
