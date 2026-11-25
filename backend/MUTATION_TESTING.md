@@ -134,7 +134,7 @@ Execute os comandos a partir da pasta `backend`. O parâmetro `maven.repo.local`
 
 ```powershell
 mvn '-Dmaven.repo.local=target/mutation-demo-m2' '-Dtest=DescricaoPesquisaTest' test
-mvn '-Dmaven.repo.local=target/mutation-demo-m2' '-DtargetTests=forge.wikilaw.backend.service.contexto.DescricaoPesquisaTest' org.pitest:pitest-maven:mutationCoverage
+mvn '-Dmaven.repo.local=target/mutation-demo-m2' '-Dmutation.boundary.tests=forge.wikilaw.backend.service.contexto.DescricaoPesquisaTest' org.pitest:pitest-maven:mutationCoverage
 ```
 
 Opcionalmente, preserve o relatório antes de executar o cenário B:
@@ -181,3 +181,11 @@ Esses operadores tradicionais não devem ser confundidos com operadores de muta�
 ## 13. Conclusão
 
 A demonstração mostra uma diferença mensurável causada por um único teste de fronteira. Antes, todos os testes convencionais passavam, mas uma alteração de `<=` para `<` não era percebida. Depois, o novo teste matou esse mutante, elevou o Mutation Score de 83% para 86% e reduziu os sobreviventes de 4 para 3, sem alterar o código de produção.
+
+## 14. Demonstração adicional: igualdade de objetos
+
+Foi acrescentado o perfil `mutation-oo` para analisar `ProcessoAssuntoId`, com herança de `Object`, sobrescrita de `equals`/`hashCode`, chamadas polimórficas e comportamento em `HashSet`. O exemplo original acima permanece disponível.
+
+A comparação didática usa um teste básico novo e três testes adicionais: 3/8 mutantes mortos antes (38%) e 7/8 depois (88%). Ela não representa a suíte histórica completa. A suíte completa após a mudança registrou 468 testes, zero falhas, zero erros e oito ignorados.
+
+Consulte [MUTATION_OO.md](MUTATION_OO.md) para o contrato, comandos reproduzíveis, interpretação do hash constante sobrevivente e evidências XML.

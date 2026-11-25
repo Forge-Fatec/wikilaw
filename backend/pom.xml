@@ -28,6 +28,7 @@
 	</scm>
 	<properties>
 		<java.version>25</java.version>
+		<mutation.boundary.tests>forge.wikilaw.backend.service.contexto.DescricaoPesquisa*Test</mutation.boundary.tests>
 		<jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
 		<pitest-maven-plugin.version>1.30.2</pitest-maven-plugin.version>
 		<pitest-junit5-plugin.version>1.2.3</pitest-junit5-plugin.version>
@@ -153,7 +154,7 @@
 						<param>forge.wikilaw.backend.service.contexto.DescricaoPesquisa</param>
 					</targetClasses>
 					<targetTests>
-						<param>forge.wikilaw.backend.service.contexto.DescricaoPesquisa*Test</param>
+						<param>${mutation.boundary.tests}</param>
 					</targetTests>
 					<outputFormats>
 						<param>HTML</param>
@@ -230,5 +231,36 @@
 			</plugin>
 		</plugins>
 	</build>
+
+	<profiles>
+		<profile>
+			<id>mutation-oo</id>
+			<properties>
+				<mutation.oo.tests>forge.wikilaw.backend.entity.ProcessoAssuntoId*Test</mutation.oo.tests>
+				<mutation.oo.reports>${project.build.directory}/pit-reports-oo</mutation.oo.reports>
+			</properties>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.pitest</groupId>
+						<artifactId>pitest-maven</artifactId>
+						<configuration>
+							<targetClasses combine.self="override">
+								<param>forge.wikilaw.backend.entity.ProcessoAssuntoId</param>
+							</targetClasses>
+							<targetTests combine.self="override">
+								<param>${mutation.oo.tests}</param>
+							</targetTests>
+							<excludedMethods>
+								<param>get*</param>
+								<param>set*</param>
+							</excludedMethods>
+							<reportsDirectory>${mutation.oo.reports}</reportsDirectory>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 
 </project>
