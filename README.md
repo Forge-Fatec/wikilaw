@@ -141,7 +141,13 @@ The project's source code is publicly available, allowing developers, students, 
 | 21 | As a user, I want to upload documents related to my case in PDF or DOCX format so that I can provide additional information that can be used to search for similar content. | Low | 5 |
 | 22 | As a user, I want to view the main facts and legal arguments identified by AI in the uploaded documents so that I can verify the information that will be used in the similarity search. | Low | 3 |
 | 23 | As a user, I want to export my search results and information as a PDF so that I can consult or share them later. | Low | 3 |
----
+| 24 | As a user, I want clearer dashboard charts and indicators so that I can interpret legal research results more easily. | High | 5 |
+| 25 | As a user, I want dashboard indicators and charts to remain consistent with the applied filters so that I can trust the information displayed. | High | 3 |
+| 26 | As a user, I want searches and dashboard requests to respond faster so that I can analyze legal information without unnecessary delays. | High | 8 |
+| 27 | As a user, I want the system to remain responsive during periodic legal data imports so that I can continue my research without interruptions. | Medium | 5 |
+| 28 | As a maintainer, I want automated build and test validation so that defective changes are identified before integration. | High | 5 |
+| 29 | As a maintainer, I want reliable automated regression tests so that updates do not compromise existing functionalities. | High | 5 |
+| 30 | As a maintainer, I want a repeatable deployment and rollback process so that new versions can be released safely. | High | 5 |
 # Sprint Backlog
 
 ## Sprint 1
@@ -186,6 +192,26 @@ The project's source code is publicly available, allowing developers, students, 
 | 8 | As a user, I want my account and personal information to be protected by appropriate access permissions so that I can use the system securely. | Medium | 3 |
 | 9 | As a user, I want to clear all applied search filters with a single button so that I can easily start a new search. | Low | 1 |
 | 10 | As a user, I want to switch between light and dark mode so that I can customize the interface according to my preferences. | Low | 1 |
+
+## Sprint 4
+
+**Sprint Goal:** Improve dashboard usability, backend performance, software quality, and deployment readiness without expanding the functional scope of WikiLaw.
+
+| Rank | User Story | Priority | Story Points |
+|----|------------|----------|--------------|
+| 1 | As a user, I want dashboard charts to have clearer labels, legends, and layouts so that I can interpret the displayed information more easily. | High | 3 |
+| 2 | As a user, I want dashboard indicators to present clear loading, empty, and error states so that I can understand the current state of the analysis. | Medium | 2 |
+| 3 | As a user, I want dashboard charts, indicators, and results to remain synchronized when filters change so that I can trust the displayed data. | High | 3 |
+| 4 | As a user, I want faster legal searches so that I can retrieve relevant results without unnecessary delays. | High | 5 |
+| 5 | As a user, I want dashboard data to load faster so that I can analyze search results efficiently. | High | 3 |
+| 6 | As a user, I want to continue searching while ETL jobs are running so that periodic imports do not interrupt my research. | Medium | 5 |
+| 7 | As a maintainer, I want GitHub Actions to validate backend and frontend builds and tests on pull requests so that integration failures are detected early. | High | 3 |
+| 8 | As a maintainer, I want required CI checks to prevent merging changes that fail validation so that the main branch remains stable. | High | 2 |
+| 9 | As a maintainer, I want additional unit and integration tests for critical backend flows so that regressions are detected automatically. | High | 3 |
+| 10 | As a maintainer, I want end-to-end regression tests for search, dashboard, and authentication so that critical user flows remain functional. | High | 2 |
+| 11 | As a maintainer, I want versioned Docker images and environment configuration so that releases can be reproduced across environments. | High | 3 |
+| 12 | As a maintainer, I want a documented and verified manual deployment and rollback procedure for the three-server architecture so that releases can be performed safely. | High | 2 |
+
 
 # Definition of Ready (DoR)
 
